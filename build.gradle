@@ -29,6 +29,13 @@ repositories {
 }
 
 dependencies {
+    implementation('org.apache.xmlgraphics:batik-transcoder:1.17') {
+        exclude group: 'xml-apis', module: 'xml-apis'
+    }
+    implementation('org.apache.xmlgraphics:batik-codec:1.17') {
+        exclude group: 'xml-apis', module: 'xml-apis'
+    }
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testRuntimeOnly    'org.junit.platform:junit-platform-launcher'
 }
