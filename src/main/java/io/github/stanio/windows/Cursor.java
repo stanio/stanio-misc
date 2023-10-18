@@ -292,10 +292,10 @@ public class Cursor {
 
         CommandArgs(String... args) {
             CommandLine cmd = CommandLine.ofUnixStyle(args)
-                    .withOption("-o", p -> outputFile = p, Path::of)
-                    .withOption("-h", hotspots::add, CommandArgs::pointValueOf)
-                    .withOption("-r", resolutions::add, CommandArgs::sizeValueOf)
-                    .withOption("-s", viewBoxes::add, CommandArgs::boxValueOf);
+                    .acceptOption("-o", p -> outputFile = p, Path::of)
+                    .acceptOption("-h", hotspots::add, CommandArgs::pointValueOf)
+                    .acceptOption("-r", resolutions::add, CommandArgs::sizeValueOf)
+                    .acceptOption("-s", viewBoxes::add, CommandArgs::boxValueOf);
 
             Optional<Path> f = Optional.of(cmd
                     .requireArg(0, "source-bitmap", Path::of));

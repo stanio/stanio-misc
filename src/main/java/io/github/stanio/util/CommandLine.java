@@ -21,7 +21,6 @@ import java.util.function.Function;
  * <ul>
  * <li>Automatic help text from option descriptions</li>
  * <li>Clustering/grouping of POSIX flags</li>
- * <li>Options with optional argument (REVISIT to include support)</li>
  * <li>Other features you may find in "fat" option-parser libraries</li>
  * </ul>
  *
@@ -77,7 +76,7 @@ public class CommandLine {
         return Collections.unmodifiableList(arguments);
     }
 
-    public CommandLine withOption(String option, Runnable action) {
+    public CommandLine acceptFlag(String option, Runnable action) {
         boolean present = false;
         while (optionsRange.remove(option))
             present = true;
@@ -88,16 +87,38 @@ public class CommandLine {
         return this;
     }
 
-    public CommandLine withOption(String option, Consumer<? super String> action) {
-        return withOption(option, action, Function.identity());
+    public CommandLine acceptOption(String option, Consumer<? super String> action) {
+        return acceptOption(option, action, Function.identity());
     }
 
-    public <T> CommandLine withOption(String option,
-                                      Consumer<? super T> action,
-                                      Function<String, ? extends T> valueMapper) {
+    public <T>
+    CommandLine acceptOption(String option,
+                             Consumer<? super T> action,
+                             Function<String, ? extends T> valueMapper) {
+        return acceptOption(option, false, action, valueMapper);
+    }
+
+    public
+    CommandLine acceptOptionalArg(String option,
+                                  Consumer<? super String> action) {
+        return acceptOption(option, true, action, Function.identity());
+    }
+
+    public <T>
+    CommandLine acceptOptionalArg(String option,
+                                  Consumer<? super T> action,
+                                  Function<String, ? extends T> valueMapper) {
+        return acceptOption(option, true, action, valueMapper);
+    }
+
+    private <T>
+    CommandLine acceptOption(String option,
+                             boolean optionalArg,
+                             Consumer<? super T> action,
+                             Function<String, ? extends T> valueMapper) {
         try {
-            for (Optional<String> opt = findOption(option);
-                    opt.isPresent(); opt = findOption(option)) {
+            for (Optional<String> opt = findOption(option, optionalArg);
+                    opt.isPresent(); opt = findOption(option, optionalArg)) {
                 opt.map(valueMapper).ifPresent(action);
             }
         } catch (ArgumentException e) {
@@ -108,7 +129,9 @@ public class CommandLine {
         return this;
     }
 
-    private Optional<String> findOption(String option) throws ArgumentException {
+    private Optional<String> findOption(String option, boolean optionalArg)
+            throws ArgumentException
+    {
         int index = indexOf(option);
         if (index < 0)
             return Optional.empty();
@@ -118,6 +141,8 @@ public class CommandLine {
             int offset = isSeparator(value.charAt(option.length())) ? 1 : 0;
             return Optional.of(value.substring(option.length() + offset));
         }
+        if (optionalArg)
+            return Optional.of("");
 
         if (index == optionsRange.size())
             throw new ArgumentException(option + " requires an argument");

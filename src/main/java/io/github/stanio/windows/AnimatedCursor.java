@@ -196,8 +196,8 @@ public class AnimatedCursor {
 
         CommandArgs(String... args) {
             CommandLine cmd = CommandLine.ofUnixStyle(args)
-                    .withOption("-o", o -> outputFile = o, Path::of)
-                    .withOption("-j", j -> frameRate = j, Integer::valueOf);
+                    .acceptOption("-o", o -> outputFile = o, Path::of)
+                    .acceptOption("-j", j -> frameRate = j, Integer::valueOf);
 
             Optional<Path> f = Optional.of(cmd
                     .requireArg(0, "cursor-frame", Path::of));
