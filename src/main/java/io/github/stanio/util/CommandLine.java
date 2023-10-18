@@ -20,7 +20,8 @@ import java.util.function.Function;
  * Batteries <strong>not</strong> included:</p>
  * <ul>
  * <li>Automatic help text from option descriptions</li>
- * <li>Clustering of (GNU/POSIX) short options</li>
+ * <li>Clustering/grouping of POSIX flags</li>
+ * <li>Options with optional argument (REVISIT to include support)</li>
  * <li>Other features you may find in "fat" option-parser libraries</li>
  * </ul>
  *
@@ -113,8 +114,10 @@ public class CommandLine {
             return Optional.empty();
 
         String value = optionsRange.remove(index);
-        if (value.length() > option.length())
-            return Optional.of(value.substring(option.length() + 1));
+        if (value.length() > option.length()) {
+            int offset = isSeparator(value.charAt(option.length())) ? 1 : 0;
+            return Optional.of(value.substring(option.length() + offset));
+        }
 
         if (index == optionsRange.size())
             throw new ArgumentException(option + " requires an argument");
@@ -125,9 +128,7 @@ public class CommandLine {
     private int indexOf(String option) {
         for (int i = 0, len = optionsRange.size(); i < len; i++) {
             String arg = optionsRange.get(i);
-            if (arg.equals(option)
-                    || argStartsWith(arg, option)
-                    && isSeparator(arg.charAt(option.length())))
+            if (argStartsWith(arg, option))
                 return i;
         }
         return -1;
