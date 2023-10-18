@@ -195,7 +195,7 @@ public class AnimatedCursor {
         List<Path> inputFiles = new ArrayList<>();
 
         CommandArgs(String... args) {
-            CommandLine cmd = new CommandLine(args)
+            CommandLine cmd = CommandLine.ofUnixStyle(args)
                     .withOption("-o", o -> outputFile = o, Path::of)
                     .withOption("-j", j -> frameRate = j, Integer::valueOf);
 

@@ -291,7 +291,7 @@ public class Cursor {
         List<Rectangle2D> viewBoxes = new ArrayList<>();
 
         CommandArgs(String... args) {
-            CommandLine cmd = new CommandLine(args)
+            CommandLine cmd = CommandLine.ofUnixStyle(args)
                     .withOption("-o", p -> outputFile = p, Path::of)
                     .withOption("-h", hotspots::add, CommandArgs::pointValueOf)
                     .withOption("-r", resolutions::add, CommandArgs::sizeValueOf)

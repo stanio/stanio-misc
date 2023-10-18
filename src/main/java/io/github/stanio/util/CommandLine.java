@@ -33,20 +33,19 @@ public class CommandLine {
 
     private final List<String> arguments;
 
+    private final boolean ignoreCase;
+
     private final char[] valueSeparators;
 
     private List<String> optionsRange;
 
     public CommandLine(String... args) {
-        this(null, args);
+        this(false, new char[0], null, args);
     }
 
-    public CommandLine(String optionDelimiter, String... args) {
-        this(new char[0], optionDelimiter, args);
-    }
-
-    public CommandLine(char[] valueSeparators, String optionDelimiter, String... args) {
+    public CommandLine(boolean ignoreCase, char[] valueSeparators, String optionDelimiter, String... args) {
         this.arguments = new ArrayList<>(Arrays.asList(args));
+        this.ignoreCase = ignoreCase;
         this.valueSeparators = Arrays.copyOf(valueSeparators, valueSeparators.length);
         Arrays.sort(this.valueSeparators);
         this.optionsRange = breakAfter(optionDelimiter);
@@ -60,6 +59,14 @@ public class CommandLine {
         return (breakIndex == 0)
                 ? Collections.emptyList()
                 : arguments.subList(0, breakIndex);
+    }
+
+    public static CommandLine ofUnixStyle(String... args) {
+        return new CommandLine(false, new char[] { '=' }, "--", args);
+    }
+
+    public static CommandLine ofWindowsStyle(String... args) {
+        return new CommandLine(true, new char[] { ':' }, null, args);
     }
 
     /**
@@ -119,11 +126,18 @@ public class CommandLine {
         for (int i = 0, len = optionsRange.size(); i < len; i++) {
             String arg = optionsRange.get(i);
             if (arg.equals(option)
-                    || arg.startsWith(option)
+                    || argStartsWith(arg, option)
                     && isSeparator(arg.charAt(option.length())))
                 return i;
         }
         return -1;
+    }
+
+    private boolean argStartsWith(String arg, String prefix) {
+        if (ignoreCase) {
+            return arg.regionMatches(true, 0, prefix, 0, prefix.length());
+        }
+        return arg.startsWith(prefix);
     }
 
     private boolean isSeparator(char charAt) {
