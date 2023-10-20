@@ -2,7 +2,7 @@
  * Copyright (C) 2023 by Stanio <stanio AT yahoo DOT com>
  * Released under BSD Zero Clause License: https://spdx.org/licenses/0BSD
  */
-package io.github.stanio.util;
+package io.github.stanio.cli;
 
 import java.util.ArrayList;
 import java.util.Arrays;

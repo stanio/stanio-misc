@@ -32,8 +32,8 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import io.github.stanio.awt.SmoothDownscale;
 
-import io.github.stanio.util.CommandLine;
-import io.github.stanio.util.CommandLine.ArgumentException;
+import io.github.stanio.cli.CommandLine;
+import io.github.stanio.cli.CommandLine.ArgumentException;
 
 import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
 
@@ -384,7 +384,7 @@ public class Cursor {
         }
 
         static String help() {
-            return "USAGE: wincur [OPTIONS] <source-bitmap>...\n"
+            return "USAGE: wincur OPTIONS <source-bitmap>...\n"
                     + "OPTIONS: [-o <output-file>] "
                              + "[-h <x>,<y>]... "
                              + "[-r <w>[,<h>]]... "

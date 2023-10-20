@@ -15,8 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import io.github.stanio.util.CommandLine;
-import io.github.stanio.util.CommandLine.ArgumentException;
+import io.github.stanio.cli.CommandLine;
+import io.github.stanio.cli.CommandLine.ArgumentException;
 
 import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
 
