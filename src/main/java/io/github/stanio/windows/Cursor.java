@@ -291,11 +291,12 @@ public class Cursor {
         List<Rectangle2D> viewBoxes = new ArrayList<>();
 
         CommandArgs(String... args) {
-            CommandLine cmd = CommandLine.ofUnixStyle(args)
+            CommandLine cmd = CommandLine.ofUnixStyle()
                     .acceptOption("-o", p -> outputFile = p, Path::of)
                     .acceptOption("-h", hotspots::add, CommandArgs::pointValueOf)
                     .acceptOption("-r", resolutions::add, CommandArgs::sizeValueOf)
-                    .acceptOption("-s", viewBoxes::add, CommandArgs::boxValueOf);
+                    .acceptOption("-s", viewBoxes::add, CommandArgs::boxValueOf)
+                    .parseOptions(args);
 
             Optional<Path> f = Optional.of(cmd
                     .requireArg(0, "source-bitmap", Path::of));

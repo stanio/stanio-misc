@@ -7,8 +7,13 @@ package io.github.stanio.cli;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -31,24 +36,20 @@ import java.util.function.Function;
  */
 public class CommandLine {
 
+    private final NavigableMap<String, OptionHandler> registry;
+
     private final List<String> arguments;
 
-    private final boolean ignoreCase;
+    private final String optionDelimiter;
 
     private final char[] valueSeparators;
 
-    private List<String> optionsRange;
-
-    public CommandLine(String... args) {
-        this(false, new char[0], null, args);
-    }
-
-    public CommandLine(boolean ignoreCase, char[] valueSeparators, String optionDelimiter, String... args) {
-        this.arguments = new ArrayList<>(Arrays.asList(args));
-        this.ignoreCase = ignoreCase;
+    public CommandLine(boolean ignoreCase, char[] valueSeparators, String optionDelimiter) {
+        this.registry = new TreeMap<>(ignoreCase ? String.CASE_INSENSITIVE_ORDER : null);
         this.valueSeparators = Arrays.copyOf(valueSeparators, valueSeparators.length);
         Arrays.sort(this.valueSeparators);
-        this.optionsRange = breakAfter(optionDelimiter);
+        this.optionDelimiter = optionDelimiter;
+        this.arguments = new ArrayList<>();
     }
 
     private List<String> breakAfter(String delimiter) {
@@ -61,12 +62,12 @@ public class CommandLine {
                 : arguments.subList(0, breakIndex);
     }
 
-    public static CommandLine ofUnixStyle(String... args) {
-        return new CommandLine(false, new char[] { '=' }, "--", args);
+    public static CommandLine ofUnixStyle() {
+        return new CommandLine(false, new char[] { '=' }, "--");
     }
 
-    public static CommandLine ofWindowsStyle(String... args) {
-        return new CommandLine(true, new char[] { ':' }, null, args);
+    public static CommandLine ofWindowsStyle() {
+        return new CommandLine(true, new char[] { ':' }, null);
     }
 
     /**
@@ -77,13 +78,12 @@ public class CommandLine {
     }
 
     public CommandLine acceptFlag(String option, Runnable action) {
-        boolean present = false;
-        while (optionsRange.remove(option))
-            present = true;
+        registry.put(option, new OptionHandler(true, Function.identity(), v -> {
+            if (!v.isEmpty())
+                throw new ArgumentException(option + " doesn't accept argument");
 
-        if (present)
             action.run();
-
+        }));
         return this;
     }
 
@@ -116,54 +116,109 @@ public class CommandLine {
                              boolean optionalArg,
                              Consumer<? super T> action,
                              Function<String, ? extends T> valueMapper) {
-        try {
-            for (Optional<String> opt = findOption(option, optionalArg);
-                    opt.isPresent(); opt = findOption(option, optionalArg)) {
-                opt.map(valueMapper).ifPresent(action);
-            }
-        } catch (ArgumentException e) {
-            throw e;
-        } catch (RuntimeException e) {
-            throw ArgumentException.of(option, e);
+        registry.put(option,
+                new OptionHandler(optionalArg, valueMapper, action));
+        return this;
+    }
+
+    public CommandLine acceptSynonyms(String option, String... synonyms) {
+        OptionHandler handler = Objects.requireNonNull(registry.get(option));
+        for (String it : synonyms) {
+            registry.put(it, handler);
         }
         return this;
     }
 
-    private Optional<String> findOption(String option, boolean optionalArg)
-            throws ArgumentException
-    {
-        int index = indexOf(option);
-        if (index < 0)
-            return Optional.empty();
+    public CommandLine parseOptions(String... args) {
+        this.arguments.clear();
+        this.arguments.addAll(Arrays.asList(args));
 
-        String value = optionsRange.remove(index);
-        if (value.length() > option.length()) {
-            int offset = isSeparator(value.charAt(option.length())) ? 1 : 0;
-            return Optional.of(value.substring(option.length() + offset));
+        Iterator<String> iter = breakAfter(optionDelimiter).iterator();
+        while (iter.hasNext()) {
+            String param = iter.next();
+            Map.Entry<String, OptionHandler> handler = matchOption(param);
+            if (handler == null)
+                continue;
+
+            iter.remove();
+            handler.getValue().parse(handler.getKey(), param, iter);
         }
-        if (optionalArg)
-            return Optional.of("");
+        return this;
+    }
 
-        if (index == optionsRange.size())
+
+    private class OptionHandler {
+
+        private final boolean optionalArg;
+        private final Function<String, Object> valueMapper;
+        private final Consumer<Object> action;
+
+        @SuppressWarnings("unchecked")
+        <T> OptionHandler(boolean optionalArg,
+                      Function<String, ? extends T> valueMapper,
+                      Consumer<? super T> action) {
+            this.optionalArg = optionalArg;
+            this.valueMapper = (Function<String, Object>) valueMapper;
+            this.action = (Consumer<Object>) action;
+        }
+
+        void parse(String option, String value, Iterator<String> args) {
+            try {
+                parseValue(option, value, args)
+                        .map(valueMapper)
+                        .ifPresent(action);
+            } catch (ArgumentException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw ArgumentException.of(value, e);
+            }
+        }
+
+        private Optional<String> parseValue(String option, String value, Iterator<String> args) {
+            if (value.length() > option.length()) {
+                int offset = isSeparator(value.charAt(option.length())) ? 1 : 0;
+                return Optional.of(value.substring(option.length() + offset));
+            }
+            if (optionalArg)
+                return Optional.of("");
+
+            if (args.hasNext()) {
+                String nextValue = args.next();
+                if (matchOption(nextValue) == null) {
+                    args.remove();
+                    return Optional.of(nextValue);
+                }
+            }
             throw new ArgumentException(option + " requires an argument");
-
-        return Optional.of(optionsRange.remove(index));
-    }
-
-    private int indexOf(String option) {
-        for (int i = 0, len = optionsRange.size(); i < len; i++) {
-            String arg = optionsRange.get(i);
-            if (argStartsWith(arg, option))
-                return i;
         }
-        return -1;
-    }
 
-    private boolean argStartsWith(String arg, String prefix) {
-        if (ignoreCase) {
-            return arg.regionMatches(true, 0, prefix, 0, prefix.length());
+    } // class OptionHandler
+
+
+    private Map.Entry<String, OptionHandler> matchOption(String arg) {
+        if (arg.length() < 2) return null;
+
+        Map.Entry<String, OptionHandler> candidate = null;
+        String prefix = arg.substring(0, 2);
+        Map.Entry<String, OptionHandler>
+                option = registry.ceilingEntry(prefix);
+        if (option == null)
+            return null;
+
+        String optionKey = option.getKey();
+        while (optionKey.startsWith(prefix)) {
+            if (arg.startsWith(optionKey)) {
+                // Higher entries = longer match
+                candidate = option;
+            }
+
+            option = registry.higherEntry(optionKey);
+            if (option == null)
+                break;
+
+            optionKey = option.getKey();
         }
-        return arg.startsWith(prefix);
+        return candidate;
     }
 
     private boolean isSeparator(char charAt) {
@@ -203,6 +258,10 @@ public class CommandLine {
         return arguments.size() > index
                 ? Optional.of(arguments.get(index))
                 : Optional.empty();
+    }
+
+    public static Function<String, String> stripString() {
+        return String::trim; // Java 1.8
     }
 
 
