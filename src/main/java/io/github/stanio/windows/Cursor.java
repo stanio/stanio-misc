@@ -209,6 +209,12 @@ public class Cursor {
         return a2 - a1;
     }
 
+    public void write(Path file) throws IOException {
+        try (OutputStream out = Files.newOutputStream(file)) {
+            write(out);
+        }
+    }
+
     public void write(OutputStream out) throws IOException {
         Collections.sort(entries, Cursor::imageOrder);
 

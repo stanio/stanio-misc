@@ -103,6 +103,12 @@ public class AnimatedCursor {
                 + frames.stream().mapToInt(Frame::paddedSize).sum();
     }
 
+    public void write(Path file) throws IOException {
+        try (OutputStream out = Files.newOutputStream(file)) {
+            write(out);
+        }
+    }
+
     public void write(OutputStream out) throws IOException {
         LittleEndianOutput littleEndian = new LittleEndianOutput(out);
         int framesSize = allFramesSize();
