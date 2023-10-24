@@ -22,6 +22,7 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 
@@ -144,7 +145,7 @@ public class Cursor {
                 && sizing.target.height == image.getHeight()
                 && image.getType() == BufferedImage.TYPE_INT_ARGB) {
             argb = image;
-            hxy = hotspot;
+            hxy = clampHotspot(hotspot);
         } else {
             argb = new BufferedImage(sizing.target.width,
                                      sizing.target.height,
@@ -159,11 +160,14 @@ public class Cursor {
             g.drawRenderedImage(SmoothDownscale.prepare(image, txf), txf);
             g.dispose();
 
-            hxy = new Point();
-            // REVISIT: Round toward the center of the source image/view
-            hxy.setLocation(sizing.transform.transform(hotspot, null));
+            hxy = clampHotspot(sizing.transform.transform(hotspot, null));
         }
         addARGBImage(argb, hxy);
+    }
+
+    private static Point clampHotspot(Point2D point) {
+        return new Point((int) Math.max(0, Math.round(point.getX())),
+                         (int) Math.max(0, Math.round(point.getY())));
     }
 
     private void addARGBImage(BufferedImage image, Point hotspot) {
