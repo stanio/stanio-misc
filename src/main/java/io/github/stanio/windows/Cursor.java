@@ -61,7 +61,7 @@ public class Cursor {
             this(new Rectangle(source), target);
         }
 
-        public BoxSizing(Rectangle viewBox, Dimension target) {
+        public BoxSizing(Rectangle2D viewBox, Dimension target) {
             this.target = new Dimension(target);
 
             AffineTransform txf = new AffineTransform();
@@ -130,11 +130,11 @@ public class Cursor {
         return entries.size();
     }
 
-    public void addImage(BufferedImage image, Point hotspot) {
+    public void addImage(BufferedImage image, Point2D hotspot) {
         addImage(image, hotspot, new BoxSizing(imageSize(image)));
     }
 
-    public void addImage(BufferedImage image, Point hotspot, BoxSizing sizing) {
+    public void addImage(BufferedImage image, Point2D hotspot, BoxSizing sizing) {
         if (entries.size() >= 0xFFFF)
             throw new IllegalStateException("Too many images");
 
@@ -190,11 +190,11 @@ public class Cursor {
                               buf.array()));
     }
 
-    public void addImage(Path file, Point hotspot) throws IOException {
+    public void addImage(Path file, Point2D hotspot) throws IOException {
         addImage(loadImage(file), hotspot);
     }
 
-    public void addImage(Path file, Point hotspot, BoxSizing sizing) throws IOException {
+    public void addImage(Path file, Point2D hotspot, BoxSizing sizing) throws IOException {
         addImage(loadImage(file), hotspot, sizing);
     }
 
@@ -294,7 +294,7 @@ public class Cursor {
 
         Path outputFile;
         List<Path> inputFiles = new ArrayList<>();
-        List<Point> hotspots = new ArrayList<>();
+        List<Point2D> hotspots = new ArrayList<>();
         List<Dimension> resolutions = new ArrayList<>();
         List<Rectangle2D> viewBoxes = new ArrayList<>();
 
@@ -341,7 +341,7 @@ public class Cursor {
             return resolutions.get(index);
         }
 
-        Rectangle viewBox(int index, Dimension sourceSize) {
+        Rectangle2D viewBox(int index, Dimension sourceSize) {
             if (viewBoxes.isEmpty()) {
                 return new Rectangle(sourceSize);
             }
@@ -349,15 +349,14 @@ public class Cursor {
             Rectangle2D factor = index < viewBoxes.size()
                                  ? viewBoxes.get(index)
                                  : viewBoxes.get(viewBoxes.size() - 1);
-            Rectangle box = new Rectangle();
-            box.setRect(factor.getX() * sourceSize.width,
-                        factor.getY() * sourceSize.height,
-                        factor.getWidth() * sourceSize.width,
-                        factor.getHeight() * sourceSize.height);
-            return box;
+            return new Rectangle2D
+                    .Double(factor.getX() * sourceSize.width,
+                            factor.getY() * sourceSize.height,
+                            factor.getWidth() * sourceSize.width,
+                            factor.getHeight() * sourceSize.height);
         }
 
-        Point hotspot(int index) {
+        Point2D hotspot(int index) {
             if (hotspots.isEmpty()) {
                 return new Point();
             }
@@ -366,10 +365,10 @@ public class Cursor {
                     : hotspots.get(hotspots.size() - 1);
         }
 
-        private static Point pointValueOf(String str) {
+        private static Point2D pointValueOf(String str) {
             String[] split = str.split(",", 2);
-            return new Point(Integer.parseInt(split[0]),
-                             Integer.parseInt(split[1]));
+            return new Point2D.Double(Double.parseDouble(split[0]),
+                                      Double.parseDouble(split[1]));
         }
 
         private static Dimension sizeValueOf(String str) {
