@@ -58,11 +58,11 @@ public final class SmoothDownscale {
         double scaleX = 1;
         double scaleY = 1;
         if (transform.getScaleX() < 0.5) {
-            width = (int) (width / 2.0 + 0.5);
+            width = (int) (width * 0.5 + 0.5);
             scaleX = image.getWidth() / (double) width;
         }
         if (transform.getScaleY() < 0.5) {
-            height = (int) (height / 2.0 + 0.5);
+            height = (int) (height * 0.5 + 0.5);
             scaleY = image.getHeight() / (double) height;
         }
         transform.scale(scaleX, scaleY);
