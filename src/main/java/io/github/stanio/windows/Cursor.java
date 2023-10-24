@@ -284,9 +284,7 @@ public class Cursor {
         System.out.println();
 
         boolean outputExists = Files.exists(cmd.outputFile);
-        try (OutputStream out = Files.newOutputStream(cmd.outputFile)) {
-            cur.write(out);
-        }
+        cur.write(cmd.outputFile);
         System.out.append(outputExists ? "Existing overwritten " : "Created ")
                   .println(cmd.outputFile);
     }

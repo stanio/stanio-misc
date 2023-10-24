@@ -186,9 +186,7 @@ public class AnimatedCursor {
         System.out.println();
 
         boolean outputExists = Files.exists(outputFile);
-        try (OutputStream out = Files.newOutputStream(outputFile)) {
-            ani.write(out);
-        }
+        ani.write(outputFile);
         System.out.append(outputExists ? "Existing overwritten " : "Created ")
                   .println(outputFile);
     }
