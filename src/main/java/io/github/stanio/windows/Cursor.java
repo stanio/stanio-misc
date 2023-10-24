@@ -64,9 +64,9 @@ public class Cursor {
             this.target = new Dimension(target);
 
             AffineTransform txf = new AffineTransform();
+            txf.setToScale(target.width / viewBox.getWidth(),
+                           target.height / viewBox.getHeight());
             txf.translate(-viewBox.getX(), -viewBox.getY());
-            txf.scale(target.width / viewBox.getWidth(),
-                      target.height / viewBox.getHeight());
             this.transform = txf;
         }
 
