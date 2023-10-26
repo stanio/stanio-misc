@@ -71,6 +71,10 @@ public class Cursor {
             this.transform = txf;
         }
 
+        public AffineTransform getTransform() {
+            return new AffineTransform(transform);
+        }
+
     } // class BoxSizing
 
 
@@ -156,7 +160,7 @@ public class Cursor {
             g.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION,
                                RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
 
-            AffineTransform txf = new AffineTransform(sizing.transform);
+            AffineTransform txf = sizing.getTransform();
             g.drawRenderedImage(SmoothDownscale.prepare(image, txf), txf);
             g.dispose();
 
@@ -165,7 +169,7 @@ public class Cursor {
         addARGBImage(argb, hxy);
     }
 
-    private static Point clampHotspot(Point2D point) {
+    public static Point clampHotspot(Point2D point) {
         return new Point((int) Math.max(0, Math.round(point.getX())),
                          (int) Math.max(0, Math.round(point.getY())));
     }
