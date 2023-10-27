@@ -4,12 +4,17 @@
  */
 package io.github.stanio.awt;
 
+import java.util.Collections;
+import java.util.Map;
+
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 /**
+ * Assists in downscaling images by factor > 2.
+ *
  * @see  <span><a href="https://web.archive.org/web/20080516181120/http://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html"
  *              ><i>The Perils of Image.getScaledInstance()</i></a> by Chris Campbell (archived from
  *              &lt;https://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html&gt;)</span>
@@ -42,17 +47,26 @@ public final class SmoothDownscale {
     public static BufferedImage prepare(BufferedImage image,
                                         AffineTransform transform,
                                         boolean bicubic) {
+        return prepare(image, transform,
+                Collections.singletonMap(RenderingHints.KEY_INTERPOLATION,
+                               bicubic ? RenderingHints.VALUE_INTERPOLATION_BICUBIC
+                                       : RenderingHints.VALUE_INTERPOLATION_BILINEAR));
+    }
+
+    public static BufferedImage prepare(BufferedImage image,
+                                        AffineTransform transform,
+                                        Map<RenderingHints.Key, ?> hints) {
         BufferedImage result = image;
         while (transform.getScaleX() < 0.5
                 || transform.getScaleY() < 0.5) {
-            result = scaleHalf(result, transform, bicubic);
+            result = scaleHalf(result, transform, hints);
         }
         return result;
     }
 
     private static BufferedImage scaleHalf(BufferedImage image,
                                            AffineTransform transform,
-                                           boolean bicubic) {
+                                           Map<RenderingHints.Key, ?> hints) {
         int width = image.getWidth();
         int height = image.getHeight();
         double scaleX = 1;
@@ -74,11 +88,7 @@ public final class SmoothDownscale {
                                                  BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = result.createGraphics();
         try {
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                     bicubic ? RenderingHints.VALUE_INTERPOLATION_BICUBIC
-                             : RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION,
-                               RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+            g.addRenderingHints(hints);
             g.drawRenderedImage(image, current);
         } finally {
             g.dispose();
