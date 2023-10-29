@@ -15,11 +15,11 @@ import java.awt.image.BufferedImage;
 /**
  * Assists in downscaling images by factor > 2.
  *
- * @see  <span><a href="https://web.archive.org/web/20080516181120/http://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html"
- *              ><i>The Perils of Image.getScaledInstance()</i></a> by Chris Campbell (archived from
- *              &lt;https://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html&gt;)</span>
- * @see  <span><a href="https://blog.nobel-joergensen.com/2008/12/20/downscaling-images-in-java/"
- *              ><i>Downscaling images in Java</i></a> by Morten Nobel-Jørgensen</span>
+ * @see  <a href="https://web.archive.org/web/20080516181120/http://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html"
+ *              >The Perils of Image.getScaledInstance()</a> <i>by Chris Campbell (archived from
+ *              &lt;https://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html&gt;)</i>
+ * @see  <a href="https://blog.nobel-joergensen.com/2008/12/20/downscaling-images-in-java/"
+ *              >Downscaling images in Java</a> <i>by Morten Nobel-Jørgensen</i>
  */
 public final class SmoothDownscale {
 

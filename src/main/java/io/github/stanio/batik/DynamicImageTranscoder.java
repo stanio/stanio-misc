@@ -160,8 +160,8 @@ import org.apache.batik.transcoder.image.ImageTranscoder;
  *             }
  *         }</code></pre>
  *
- * @see  <span>Based on <a href="https://cwiki.apache.org/confluence/display/XMLGRAPHICSBATIK/DynamicSvgOffscreen"
- *              >DynamicSvgOffscreen</a></span>
+ * @see  <a href="https://cwiki.apache.org/confluence/display/XMLGRAPHICSBATIK/DynamicSvgOffscreen"
+ *              >DynamicSvgOffscreen</a> <i>(Based on)</i>
  * @see  ImageTranscoder
  */
 public class DynamicImageTranscoder extends SVGAbstractTranscoder {
