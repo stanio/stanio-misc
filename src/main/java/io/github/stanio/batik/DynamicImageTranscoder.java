@@ -7,7 +7,11 @@ package io.github.stanio.batik;
 // java.base
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
+import java.nio.file.FileSystemNotFoundException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -62,7 +66,7 @@ import org.apache.batik.transcoder.image.ImageTranscoder;
 
 /**
  * Allows for transcoding dynamic updates to the same document.  Streamlines
- * the transcoding of different output configurations (sizes) of the same
+ * the transcoding of different output configurations (f.e. sizes) of the same
  * document, reusing loaded document instance.
  *
  * <h2>Usage</h2>
@@ -163,6 +167,8 @@ import org.apache.batik.transcoder.image.ImageTranscoder;
  * @see  <a href="https://cwiki.apache.org/confluence/display/XMLGRAPHICSBATIK/DynamicSvgOffscreen"
  *              >DynamicSvgOffscreen</a> <i>(Based on)</i>
  * @see  ImageTranscoder
+ *
+ * @min.jdk  1.8
  */
 public class DynamicImageTranscoder extends SVGAbstractTranscoder {
 
@@ -597,19 +603,12 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
         }
     }
 
-    @SuppressWarnings("resource")
     private void writePNG(BufferedImage image, TranscoderOutput output)
-            throws TranscoderException
-    {
-        OutputStream stream = output.getOutputStream();
-        if (stream == null) {
-            throw new TranscoderException("Invalid output. Dynamic image"
-                    + " transcoder supports only a byte stream or rendered output");
-        }
-
+            throws TranscoderException {
         // Use Java Image I/O API (and implementation)
         ImageWriter writer = pngWriter();
-        try (ImageOutputStream out = imageOutputStreamFor(image, stream)) {
+        try (OutputStream byteOut = outputStreamFor(output);
+                ImageOutputStream out = imageOutputStreamFor(image, byteOut)) {
             writer.setOutput(out);
             writer.write(image);
         } catch (IOException e) {
@@ -634,9 +633,28 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
         return writer;
     }
 
+    private static OutputStream outputStreamFor(TranscoderOutput output)
+            throws TranscoderException, IOException {
+        OutputStream stream = output.getOutputStream();
+        if (stream != null)
+            return stream;
+
+        final String message = "Invalid output. Dynamic image transcoder"
+                + " supports only a byte stream, file: URI, or rendered output";
+        if (output.getURI() == null)
+            throw new TranscoderException(message);
+
+        try {
+            URI uri = URI.create(output.getURI());
+            return Files.newOutputStream(Paths.get(uri));
+        } catch (IllegalArgumentException | FileSystemNotFoundException e) {
+            throw new TranscoderException(message, e);
+        }
+    }
+
     private static ImageOutputStream
             imageOutputStreamFor(RenderedImage image, OutputStream stream)
-            throws IOException {
+            throws IOException, TranscoderException {
         // Encode smaller images in memory
         return (image.getWidth() * image.getHeight() < 100_000)
                 ? new MemoryCacheImageOutputStream(stream)
@@ -660,6 +678,10 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
 
     public static TranscoderInput fileInput(Path file) {
         return new TranscoderInput(file.toUri().toString());
+    }
+
+    public static TranscoderOutput fileOutput(Path file) {
+        return new TranscoderOutput(file.toUri().toString());
     }
 
 
