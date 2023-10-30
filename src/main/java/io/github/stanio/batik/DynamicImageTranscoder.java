@@ -387,9 +387,9 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
             //     'preserveAspectRatio'.
             String viewBox = svgRoot.getAttribute(SVGConstants.SVG_VIEW_BOX_ATTRIBUTE);
 
-            if (ref != null && !ref.isBlank()) {
+            if (ref != null && !ref.trim().isEmpty()) {
                 Px = ViewBox.getViewTransform(ref, svgRoot, width, height, ctx);
-            } else if (viewBox != null && !viewBox.isBlank()) {
+            } else if (viewBox != null && !viewBox.trim().isEmpty()) {
                 String aspectRatio = svgRoot.getAttribute(
                         SVGConstants.SVG_PRESERVE_ASPECT_RATIO_ATTRIBUTE);
                 Px = ViewBox.getPreserveAspectRatioTransform(
@@ -588,8 +588,8 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
     protected void writeImage(BufferedImage image, TranscoderOutput output)
             throws TranscoderException
     {
-        if (output instanceof RenderedTranscoderOutput rendered) {
-            rendered.setImage(image);
+        if (output instanceof RenderedTranscoderOutput) {
+            ((RenderedTranscoderOutput) output).setImage(image);
         } else if (imageWriter == null) {
             writePNG(image, output);
         } else {
@@ -634,7 +634,6 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
         return writer;
     }
 
-    @SuppressWarnings("resource")
     private static ImageOutputStream
             imageOutputStreamFor(RenderedImage image, OutputStream stream)
             throws IOException {
