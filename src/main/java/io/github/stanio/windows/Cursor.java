@@ -11,7 +11,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -109,7 +108,7 @@ public class Cursor {
     } // class Image
 
 
-    private static ThreadLocal<ImageWriter> pngWriter = new ThreadLocal<>() {
+    private static final ThreadLocal<ImageWriter> pngWriter = new ThreadLocal<>() {
         @Override protected ImageWriter initialValue() {
             Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("png");
             if (iter.hasNext()) {
@@ -202,7 +201,6 @@ public class Cursor {
         addImage(loadImage(file), hotspot, sizing);
     }
 
-
     public static BufferedImage loadImage(Path file) throws IOException {
         return ImageIO.read(file.toFile());
     }
@@ -224,7 +222,7 @@ public class Cursor {
     }
 
     public void write(OutputStream out) throws IOException {
-        Collections.sort(entries, Cursor::imageOrder);
+        entries.sort(Cursor::imageOrder);
 
         LittleEndianOutput littleEndian = new LittleEndianOutput(out);
 
@@ -305,8 +303,8 @@ public class Cursor {
         CommandArgs(String... args) {
             CommandLine cmd = CommandLine.ofUnixStyle()
                     .acceptOption("-o", p -> outputFile = p, Path::of)
-                    .acceptOption("-h", hotspots::add, CommandArgs::pointValueOf)
-                    .acceptOption("-r", resolutions::add, CommandArgs::sizeValueOf)
+                    .acceptOption("-h", hotspots::addAll, CommandArgs::pointValueOf)
+                    .acceptOption("-r", resolutions::addAll, CommandArgs::sizeValueOf)
                     .acceptOption("-s", viewBoxes::add, CommandArgs::boxValueOf)
                     .parseOptions(args);
 
@@ -369,17 +367,28 @@ public class Cursor {
                     : hotspots.get(hotspots.size() - 1);
         }
 
-        private static Point2D pointValueOf(String str) {
-            String[] split = str.split(",", 2);
-            return new Point2D.Double(Double.parseDouble(split[0]),
-                                      Double.parseDouble(split[1]));
+        private static List<Point2D> pointValueOf(String arg) {
+            List<Point2D> points = new ArrayList<>(1);
+            String[] multiple = arg.split(";");
+            for (String str : multiple) {
+                String[] split = str.split(",", 2);
+                double x = Double.parseDouble(split[0].trim());
+                double y = Double.parseDouble(split[1].trim());
+                points.add(new Point2D.Double(x, y));
+            }
+            return points;
         }
 
-        private static Dimension sizeValueOf(String str) {
-            String[] split = str.split(",", 2);
-            int w = Integer.parseInt(split[0]);
-            int h = (split.length == 1) ? w : Integer.parseInt(split[1]);
-            return new Dimension(w, h);
+        private static List<Dimension> sizeValueOf(String arg) {
+            List<Dimension> sizes = new ArrayList<>(1);
+            String[] multiple = arg.split(";");
+            for (String str : multiple) {
+                String[] split = str.split(",", 2);
+                int w = Integer.parseInt(split[0].trim());
+                int h = (split.length == 1) ? w : Integer.parseInt(split[1].trim());
+                sizes.add(new Dimension(w, h));
+            }
+            return sizes;
         }
 
         private static Rectangle2D boxValueOf(String str) {
