@@ -200,14 +200,14 @@ public class AnimatedCursor {
 
         CommandArgs(String... args) {
             CommandLine cmd = CommandLine.ofUnixStyle()
-                    .acceptOption("-o", o -> outputFile = o, Path::of)
+                    .acceptOption("-o", o -> outputFile = o, Cursor::pathOf)
                     .acceptOption("-j", j -> frameRate = j, Integer::valueOf)
                     .parseOptions(args);
 
             Optional<Path> f = Optional.of(cmd
-                    .requireArg(0, "cursor-frame", Path::of));
+                    .requireArg(0, "cursor-frame", Cursor::pathOf));
             for (int index = 1; f.isPresent(); f = cmd
-                    .arg(index++, "cursor-frame[" + index + "]", Path::of)) {
+                    .arg(index++, "cursor-frame[" + index + "]", Cursor::pathOf)) {
                 inputFiles.add(f.get());
             }
 
@@ -215,7 +215,7 @@ public class AnimatedCursor {
                 Path source = inputFiles.get(0);
                 String fileName = source.getFileName().toString()
                                         .replaceFirst("(-\\d+)?\\.[^.]+$", "");
-                outputFile = Path.of(fileName + ".ani");
+                outputFile = Cursor.pathOf(fileName + ".ani");
             }
         }
 
@@ -224,5 +224,6 @@ public class AnimatedCursor {
         }
 
     }
+
 
 }

@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -24,14 +25,12 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import io.github.stanio.awt.SmoothDownscale;
-
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
 
@@ -108,7 +107,7 @@ public class Cursor {
     } // class Image
 
 
-    private static final ThreadLocal<ImageWriter> pngWriter = new ThreadLocal<>() {
+    private static final ThreadLocal<ImageWriter> pngWriter = new ThreadLocal<ImageWriter>() {
         @Override protected ImageWriter initialValue() {
             Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("png");
             if (iter.hasNext()) {
@@ -302,16 +301,16 @@ public class Cursor {
 
         CommandArgs(String... args) {
             CommandLine cmd = CommandLine.ofUnixStyle()
-                    .acceptOption("-o", p -> outputFile = p, Path::of)
+                    .acceptOption("-o", p -> outputFile = p, Cursor::pathOf)
                     .acceptOption("-h", hotspots::addAll, CommandArgs::pointValueOf)
                     .acceptOption("-r", resolutions::addAll, CommandArgs::sizeValueOf)
                     .acceptOption("-s", viewBoxes::add, CommandArgs::boxValueOf)
                     .parseOptions(args);
 
             Optional<Path> f = Optional.of(cmd
-                    .requireArg(0, "source-bitmap", Path::of));
+                    .requireArg(0, "source-bitmap", Cursor::pathOf));
             for (int index = 1; f.isPresent(); f = cmd
-                    .arg(index++, "source-bitmap[" + index + "]", Path::of)) {
+                    .arg(index++, "source-bitmap[" + index + "]", Cursor::pathOf)) {
                 inputFiles.add(f.get());
             }
 
@@ -319,7 +318,7 @@ public class Cursor {
                 Path source = inputFiles.get(0);
                 String fileName = source.getFileName().toString()
                                         .replaceFirst("\\.[^.]+$", "");
-                outputFile = Path.of(fileName + ".cur");
+                outputFile = pathOf(fileName + ".cur");
             }
         }
 
@@ -413,6 +412,11 @@ public class Cursor {
         }
 
     } // class CommandArgs
+
+
+    static Path pathOf(String first, String... more) {
+        return Paths.get(first, more); // Java 1.8
+    }
 
 
 } // class Cursor
