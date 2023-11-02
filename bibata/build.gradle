@@ -1,0 +1,40 @@
+plugins {
+    id 'stanio-java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+application {
+    mainClass = 'io.github.stanio.bibata.Command'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    //toolchain {
+    //    languageVersion = JavaLanguageVersion.of(17)
+    //}
+}
+
+tasks.withType(JavaCompile) {
+    options.release = 11
+}
+
+jar {
+    manifest {
+        attributes('Main-Class': application.mainClass)
+    }
+}
+
+shadowJar {
+    archiveBaseName = 'bibata'
+    archiveClassifier = ''
+    minimize {
+        exclude dependency('com.*:gson:.*')
+        exclude dependency('org.*:batik.*:.*')
+    }
+}
+
+dependencies {
+    implementation rootProject
+    implementation 'com.google.code.gson:gson:2.10.1'
+}

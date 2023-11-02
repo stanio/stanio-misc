@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'eclipse'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+javadoc {
+    options.encoding = 'UTF-8'
+    options.addBooleanOption('Xdoclint:-missing', true)
+    options.addStringOption('-release', '17')
+}
+
+eclipse {
+    classpath {
+        def baseOutputDir = '.classes'
+        defaultOutputDir = file("${baseOutputDir}/default")
+
+        // This is ridiculous:
+        // https://github.com/gradle/gradle/issues/3839
+        file.whenMerged {
+            entries.each { entry ->
+                if (entry instanceof org.gradle.plugins.ide.eclipse.model.SourceFolder) {
+                    entry.output = entry.output.replaceFirst('^bin(?=/)', baseOutputDir)
+                }
+            }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly    'org.junit.platform:junit-platform-launcher'
+}

@@ -4,3 +4,7 @@ plugins {
 }
 
 rootProject.name = 'stanio-misc'
+
+include 'bibata'
+
+project(':bibata').name = 'bibata-stanio'
