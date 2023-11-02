@@ -18,6 +18,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -219,6 +220,11 @@ public class SVGSizing {
             Path path;
 
             CommandArgs(String[] args) {
+                List<String> argList = List.of(args);
+                if (argList.contains("-h") || argList.contains("--help")) {
+                    exitWithHelp(0);
+                }
+
                 if (args.length != 3) {
                     exitWithHelp(1);
                 }
@@ -287,7 +293,7 @@ public class SVGSizing {
 
 class SVGCursorMetadata extends DefaultHandler {
 
-    static final Pattern ANCHOR_POINT;
+    public static final Pattern ANCHOR_POINT;
     static {
         final String commaWsp ="(?:\\s+(?:,\\s*)?|,\\s*)";
         final String coordinate = "[-+]?(?:\\d*\\.\\d+|\\d+)(?:e[-+]?\\d+)?";

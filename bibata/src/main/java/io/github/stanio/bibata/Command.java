@@ -32,6 +32,8 @@ public final class Command {
             CursorCompiler.main(cmdArgs);
         } else if ("render".equals(cmd)) {
             BitmapsRenderer.main(cmdArgs);
+        } else if (Arrays.asList("-h", "--help").contains(cmd)) {
+            printHelp(System.out);
         } else {
             exitMessage(1, Command::printHelp, "Error: Unknown command");
         }
@@ -43,22 +45,23 @@ public final class Command {
 
     static void exitMessage(int status,
             Consumer<PrintStream> help, Object... message) {
+        PrintStream out = (status == 0) ? System.out : System.err;
         for (Object item : message) {
             if (item instanceof Throwable) {
                 printMessage((Throwable) item);
             } else {
-                System.err.print(item);
+                out.print(item);
             }
         }
         if (message.length > 0) {
-            System.err.println();
+            out.println();
         }
 
         if (help != null) {
             if (message.length > 0) {
-                System.err.println();
+                out.println();
             }
-            help.accept(System.err);
+            help.accept(out);
         }
 
         System.exit(status);

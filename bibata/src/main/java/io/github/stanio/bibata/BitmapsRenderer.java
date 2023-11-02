@@ -84,7 +84,7 @@ public class BitmapsRenderer {
     private int[] resolutions = { -1 }; // original/source
     private boolean createCursors;
 
-    private DynamicImageTranscoder imageTranscoder;
+    private final DynamicImageTranscoder imageTranscoder;
 
     BitmapsRenderer(Path baseDir) {
         this.baseDir = Objects.requireNonNull(baseDir, "null baseDir");
@@ -161,8 +161,7 @@ public class BitmapsRenderer {
     private void renderDir(String svgDir, Collection<ThemeConfig> config)
             throws IOException, TranscoderException {
         try (Stream<Path> svgStream = listSVGFiles(svgDir, config)) {
-            Iterable<Path> svgFiles = () -> svgStream.iterator();
-            for (Path svg : svgFiles) {
+            for (Path svg : (Iterable<Path>) svgStream::iterator) {
                 renderSVG(svg, config);
             }
         }
@@ -410,7 +409,7 @@ public class BitmapsRenderer {
         }
     }
 
-    private NavigableMap<Integer, Cursor> frames = new TreeMap<>();
+    private final NavigableMap<Integer, Cursor> frames = new TreeMap<>();
     private static final Integer staticFrame = 0;
 
     private void saveCursor(Path outDir, String cursorName, Animation animation)
@@ -531,8 +530,8 @@ public class BitmapsRenderer {
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> createCursors = true)
                     .acceptFlag("--standard-sizes", standardSizes)
-                    .acceptFlag("-h", () -> exitMessage(1, CommandArgs::printHelp))
-                    .acceptSynonyms("-h", "-help", "--help")
+                    .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
+                    .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
                     .withMaxArgs(1);
 
@@ -543,8 +542,7 @@ public class BitmapsRenderer {
             out.println("USAGE: render [<base-path>]"
                     + " [--standard-sizes] [--windows-cursors]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
-                    + " [-t <theme>]... [-f <cursor>]..."
-                    + " [{-h|-help|--help}]");
+                    + " [-t <theme>]... [-f <cursor>]...");
             out.println();
             out.println("<base-path> could be the Bibata_Cursor directory, or"
                     + " the \"render.json\" inside it, possibly with a differnt name.");

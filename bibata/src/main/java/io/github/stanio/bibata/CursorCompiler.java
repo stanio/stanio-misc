@@ -163,7 +163,7 @@ public class CursorCompiler {
     }
 
     static void printHelp(PrintStream out) {
-        out.println("USAGE: compile [--all-cursors] <bitmaps-dir>");
+        out.println("USAGE: wincur [--all-cursors] <bitmaps-dir>");
         out.println();
         out.println("cursor-hotspots.json is required in <bitmaps-dir>");
     }
@@ -175,6 +175,10 @@ public class CursorCompiler {
 
             CommandArgs(String[] args) {
                 List<String> argList = new ArrayList<>(Arrays.asList(args));
+                if (argList.remove("-h") || argList.remove("--help")) {
+                    exitWithHelp(0);
+                }
+
                 allCursors = argList.remove("--all-cursors");
                 if (argList.size() != 1) {
                     exitWithHelp(1);
