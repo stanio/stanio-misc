@@ -37,10 +37,10 @@ import org.xml.sax.helpers.AttributesImpl;
  */
 public class XMLDoctype {
 
-    private static ThreadLocal<XMLPrologHandler>
-            localHandler = new ThreadLocal<XMLPrologHandler>() {
-        @Override protected XMLPrologHandler initialValue() {
-            return new XMLPrologHandler();
+    private static ThreadLocal<PrologHandler>
+            localHandler = new ThreadLocal<PrologHandler>() {
+        @Override protected PrologHandler initialValue() {
+            return new PrologHandler();
         }
     };
 
@@ -144,105 +144,105 @@ public class XMLDoctype {
                 + ", rootAttributes=" + rootAttributes + ")";
     }
 
-} // class XMLDoctype
 
+    private static class PrologHandler extends DefaultHandler2 {
 
-class XMLPrologHandler extends DefaultHandler2 {
+        private static SAXParserFactory saxParserFactory;
 
-    private static SAXParserFactory saxParserFactory;
+        private XMLDoctype doctype;
+        private Locator locator;
+        private XMLReader xmlReader;
 
-    private XMLDoctype doctype;
-    private Locator locator;
-    private XMLReader xmlReader;
-
-    public XMLPrologHandler() {
-        try {
-            synchronized (XMLPrologHandler.class) {
-                xmlReader = saxParserFactory().newSAXParser().getXMLReader();
-            }
-        } catch (SAXException | ParserConfigurationException e) {
-            throw new IllegalStateException(e);
-        }
-
-        xmlReader.setContentHandler(this);
-        xmlReader.setErrorHandler(this);
-        xmlReader.setEntityResolver(this);
-        try {
-            xmlReader.setProperty("http://xml.org/sax/properties/"
-                                  + "lexical-handler", this);
-        } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
-            // Optional
-        }
-    }
-
-    private static SAXParserFactory saxParserFactory() {
-        if (saxParserFactory == null) {
+        PrologHandler() {
             try {
-                SAXParserFactory spf = SAXParserFactory.newInstance();
-                spf.setNamespaceAware(false);
-                spf.setValidating(false);
-                spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                saxParserFactory = spf;
+                synchronized (PrologHandler.class) {
+                    xmlReader = saxParserFactory().newSAXParser().getXMLReader();
+                }
             } catch (SAXException | ParserConfigurationException e) {
-                throw new FactoryConfigurationError(e);
+                throw new IllegalStateException(e);
+            }
+
+            xmlReader.setContentHandler(this);
+            xmlReader.setErrorHandler(this);
+            xmlReader.setEntityResolver(this);
+            try {
+                xmlReader.setProperty("http://xml.org/sax/properties/"
+                                      + "lexical-handler", this);
+            } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
+                // Optional
             }
         }
-        return saxParserFactory;
-    }
 
-    public XMLDoctype parse(InputSource source) throws IOException, SAXException {
-        XMLDoctype doctype = this.doctype = new XMLDoctype();
-        try {
-            xmlReader.parse(source);
-        } catch (StopParseException e) {
-            // Found root element
-        } finally {
-            this.locator = null;
-            this.doctype = null;
-        }
-        return doctype;
-    }
-
-    @Override
-    public void setDocumentLocator(Locator locator) {
-        this.locator = locator;
-    }
-
-    @Override
-    public void startDTD(String name, String publicId, String systemId)
-            throws SAXException {
-        doctype.name = name;
-        doctype.publicId = publicId;
-        doctype.systemId = systemId;
-    }
-
-    @Override
-    public void startElement(String uri,
-                             String localName,
-                             String qName,
-                             Attributes attributes)
-            throws SAXException {
-        doctype.rootQName = qName;
-        doctype.rootAttributes = new AttributesImpl(attributes);
-
-        if (locator instanceof Locator2) {
-            Locator2 locator2 = (Locator2) locator;
-            doctype.xmlVersion = locator2.getXMLVersion();
-            doctype.encoding = locator2.getEncoding();
+        private static SAXParserFactory saxParserFactory() {
+            if (saxParserFactory == null) {
+                try {
+                    SAXParserFactory spf = SAXParserFactory.newInstance();
+                    spf.setNamespaceAware(false);
+                    spf.setValidating(false);
+                    spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+                    saxParserFactory = spf;
+                } catch (SAXException | ParserConfigurationException e) {
+                    throw new FactoryConfigurationError(e);
+                }
+            }
+            return saxParserFactory;
         }
 
-        throw StopParseException.INSTANCE;
-    }
+        XMLDoctype parse(InputSource source) throws IOException, SAXException {
+            XMLDoctype doctype = this.doctype = new XMLDoctype();
+            try {
+                xmlReader.parse(source);
+            } catch (StopParseException e) {
+                // Found root element
+            } finally {
+                this.locator = null;
+                this.doctype = null;
+            }
+            return doctype;
+        }
 
-    @Override
-    public InputSource resolveEntity(String name,
-                                     String publicId,
-                                     String baseURI,
-                                     String systemId) {
-        // Don't resolve any external entities – just replace with empty
-        // content.  A more general accessExternalDTD="" setup.
-        return new InputSource(new StringReader(""));
-    }
+        @Override
+        public void setDocumentLocator(Locator locator) {
+            this.locator = locator;
+        }
+
+        @Override
+        public void startDTD(String name, String publicId, String systemId)
+                throws SAXException {
+            doctype.name = name;
+            doctype.publicId = publicId;
+            doctype.systemId = systemId;
+        }
+
+        @Override
+        public void startElement(String uri,
+                                 String localName,
+                                 String qName,
+                                 Attributes attributes)
+                throws SAXException {
+            doctype.rootQName = qName;
+            doctype.rootAttributes = new AttributesImpl(attributes);
+
+            if (locator instanceof Locator2) {
+                Locator2 locator2 = (Locator2) locator;
+                doctype.xmlVersion = locator2.getXMLVersion();
+                doctype.encoding = locator2.getEncoding();
+            }
+
+            throw StopParseException.INSTANCE;
+        }
+
+        @Override
+        public InputSource resolveEntity(String name,
+                                         String publicId,
+                                         String baseURI,
+                                         String systemId) {
+            // Don't resolve any external entities – just replace with empty
+            // content.  A more general accessExternalDTD="" setup.
+            return new InputSource(new StringReader(""));
+        }
+
+    } // class PrologHandler
 
 
     /**
@@ -280,4 +280,4 @@ class XMLPrologHandler extends DefaultHandler2 {
     } // class StopParseException
 
 
-} // class XMLPrologHandler
+} // class XMLDoctype
