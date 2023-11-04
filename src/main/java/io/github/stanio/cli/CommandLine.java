@@ -57,9 +57,7 @@ public class CommandLine {
         if (breakIndex < 0) return arguments;
 
         arguments.remove(breakIndex);
-        return (breakIndex == 0)
-                ? Collections.emptyList()
-                : arguments.subList(0, breakIndex);
+        return arguments.subList(0, breakIndex);
     }
 
     public static CommandLine ofUnixStyle() {
@@ -195,7 +193,7 @@ public class CommandLine {
     } // class OptionHandler
 
 
-    private Map.Entry<String, OptionHandler> matchOption(String arg) {
+    /*private*/ Map.Entry<String, OptionHandler> matchOption(String arg) {
         if (arg.length() < 2) return null;
 
         Map.Entry<String, OptionHandler> candidate = null;
@@ -206,8 +204,8 @@ public class CommandLine {
             return null;
 
         String optionKey = option.getKey();
-        while (optionKey.startsWith(prefix)) {
-            if (arg.startsWith(optionKey)) {
+        while (argStartsWith(optionKey, prefix)) {
+            if (argStartsWith(arg, optionKey)) {
                 // Higher entries = longer match
                 candidate = option;
             }
@@ -221,8 +219,13 @@ public class CommandLine {
         return candidate;
     }
 
-    private boolean isSeparator(char charAt) {
+    /*private*/ boolean isSeparator(char charAt) {
         return Arrays.binarySearch(valueSeparators, charAt) >= 0;
+    }
+
+    private boolean argStartsWith(String arg, String prefix) {
+        boolean ignoreCase = registry.comparator() == String.CASE_INSENSITIVE_ORDER;
+        return arg.regionMatches(ignoreCase, 0, prefix, 0, prefix.length());
     }
 
     public CommandLine withMaxArgs(int count) {
