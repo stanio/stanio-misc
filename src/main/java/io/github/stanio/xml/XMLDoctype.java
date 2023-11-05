@@ -9,6 +9,8 @@ import static javax.xml.XMLConstants.XMLNS_ATTRIBUTE; // requires java.xml
 // requires java.base
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.file.Path;
+import java.util.Objects;
 
 // requires java.xml
 import javax.xml.XMLConstants;
@@ -32,7 +34,7 @@ import org.xml.sax.helpers.AttributesImpl;
  * any) and root element information of an XML document used to identify its
  * content type.
  *
- * @see  <a href="https://www.w3.org/TR/xml/">Extensible Markup Language</a>
+ * @see  <a href="https://www.w3.org/TR/xml/">Extensible Markup Language (XML)</a>
  * @min.jdk  1.8
  */
 public class XMLDoctype {
@@ -54,6 +56,22 @@ public class XMLDoctype {
 
     public XMLDoctype() {
         // empty
+    }
+
+    protected XMLDoctype(String xmlVersion,
+                         String encoding,
+                         String name,
+                         String publicId,
+                         String systemId,
+                         String rootQName,
+                         Attributes rootAttributes) {
+        this.xmlVersion = xmlVersion;
+        this.encoding = encoding;
+        this.name = name;
+        this.publicId = publicId;
+        this.systemId = systemId;
+        this.rootQName = rootQName;
+        this.rootAttributes = rootAttributes;
     }
 
     /**
@@ -88,6 +106,10 @@ public class XMLDoctype {
 
     public static XMLDoctype of(String url) throws IOException, SAXException {
         return of(new InputSource(url));
+    }
+
+    public static XMLDoctype of(Path file) throws IOException, SAXException {
+        return of(new InputSource(file.toUri().toString()));
     }
 
     public String getXmlVersion() {
@@ -133,15 +155,35 @@ public class XMLDoctype {
         return rootAttributes;
     }
 
+    public boolean isSameRootType(XMLDoctype other) {
+        return Objects.equals(getRootLocalName(), other.getRootLocalName())
+                && Objects.equals(getRootNamespace(), other.getRootNamespace());
+    }
+
     @Override
     public String toString() {
-        return "Doctype(xmlVersion=" + xmlVersion
+        return "XMLDoctype(xmlVersion=" + xmlVersion
                 + ", encoding=" + encoding
                 + ", name=" + name
                 + ", publicId=" + publicId
                 + ", systemId=" + systemId
                 + ", rootQName=" + rootQName
-                + ", rootAttributes=" + rootAttributes + ")";
+                + ", rootAttributes=" + toString(rootAttributes) + ")";
+    }
+
+    private static CharSequence toString(Attributes attrs) {
+        if (attrs == null) {
+            return "null";
+        }
+
+        StringBuilder buf = new StringBuilder("{");
+        for (int i = 0, len = attrs.getLength(); i < len; i++) {
+            if (i > 0) buf.append(", ");
+
+            buf.append(attrs.getQName(i))
+                    .append('=').append(attrs.getValue(i));
+        }
+        return buf.append("}");
     }
 
 

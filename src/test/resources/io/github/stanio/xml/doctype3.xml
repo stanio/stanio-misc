@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE v:svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+                       "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [
+  <!ENTITY % SVG.prefixed "INCLUDE">
+  <!ENTITY % SVG.prefix "v">
+]>
+<!-- https://www.w3.org/TR/SVG11/svgdtd.html#DTD.2 -->
+<v:svg version="1.1" xmlns:v="http://www.w3.org/2000/svg">
+  <malformed>
+</v:svg>
