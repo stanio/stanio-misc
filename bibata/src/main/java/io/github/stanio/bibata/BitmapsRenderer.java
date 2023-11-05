@@ -285,8 +285,12 @@ public class BitmapsRenderer {
                 if (animation == null) {
                     renderStatic(outDir, fileName, hs);
                 } else {
+                    int numDigits = String.valueOf((int) Math
+                            .ceil(animation.duration * animation.frameRate)).length();
+                    String nameFormat = cursorName + "-%0" + numDigits + "d"
+                                        + (res > 0 ? "-" + res : "") + ".png";
                     renderAnimation(animation.duration,
-                            animation.frameRate, outDir.resolve(fileName), cursorName, hs);
+                            animation.frameRate, outDir.resolve(cursorName), nameFormat, hs);
                 }
             }
             imageTranscoder.updateContext(ctx -> ctx.getDocument()
@@ -375,20 +379,19 @@ public class BitmapsRenderer {
     private void renderAnimation(float duration,
                                  float frameRate,
                                  Path outDir,
-                                 String filePrefix,
+                                 String nameFormat,
                                  Point hotspot)
             throws IOException,
                    TranscoderException
     {
-        int numDigits = String.valueOf((int) Math.ceil(duration * frameRate)).length();
-        String nameFormat = "%s-%0" + numDigits + "d.png";
         if (!createCursors) {
             Files.createDirectories(outDir);
         }
 
         float currentTime = 0f;
-        for (int frame = (int) (currentTime * frameRate + 0.5) + 1;
-                currentTime < duration; currentTime = frame++ / frameRate) {
+        for (int frame = 1;
+                currentTime < duration;
+                currentTime = frame++ / frameRate) {
             float snapshotTime = currentTime;
 
             TranscoderOutput output;
@@ -396,7 +399,7 @@ public class BitmapsRenderer {
                 output = new RenderedTranscoderOutput();
             } else {
                 output = fileOutput(outDir.resolve(String
-                        .format(Locale.ROOT, nameFormat, filePrefix, frame)));
+                        .format(Locale.ROOT, nameFormat, frame)));
             }
 
             imageTranscoder.transcodeDynamic(output,
