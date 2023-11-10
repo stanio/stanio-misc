@@ -17,10 +17,8 @@ import java.util.List;
 import java.util.Optional;
 
 import java.awt.Dimension;
-import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -149,19 +147,8 @@ public class Cursor {
             argb = image;
             hxy = clampHotspot(hotspot);
         } else {
-            argb = new BufferedImage(sizing.target.width,
-                                     sizing.target.height,
-                                     BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = argb.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                               RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION,
-                               RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
-
-            AffineTransform txf = sizing.getTransform();
-            g.drawRenderedImage(SmoothDownscale.prepare(image, txf), txf);
-            g.dispose();
-
+            argb = SmoothDownscale.resize(image,
+                    sizing.target.width, sizing.target.height);
             hxy = clampHotspot(sizing.transform.transform(hotspot, null));
         }
         addARGBImage(argb, hxy);

@@ -9,7 +9,6 @@ import java.util.Map;
 
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 /**
@@ -23,77 +22,52 @@ import java.awt.image.BufferedImage;
  */
 public final class SmoothDownscale {
 
-    public static BufferedImage prepare(BufferedImage image,
-                                        int targetWidth,
-                                        int targetHeight) {
-        return prepare(image, targetWidth, targetHeight, false);
+    public static BufferedImage resize(BufferedImage image,
+                                       int targetWidth,
+                                       int targetHeight) {
+        return resize(image, targetWidth, targetHeight, false);
     }
 
-    public static BufferedImage prepare(BufferedImage image,
-                                        int targetWidth,
-                                        int targetHeight,
-                                        boolean bicubic) {
-        AffineTransform txf = new AffineTransform();
-        txf.scale(targetWidth / (double) image.getWidth(),
-                  targetHeight / (double) image.getHeight());
-        return prepare(image, txf, bicubic);
-    }
-
-    public static BufferedImage prepare(BufferedImage image,
-                                        AffineTransform transform) {
-        return prepare(image, transform, false);
-    }
-
-    public static BufferedImage prepare(BufferedImage image,
-                                        AffineTransform transform,
-                                        boolean bicubic) {
-        return prepare(image, transform,
+    public static BufferedImage resize(BufferedImage image,
+                                       int targetWidth,
+                                       int targetHeight,
+                                       boolean bicubic) {
+        return resize(image, targetWidth, targetHeight,
                 Collections.singletonMap(RenderingHints.KEY_INTERPOLATION,
                                bicubic ? RenderingHints.VALUE_INTERPOLATION_BICUBIC
                                        : RenderingHints.VALUE_INTERPOLATION_BILINEAR));
     }
 
-    public static BufferedImage prepare(BufferedImage image,
-                                        AffineTransform transform,
-                                        Map<RenderingHints.Key, ?> hints) {
-        BufferedImage result = image;
-        while (transform.getScaleX() < 0.5
-                || transform.getScaleY() < 0.5) {
-            result = scaleHalf(result, transform, hints);
-        }
-        return result;
-    }
+    public static BufferedImage resize(BufferedImage image,
+                                       int targetWidth,
+                                       int targetHeight,
+                                       Map<RenderingHints.Key, ?> hints) {
+        int sourceWidth = image.getWidth();
+        int sourceHeight = image.getHeight();
+        int halfWidth = (int) Math.ceil(sourceWidth / 2);
+        int halfHeight = (int) Math.ceil(sourceHeight / 2);
 
-    private static BufferedImage scaleHalf(BufferedImage image,
-                                           AffineTransform transform,
-                                           Map<RenderingHints.Key, ?> hints) {
-        int width = image.getWidth();
-        int height = image.getHeight();
-        double scaleX = 1;
-        double scaleY = 1;
-        if (transform.getScaleX() < 0.5) {
-            width = (int) (width * 0.5 + 0.5);
-            scaleX = image.getWidth() / (double) width;
+        BufferedImage source = image;
+        if (targetWidth < halfWidth
+                || targetHeight < halfHeight) {
+            int w = targetWidth < halfWidth ? targetWidth * 2 : targetWidth;
+            int h = targetHeight < halfHeight ? targetHeight * 2 : targetHeight;
+            source = resize(source, w, h, hints);
         }
-        if (transform.getScaleY() < 0.5) {
-            height = (int) (height * 0.5 + 0.5);
-            scaleY = image.getHeight() / (double) height;
-        }
-        transform.scale(scaleX, scaleY);
 
-        AffineTransform current = new AffineTransform();
-        current.scale(1 / scaleX, 1 / scaleY);
-
-        BufferedImage result = new BufferedImage(width, height,
-                                                 BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = result.createGraphics();
+        int imageType = source.getColorModel().hasAlpha()
+                        ? BufferedImage.TYPE_INT_ARGB
+                        : BufferedImage.TYPE_INT_RGB;
+        BufferedImage scaled =
+                new BufferedImage(targetWidth, targetHeight, imageType);
+        Graphics2D g = scaled.createGraphics();
         try {
             g.addRenderingHints(hints);
-            g.drawRenderedImage(image, current);
+            g.drawImage(source, 0, 0, targetWidth, targetHeight, null);
         } finally {
             g.dispose();
         }
-        return result;
+        return scaled;
     }
 
     private SmoothDownscale() {/* no instances */}
