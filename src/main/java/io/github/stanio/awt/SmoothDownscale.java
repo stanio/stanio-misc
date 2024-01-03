@@ -44,14 +44,14 @@ public final class SmoothDownscale {
                                        Map<RenderingHints.Key, ?> hints) {
         int sourceWidth = image.getWidth();
         int sourceHeight = image.getHeight();
-        int halfWidth = (int) Math.ceil(sourceWidth / 2);
-        int halfHeight = (int) Math.ceil(sourceHeight / 2);
+        int doubleWidth = targetWidth * 2;
+        int doubleHeight = targetHeight * 2;
 
         BufferedImage source = image;
-        if (targetWidth < halfWidth
-                || targetHeight < halfHeight) {
-            int w = targetWidth < halfWidth ? targetWidth * 2 : targetWidth;
-            int h = targetHeight < halfHeight ? targetHeight * 2 : targetHeight;
+        if (doubleWidth < sourceWidth
+                || doubleHeight < sourceHeight) {
+            int w = doubleWidth < sourceWidth ? doubleWidth : targetWidth;
+            int h = doubleHeight < sourceHeight ? doubleHeight : targetHeight;
             source = resize(source, w, h, hints);
         }
 
