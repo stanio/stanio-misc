@@ -89,7 +89,10 @@ public class Cursor {
                 short hotspotX, short hotspotY,
                 int dataSize, byte[] data)
         {
-            if (width > 255 || height > 255) {
+            if (width < 0 || height < 0) {
+                throw new IllegalArgumentException("width and height"
+                        + " must be positive: " + width + " x " + height);
+            } else if (width > 255 || height > 255) {
                 this.width = 0;
                 this.height = 0;
             } else {
@@ -136,7 +139,7 @@ public class Cursor {
 
     public void addImage(BufferedImage image, Point2D hotspot, BoxSizing sizing) {
         if (entries.size() >= 0xFFFF)
-            throw new IllegalStateException("Too many images");
+            throw new IllegalStateException("Too many images: " + entries.size());
 
         BufferedImage argb;
         Point hxy;
@@ -171,12 +174,22 @@ public class Cursor {
             imageWriter.setOutput(null);
         }
 
-        entries.add(new Image((byte) image.getWidth(),
-                              (byte) image.getHeight(),
-                              (short) hotspot.x,
-                              (short) hotspot.y,
+        final int maxUnsignedShort = 0xFFFF;
+        entries.add(new Image(image.getWidth(),
+                              image.getHeight(),
+                              (short) clamp(hotspot.x, 0, maxUnsignedShort),
+                              (short) clamp(hotspot.y, 0, maxUnsignedShort),
                               buf.size(),
                               buf.array()));
+    }
+
+    private static int clamp(int value, int min, int max) {
+        if (value < min) {
+            return min;
+        } else if (value > max) {
+            return max;
+        }
+        return value;
     }
 
     public void addImage(Path file, Point2D hotspot) throws IOException {
