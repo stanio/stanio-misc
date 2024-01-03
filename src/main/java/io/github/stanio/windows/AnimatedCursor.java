@@ -21,6 +21,8 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
 
 /**
+ * A builder for Animated Windows cursors.
+ *
  * @see  <a href="https://en.wikipedia.org/wiki/ANI_(file_format)"
  *              >ANI (file format)</a> <i>(Wikipedia)</i>
  * @see  <a href="https://en.wikipedia.org/wiki/Resource_Interchange_File_Format"
@@ -68,6 +70,12 @@ public class AnimatedCursor {
     private int displayRate;
     private List<Frame> frames = new ArrayList<>();
 
+    /**
+     * Constructs an empty {@code AnimatedCursor} builder.
+     *
+     * @param   jiffies  frame rate (one jiffy equal to 1/60 of a second, or
+     *          16.666 ms)
+     */
     public AnimatedCursor(int jiffies) {
         this.displayRate = jiffies;
     }
@@ -76,6 +84,11 @@ public class AnimatedCursor {
         return frames.size();
     }
 
+    /**
+     * Adds an animation frame from the given cursor.
+     *
+     * @param   frame  cursor frame to add to this animation
+     */
     public void addFrame(Cursor frame) {
         ByteArrayBuffer buf = new ByteArrayBuffer(10_000);
         try {
@@ -86,6 +99,14 @@ public class AnimatedCursor {
         frames.add(new Frame(buf.size(), buf.array()));
     }
 
+    /**
+     * Adds an animation frame from the given cursor file.  <em>Note,</em>
+     * the file is not verified if it represents a valid Windows cursor,
+     * currently.
+     *
+     * @param   curFile  cursor file to load animation frame from
+     * @throws  IOException  if I/O error occurs
+     */
     public void addFrame(Path curFile) throws IOException {
         ByteBuffer buf;
         try (FileChannel fch = FileChannel.open(curFile)) {
@@ -103,12 +124,25 @@ public class AnimatedCursor {
                 + frames.stream().mapToInt(Frame::paddedSize).sum();
     }
 
+    /**
+     * Writes animated cursor to the given file.  The file is overwritten
+     * unconditionally if it exists already.
+     *
+     * @param   file  file path to write to
+     * @throws  IOException  if I/O error occurs
+     */
     public void write(Path file) throws IOException {
         try (OutputStream out = Files.newOutputStream(file)) {
             write(out);
         }
     }
 
+    /**
+     * Writes animated cursor to the given output stream.
+     *
+     * @param   out  output stream to write to
+     * @throws  IOException  if I/O error occurs
+     */
     public void write(OutputStream out) throws IOException {
         try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
             write(leOut);
@@ -159,6 +193,13 @@ public class AnimatedCursor {
         return str.getBytes(StandardCharsets.US_ASCII);
     }
 
+    /**
+     * Command-line entry point.
+     * <pre>
+     * <samp>USAGE: winani [-o &lt;output-file&gt;] [-j &lt;jiffies&gt;] &lt;cursor-frame&gt;...</samp></pre>
+     *
+     * @param   args  program arguments as given on the command line
+     */
     public static void main(String[] args) {
         CommandArgs cmd;
         try {

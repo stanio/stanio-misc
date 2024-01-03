@@ -35,6 +35,9 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
 
 /**
+ * A builder for multi-resolution Windows cursors.  Supports only 32-bit color
+ * (RGB+Alpha) PNG-compressed output, regardless of the input image formats.
+ *
  * @see  <a href="https://en.wikipedia.org/wiki/ICO_(file_format)"
  *              >ICO (file format)</a> <i>(Wikipedia)</i>
  * @see  <a href="https://learn.microsoft.com/previous-versions/ms997538(v=msdn.10)"
@@ -43,20 +46,51 @@ import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
 public class Cursor {
 
 
+    /**
+     * Encapsulates target image dimension and a corresponding transformation
+     * for a given source image dimension.
+     */
     public static class BoxSizing {
 
         final Dimension target;
         final AffineTransform transform;
 
+        /**
+         * Constructs a {@code BoxSizing} for target dimension equal to the
+         * given source dimension and an <i>identity</i> transformation.
+         *
+         * @param  source  source image dimension
+         */
         public BoxSizing(Dimension source) {
             this.target = new Dimension(source);
             this.transform = new AffineTransform();
         }
 
+        /**
+         * Constructs a {@code BoxSizing} with the given target dimension
+         * and a corresponding transformation from the given source dimension.
+         *
+         * @param  source  source image dimension
+         * @param  target  target image dimension
+         */
         public BoxSizing(Dimension source, Dimension target) {
             this(new Rectangle(source), target);
         }
 
+        /**
+         * Constructs a {@code BoxSizing} with the given target dimension
+         * and a corresponding transformation from the given source view-box.
+         * <p>
+         * The view-box defines position and dimension within the source image
+         * to project into the given target dimension.  The view-box may specify
+         * dimension greater than the source image in which case the source
+         * canvas is expanded.  The primary use-case for this is for producing
+         * different cursor-scheme sizes (Regular, Large, Extra-Large) from a
+         * single source bitmap.</p>
+         *
+         * @param  viewBox  viewport position and dimension in source space
+         * @param  target  target image dimension
+         */
         public BoxSizing(Rectangle2D viewBox, Dimension target) {
             this.target = new Dimension(target);
 
@@ -121,22 +155,56 @@ public class Cursor {
     private final short imageType;
     private final List<Image> entries = new ArrayList<>();
 
+    /**
+     * Constructs an empty {@code Cursor} builder.
+     */
     public Cursor() {
-        this.imageType = 2;
+        this.imageType = 2; // Cursor (.CUR)
     }
 
+    /**
+     * {@code 2} – Cursor (.CUR)
+     *
+     * @return  {@code 2}
+     */
     public short imageType() {
         return imageType;
     }
 
+    /**
+     * {@return the number of image entries currently added to this cursor}
+     */
     public int imageCount() {
         return entries.size();
     }
 
+    /**
+     * Adds a variant image to this cursor.  This is equivalent to:
+     * <pre>
+     * <code>    BoxSizing originalSize = new BoxSizing(
+     *             new Dimension(image.getWidth(), image.getHeight()));
+     *     addImage(image, hotspot, originalSize);</code></pre>
+     *
+     * @param   image  variant image to add
+     * @param   hotspot  hotspot for the given variant image
+     * @see     #addImage(BufferedImage, Point2D, BoxSizing)
+     */
     public void addImage(BufferedImage image, Point2D hotspot) {
         addImage(image, hotspot, new BoxSizing(imageSize(image)));
     }
 
+    /**
+     * Adds a variant image to this cursor.  The given {@code sizing} may
+     * represent an <i>identity</i> transform in which case the source image
+     * and hotspot are used as given.  The given {@code hotspot} is always
+     * interpreted in the source image coordinates, and is adjusted according
+     * to the given {@code sizing} as necessary.
+     *
+     * @param   image  variant image to add
+     * @param   hotspot  hotspot for the given variant image
+     * @param   sizing  target size transformation to apply to the given
+     *          source image and hotspot
+     */
     public void addImage(BufferedImage image, Point2D hotspot, BoxSizing sizing) {
         if (entries.size() >= 0xFFFF)
             throw new IllegalStateException("Too many images: " + entries.size());
@@ -192,18 +260,46 @@ public class Cursor {
         return value;
     }
 
+    /**
+     * Adds a variant image to this cursor.
+     *
+     * @param   file  file to read the variant image from
+     * @param   hotspot  hotspot for the given variant image
+     * @throws  IOException  if I/O error or failure to decode the image happens
+     * @see     #addImage(Path, Point2D, BoxSizing)
+     */
     public void addImage(Path file, Point2D hotspot) throws IOException {
         addImage(loadImage(file), hotspot);
     }
 
+    /**
+     * Adds a variant image to this cursor.
+     *
+     * @param   file  file to read the variant image from
+     * @param   hotspot  hotspot for the given variant image
+     * @param   sizing  sizing transformation to apply to the given
+     *          source image and hotspot
+     * @throws  IOException  if I/O error or failure to decode the image happens
+     * @see     #addImage(BufferedImage, Point2D, BoxSizing)
+     */
     public void addImage(Path file, Point2D hotspot, BoxSizing sizing) throws IOException {
         addImage(loadImage(file), hotspot, sizing);
     }
 
+    /**
+     * Reads an image from file.
+     *
+     * @param   file  file to load the image from
+     * @return  an image loaded from the given file
+     * @throws  IOException  if I/O error or failure to decode the image happens
+     */
     public static BufferedImage loadImage(Path file) throws IOException {
         return ImageIO.read(file.toFile());
     }
 
+    /**
+     * {@return the given image dimension}
+     */
     public static Dimension imageSize(BufferedImage image) {
         return new Dimension(image.getWidth(), image.getHeight());
     }
@@ -214,12 +310,25 @@ public class Cursor {
         return a2 - a1;
     }
 
+    /**
+     * Writes a Windows cursor to the given file.  If the file already exists,
+     * it is overwritten unconditionally.
+     *
+     * @param   file  file path to write to
+     * @throws  IOException  if I/O error occurs
+     */
     public void write(Path file) throws IOException {
         try (OutputStream out = Files.newOutputStream(file)) {
             write(out);
         }
     }
 
+    /**
+     * Writes a Windows cursor to the given output stream.
+     *
+     * @param   out  output stream to write to
+     * @throws  IOException  if I/O error occurs
+     */
     public void write(OutputStream out) throws IOException {
         try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
             write(leOut);
@@ -256,6 +365,17 @@ public class Cursor {
         return 6; // header size
     }
 
+    /**
+     * Command-line entry point.
+     * <pre>
+     * <samp>USAGE: wincur OPTIONS &lt;source-bitmap&gt;...
+     * OPTIONS: [-o &lt;output-file&gt;]
+     *          [-h &lt;x&gt;,&lt;y&gt;]...
+     *          [-r &lt;w&gt;[,&lt;h&gt;]]...
+     *          [-s &lt;w&gt;[,&lt;h&gt;[,&lt;x&gt;,&lt;y&gt;]]]...</samp></pre>
+     *
+     * @param   args  program arguments as given on the command line
+     */
     public static void main(String[] args) {
         CommandArgs cmd;
         try {
