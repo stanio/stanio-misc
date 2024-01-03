@@ -221,26 +221,30 @@ public class Cursor {
     }
 
     public void write(OutputStream out) throws IOException {
+        try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
+            write(leOut);
+        }
+    }
+
+    private void write(LittleEndianOutput leOut) throws IOException {
         entries.sort(Cursor::imageOrder);
 
-        LittleEndianOutput littleEndian = new LittleEndianOutput(out);
-
-        int dataOffset = writeHeader(littleEndian) + imageCount() * Image.SIZE;
+        int dataOffset = writeHeader(leOut) + imageCount() * Image.SIZE;
         for (Image entry : entries) {
             // ICONDIRENTRY
-            littleEndian.write(entry.width);
-            littleEndian.write(entry.height);
-            littleEndian.write(NUL); // numColors palette
-            littleEndian.write(NUL); // reserved
-            littleEndian.writeWord(entry.hotspotX);
-            littleEndian.writeWord(entry.hotspotY);
-            littleEndian.writeDWord(entry.dataSize);
-            littleEndian.writeDWord(dataOffset);
+            leOut.write(entry.width);
+            leOut.write(entry.height);
+            leOut.write(NUL); // numColors palette
+            leOut.write(NUL); // reserved
+            leOut.writeWord(entry.hotspotX);
+            leOut.writeWord(entry.hotspotY);
+            leOut.writeDWord(entry.dataSize);
+            leOut.writeDWord(dataOffset);
             dataOffset += entry.dataSize;
         }
 
         for (Image entry : entries) {
-            littleEndian.write(entry.data, entry.dataSize);
+            leOut.write(entry.data, entry.dataSize);
         }
     }
 

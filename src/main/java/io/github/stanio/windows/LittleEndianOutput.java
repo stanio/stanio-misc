@@ -5,17 +5,19 @@
 package io.github.stanio.windows;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Objects;
 
-class LittleEndianOutput {
+class LittleEndianOutput implements Closeable {
 
     public static final byte NUL = 0;
 
-    private OutputStream out;
+    private final OutputStream out;
 
     public LittleEndianOutput(OutputStream out) {
-        this.out = out;
+        this.out = Objects.requireNonNull(out, "null output stream");
     }
 
     public void write(byte val) throws IOException {
@@ -40,6 +42,11 @@ class LittleEndianOutput {
         out.write((val >>  8) & 0xFF);
         out.write((val >> 16) & 0xFF);
         out.write((val >> 24) & 0xFF);
+    }
+
+    @Override
+    public void close() throws IOException {
+        out.close();
     }
 
 

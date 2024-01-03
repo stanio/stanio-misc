@@ -110,27 +110,32 @@ public class AnimatedCursor {
     }
 
     public void write(OutputStream out) throws IOException {
-        LittleEndianOutput littleEndian = new LittleEndianOutput(out);
+        try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
+            write(leOut);
+        }
+    }
+
+    private void write(LittleEndianOutput leOut) throws IOException {
         int framesSize = allFramesSize();
 
-        littleEndian.write(RIFF);
-        littleEndian.writeDWord(CHUNK_ID_SIZE
+        leOut.write(RIFF);
+        leOut.writeDWord(CHUNK_ID_SIZE
                 + ANI_HEADER_SIZE + LIST_HEADER_SIZE + framesSize);
-        littleEndian.write(ACON); // Form type
+        leOut.write(ACON); // Form type
 
-        writeANIHeader(littleEndian);
+        writeANIHeader(leOut);
 
         // LISTFRAMECHUNK
-        littleEndian.write(LIST);
-        littleEndian.writeDWord(CHUNK_ID_SIZE + framesSize);
-        littleEndian.write(FRAM); // List type
+        leOut.write(LIST);
+        leOut.writeDWord(CHUNK_ID_SIZE + framesSize);
+        leOut.write(FRAM); // List type
 
         for (Frame item : frames) {
             // ICONSUBCHUNK
-            littleEndian.write(ICON);
-            littleEndian.writeDWord(item.size);
-            littleEndian.write(item.data, item.size);
-            littleEndian.write(item.padding);
+            leOut.write(ICON);
+            leOut.writeDWord(item.size);
+            leOut.write(item.data, item.size);
+            leOut.write(item.padding);
         }
     }
 
