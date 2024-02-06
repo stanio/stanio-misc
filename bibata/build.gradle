@@ -28,13 +28,28 @@ jar {
 shadowJar {
     archiveBaseName = 'bibata'
     archiveClassifier = ''
+    exclude 'io/github/stanio/bibata/BitmapsRenderer*'
+    exclude 'org/apache/batik/**/*'
     minimize {
-        exclude dependency('com.*:gson:.*')
-        exclude dependency('org.*:batik.*:.*')
+        exclude dependency('com.google.code.gson:gson')
+        exclude dependency('com.github.weisj:jsvg')
+    }
+    dependencies {
+        exclude dependency('org.apache.xmlgraphics:.*')
+        exclude dependency('xml-apis:xml-apis-ext')
+        exclude dependency('commons-.*:commons-.*')
+    }
+}
+
+repositories {
+    maven {
+        url 'https://oss.sonatype.org/content/repositories/snapshots/'
     }
 }
 
 dependencies {
     implementation rootProject
     implementation 'com.google.code.gson:gson:2.10.1'
+    // XXX: https://github.com/weisJ/jsvg/issues/59
+    implementation 'com.github.weisj:jsvg:latest.integration' // 1.4.0-SNAPSHOT
 }

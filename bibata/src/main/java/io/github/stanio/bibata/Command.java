@@ -31,7 +31,7 @@ public final class Command {
         } else if ("wincur".equals(cmd)) {
             CursorCompiler.main(cmdArgs);
         } else if ("render".equals(cmd)) {
-            BitmapsRenderer.main(cmdArgs);
+            JSVGBitmapsRenderer.main(cmdArgs);
         } else if (Arrays.asList("-h", "--help").contains(cmd)) {
             printHelp(System.out);
         } else {
