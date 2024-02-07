@@ -15,17 +15,15 @@ class CursorNames {
 
     enum Animation {
 
-        LEFT_PTR_WATCH(15),
+        LEFT_PTR_WATCH(18),
 
-        // XXX: https://issues.apache.org/jira/browse/BATIK-1361
-        //WAIT(20);
-        WAIT(20 - 0.0125f);
+        WAIT(18);
 
         final float duration;
         final float frameRate;
 
         private Animation(float frameRate) {
-            this(3.0f, frameRate);
+            this(3, frameRate);
         }
 
         private Animation(float duration, float frameRate) {
