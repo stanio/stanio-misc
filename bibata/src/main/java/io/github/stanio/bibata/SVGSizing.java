@@ -13,6 +13,7 @@ import java.io.StringReader;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -107,10 +108,11 @@ public class SVGSizing {
             return;
         }
 
-        try (Stream<Path> fileList = Files.list(path)) {
-            Iterable<Path> svgFiles = () -> fileList
-                    .filter(Files::isRegularFile)
-                    .filter(file -> file.toString().endsWith(".svg"))
+        try (Stream<Path> list = Files
+                .walk(path, 2, FileVisitOption.FOLLOW_LINKS)) {
+            Iterable<Path> svgFiles = () -> list
+                    .filter(p -> Files.isRegularFile(p)
+                                 && p.toString().endsWith(".svg"))
                     .iterator();
             for (Path file : svgFiles) {
                 updateSVG(file, targetSize, viewBoxSize);

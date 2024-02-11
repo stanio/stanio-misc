@@ -17,6 +17,7 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -498,8 +499,9 @@ public class BitmapsRenderer {
     }
 
     private static Stream<Path> listSVGFiles(Path dir) throws IOException {
-        return Files.list(dir).filter(Files::isRegularFile)
-                              .filter(path -> endsWithIgnoreCase(path, ".svg"));
+        return Files.walk(dir, 2, FileVisitOption.FOLLOW_LINKS)
+                .filter(Files::isRegularFile)
+                .filter(path -> endsWithIgnoreCase(path, ".svg"));
     }
 
 
