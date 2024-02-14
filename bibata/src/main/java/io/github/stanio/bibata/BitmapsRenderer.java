@@ -286,9 +286,7 @@ public class BitmapsRenderer {
                 if (animation == null) {
                     renderStatic(outDir, fileName, hs);
                 } else {
-                    int numDigits = String.valueOf((int) Math
-                            .ceil(animation.duration * animation.frameRate)).length();
-                    String nameFormat = cursorName + "-%0" + numDigits + "d"
+                    String nameFormat = cursorName + "-%0" + animation.numDigits + "d"
                                         + (res > 0 ? "-" + res : "") + ".png";
                     renderAnimation(animation.duration,
                             animation.frameRate, outDir.resolve(cursorName), nameFormat, hs);

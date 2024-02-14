@@ -21,6 +21,7 @@ class CursorNames {
 
         final float duration;
         final float frameRate;
+        final int numDigits;
 
         private Animation(float frameRate) {
             this(3, frameRate);
@@ -29,6 +30,8 @@ class CursorNames {
         private Animation(float duration, float frameRate) {
             this.duration = duration;
             this.frameRate = frameRate;
+            this.numDigits = String
+                    .valueOf((int) Math.ceil(duration * frameRate)).length();
         }
 
         public int jiffies() {
