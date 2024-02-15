@@ -35,7 +35,7 @@ Utility creating Bibata Windows cursors from pre-rendered bitmaps (`yarn render`
 
 Utility for rendering Bibata cursor bitmap images.  Alternative to `yarn render` /
 [Puppeteer](https://pptr.dev/), using the
-[Batik SVG Toolkit](https://xmlgraphics.apache.org/batik/).  Can create Windows
+[JSVG](https://github.com/weisJ/jsvg) (Java SVG renderer) library.  Can create Windows
 cursors directly, not saving intermediate bitmaps:
 
     > java -jar bibata.jar render --help
