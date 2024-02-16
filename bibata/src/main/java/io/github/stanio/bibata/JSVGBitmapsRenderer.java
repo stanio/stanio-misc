@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -153,7 +154,8 @@ public class JSVGBitmapsRenderer {
         return Stream.of(config)
                 .collect(Collectors.toMap(ThemeConfig::dir,
                                           Arrays::asList,
-                                          ThemeConfig::concat));
+                                          ThemeConfig::concat,
+                                          LinkedHashMap::new));
     }
 
     private void renderDir(String svgDir, Collection<ThemeConfig> config)
