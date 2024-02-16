@@ -48,7 +48,7 @@ public class JSVGImageTranscoder {
 
     private Document document;
 
-    private DocumentBuilder documentBuilder;
+    private DocumentBuilder domBuilder;
     private StaxSVGLoader svgLoader;
     private ImageWriter pngWriter;
 
@@ -69,19 +69,19 @@ public class JSVGImageTranscoder {
     }
 
     private DocumentBuilder documentBuilder() {
-        if (documentBuilder == null) {
+        if (domBuilder == null) {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
             try {
                 dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                documentBuilder = dbf.newDocumentBuilder();
-                documentBuilder.setEntityResolver(
+                domBuilder = dbf.newDocumentBuilder();
+                domBuilder.setEntityResolver(
                         (publicId, systemId) -> new InputSource(new StringReader("")));
             } catch (ParserConfigurationException e) {
                 throw new IllegalStateException(e);
             }
         }
-        return documentBuilder;
+        return domBuilder;
     }
 
     public Document loadDocument(Path file) throws IOException {
@@ -99,9 +99,7 @@ public class JSVGImageTranscoder {
     private SVGDocument getSVG() {
         EventBuffer buffer = EventBuffer.from(document());
         SVGDocument svg;
-        try {
-            @SuppressWarnings("resource")
-            InputStream input = EventBuffer.fakeStream(buffer);
+        try (InputStream input = EventBuffer.fakeStream(buffer)) {
             svg = svgLoader().load(input, new DefaultParserProvider(),
                                           new SynchronousResourceLoader());
         } catch (IOException | XMLStreamException e) {
