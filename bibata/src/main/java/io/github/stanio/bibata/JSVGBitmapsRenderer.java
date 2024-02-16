@@ -33,6 +33,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -431,12 +432,27 @@ public class JSVGBitmapsRenderer {
                 resolutions.addAll(List.of(32, 48, 64, 96, 128));
             };
 
+            Function<String, Collection<SizeScheme>> parseSizes = str -> {
+                Collection<SizeScheme> sizes = new LinkedHashSet<>();
+                for (String token : str.split(",")) {
+                    sizes.add(SizeScheme.valueOf(token.toUpperCase(Locale.ROOT)));
+                }
+                return sizes;
+            };
+
+            Function<String, Collection<Integer>> parseResolutions = str -> {
+                Collection<Integer> resolutions = new LinkedHashSet<>();
+                for (String token : str.split(",")) {
+                    resolutions.add(Integer.valueOf(token));
+                }
+                return resolutions;
+            };
+
             CommandLine cmd = CommandLine.ofUnixStyle()
-                    .acceptOption("-s", sizes::add,
-                            stripString().andThen(String::toUpperCase)
-                                         .andThen(SizeScheme::valueOf))
-                    .acceptOption("-r", resolutions::add,
-                            stripString().andThen(Integer::valueOf))
+                    .acceptOption("-s", sizes::addAll,
+                            stripString().andThen(parseSizes))
+                    .acceptOption("-r", resolutions::addAll,
+                            stripString().andThen(parseResolutions))
                     .acceptOption("-t", themeFilter::add, String::strip)
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> createCursors = true)
