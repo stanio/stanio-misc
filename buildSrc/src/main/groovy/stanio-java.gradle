@@ -5,6 +5,8 @@ plugins {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+    options.compilerArgs.add '-Xlint:all'
+    options.compilerArgs.add '-Xdoclint:-missing'
 }
 
 tasks.named('test') {
@@ -12,9 +14,11 @@ tasks.named('test') {
 }
 
 javadoc {
+    //failOnError false
     options.encoding = 'UTF-8'
-    options.addBooleanOption('Xdoclint:-missing', true)
+    options.addBooleanOption('Xdoclint:all,-missing', true)
     options.addStringOption('-release', '17')
+    options.tags 'min.jdk:C:Minimum Java version:'
 }
 
 eclipse {
