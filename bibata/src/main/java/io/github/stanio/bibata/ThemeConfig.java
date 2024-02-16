@@ -24,9 +24,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
-import org.w3c.dom.traversal.DocumentTraversal;
-import org.w3c.dom.traversal.NodeFilter;
-import org.w3c.dom.traversal.NodeIterator;
 
 /**
  * An entry value in {@code render.json}.
@@ -106,7 +103,7 @@ public class ThemeConfig {
 
         private void updateIndex(Collection<String> colors) {
             colors.forEach(it -> index.putIfAbsent(it, Collections.emptyList()));
-            for (Element elem : DocumentElements.of(document.getDocumentElement())) {
+            for (Element elem : DocumentElements.of(document)) {
                 NamedNodeMap attrs = elem.getAttributes();
                 for (int i = 0, len = attrs.getLength(); i < len; i++) {
                     Node node = attrs.item(i);
@@ -153,70 +150,77 @@ public class ThemeConfig {
 
 
 /**
- * @see  NodeIterator
+ * @see  org.w3c.dom.traversal.NodeIterator
  */
 class DocumentElements implements Iterable<Element> {
 
-    private final Element rootElement;
+    private final Node rootNode;
 
-    private DocumentElements(Element root) {
-        this.rootElement = Objects.requireNonNull(root, "null root element");
+    private DocumentElements(Node rootNode) {
+        this.rootNode = Objects.requireNonNull(rootNode, "null rootNode");
     }
 
-    public static DocumentElements of(Element root) {
-        return new DocumentElements(root);
+    public static DocumentElements of(Document document) {
+        return new DocumentElements(document);
     }
 
     @Override
     public Iterator<Element> iterator() {
         return new Iterator<>() {
-            private NodeIterator
-                    nodeIterator = createNodeIterator(rootElement);
-            private Node nextNode;
+            private Node currentNode = rootNode;
+            private Element nextElement;
 
             @Override
             public boolean hasNext() {
-                return Objects.nonNull(nextNode());
+                return Objects.nonNull(nextElement());
             }
 
             private Node nextNode() {
-                if (nodeIterator == null) {
-                    return null;
-                }
-                if (nextNode == null) {
-                    nextNode = nodeIterator.nextNode();
-                    if (nextNode == null) {
-                        nodeIterator.detach();
-                        nodeIterator = null;
+                Node current = currentNode;
+                Node next = current.getFirstChild();
+                while (next == null) {
+                    if (current == rootNode) {
+                        return currentNode = null;
+                    }
+                    next = current.getNextSibling();
+                    if (next == null) {
+                        current = current.getParentNode();
+                        assert (current != null);
                     }
                 }
-                return nextNode;
+                return currentNode = next;
+            }
+
+            private Element nextElement() {
+                Element next = nextElement;
+                if (nextElement == null) {
+                    Node nextNode;
+                    do {
+                        if (currentNode == null)
+                            return null;
+
+                        nextNode = nextNode();
+
+                    } while (!(nextNode instanceof Element));
+
+                    nextElement = next = (Element) nextNode;
+                }
+                return next;
             }
 
             @Override
             public Element next() {
-                Node next = nextNode();
+                Node next = nextElement();
                 if (next == null)
                     throw new NoSuchElementException();
 
                 try {
                     return (Element) next;
                 } finally {
-                    nextNode = null;
+                    nextElement = null;
                 }
             }
         };
-    }
-
-    static NodeIterator createNodeIterator(Element root) {
-        Document document = root.getOwnerDocument();
-        if (document instanceof DocumentTraversal) {
-            return ((DocumentTraversal) document)
-                    .createNodeIterator(document.getDocumentElement(),
-                                        NodeFilter.SHOW_ELEMENT, null, false);
-        }
-        throw new IllegalStateException("Document doesn't implement"
-                + " DocumentTraversal: " + document.getClass().getName());
     }
 
 } // class DocumentElements
