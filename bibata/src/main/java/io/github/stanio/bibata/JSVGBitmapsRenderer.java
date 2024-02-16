@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +32,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -180,22 +183,30 @@ public class JSVGBitmapsRenderer {
             return listSVGFiles(svgDir);
         }
 
-        Collection<String> names = new LinkedHashSet<>(cursorFilter);
+        Collection<String> names = new HashSet<>(cursorFilter);
         configs.stream().map(ThemeConfig::cursors)
                         .flatMap(Collection::stream)
                         .forEach(names::add);
-        return names.stream().map(cname -> svgDir.resolve(cname + ".svg"))
-                             .filter(path -> {
-            if (Files.isRegularFile(path)) return true;
-            System.err.println(path.getFileName() + ": does not exist");
-            return false;
-        });
+        return listSVGFiles(svgDir).filter(file ->
+                names.contains(cursorName(file.getFileName().toString(), true)));
+    }
+
+    private final Matcher svgExt = Pattern.compile("(?i)\\.svg$").matcher("");
+    private final Matcher frameNumSvgExt = Pattern.compile("(?i)(?:-\\d{2,3})?\\.svg$").matcher("");
+    private final Matcher frameNumSuffix = Pattern.compile("-(\\d{2,3})$").matcher("");
+
+    private String cursorName(String fileName, boolean stripFrameNum) {
+        Matcher regex = stripFrameNum ? frameNumSvgExt : svgExt;
+        return regex.reset(fileName).replaceFirst("");
+    }
+
+    private String cursorName(Path file) {
+        return cursorName(file.getFileName().toString(), false);
     }
 
     private void renderSVG(Path svgFile, Collection<ThemeConfig> renderConfig)
             throws IOException {
-        String cursorName = svgFile.getFileName().toString()
-                                   .replaceFirst("(?i)\\.svg$", "");
+        String cursorName = cursorName(svgFile);
         System.out.append(cursorName).append(": ");
 
         ColorTheme colorTheme = ColorTheme
@@ -220,7 +231,7 @@ public class JSVGBitmapsRenderer {
         Set<String> filter = config.cursors();
         if (filter.isEmpty()) filter = cursorFilter;
         if (filter.isEmpty()) return false;
-        return !filter.contains(cursorName);
+        return !filter.contains(frameNumSuffix.reset(cursorName).replaceFirst(""));
     }
 
     private void renderSVG(ThemeConfig config, String cursorName)
@@ -229,7 +240,7 @@ public class JSVGBitmapsRenderer {
         SVGCursorMetadata cursorMetadata =
                 SVGCursorMetadata.read(imageTranscoder.document());
         Animation animation = Animation
-                .lookUp(cursorName.replaceFirst("-\\d+$", ""));
+                .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
 
         boolean first = true;
         for (SizeScheme scheme : sizes(config)) {
@@ -265,8 +276,9 @@ public class JSVGBitmapsRenderer {
             Files.createDirectories(outDir);
 
             Integer frameNum = staticFrame;
-            if (animation != null) {
-                frameNum = Integer.valueOf(cursorName.replaceFirst(".*-(\\d+)", "$1"));
+            if (animation != null
+                    && frameNumSuffix.reset(cursorName).find()) {
+                frameNum = Integer.valueOf(frameNumSuffix.group(1));
             }
 
             for (int res : resolutions(config)) {
@@ -392,8 +404,8 @@ public class JSVGBitmapsRenderer {
 
     private static Stream<Path> listSVGFiles(Path dir) throws IOException {
         return Files.walk(dir, 2, FileVisitOption.FOLLOW_LINKS)
-                    .filter(Files::isRegularFile)
-                    .filter(path -> endsWithIgnoreCase(path, ".svg"));
+                    .filter(path -> Files.isRegularFile(path)
+                                    && endsWithIgnoreCase(path, ".svg"));
     }
 
 
