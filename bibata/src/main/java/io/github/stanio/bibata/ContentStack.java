@@ -5,7 +5,9 @@
 package io.github.stanio.bibata;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
@@ -13,11 +15,13 @@ import java.util.NoSuchElementException;
  */
 class ContentStack {
 
+    private static final Integer ONE = 1;
+
     private ElementPath currentPath;
-    private List<List<String>> tree;
+    private List<Map<String, Integer>> stack;
 
     public ContentStack() {
-        tree = new ArrayList<>(1);
+        stack = new ArrayList<>();
     }
 
     public ElementPath currentPath() {
@@ -28,25 +32,20 @@ class ContentStack {
         return currentPath == null ? 0 : currentPath.length();
     }
 
-    private List<String> children() {
-        return tree.get(tree.size() - 1);
+    private Map<String, Integer> children() {
+        return stack.get(stack.size() - 1);
     }
 
     public void push(String name) {
         currentPath = (currentPath == null)
-                      ? new ElementPath(name, 1)
+                      ? new ElementPath(name)
                       : currentPath.child(name, addChild(name));
-        tree.add(new ArrayList<>());
+        stack.add(new HashMap<>());
     }
 
     private int addChild(String name) {
-        List<String> children = children();
-        int[] count = { 1 };
-        children.forEach(item -> {
-            if (item.equals(name)) count[0]++;
-        });
-        children.add(name);
-        return count[0];
+        Map<String, Integer> children = children();
+        return children.merge(name, ONE, Integer::sum);
     }
 
     public void pop() {
@@ -54,12 +53,12 @@ class ContentStack {
             throw new NoSuchElementException();
 
         currentPath = currentPath.parent();
-        tree.remove(tree.size() - 1);
+        stack.remove(stack.size() - 1);
     }
 
     public void clear() {
         currentPath = null;
-        tree.clear();
+        stack.clear();
     }
 
     @Override
@@ -67,9 +66,10 @@ class ContentStack {
         if (currentPath == null) return "";
 
         StringBuilder buf = new StringBuilder(currentPath.toString());
-        for (String name : children()) {
-            buf.append("\n\t").append(name);
-        }
+        children().forEach((name, count) -> {
+            buf.append("\n\t").append(name)
+                    .append('(').append(count).append(')');
+        });
         return buf.toString();
     }
 

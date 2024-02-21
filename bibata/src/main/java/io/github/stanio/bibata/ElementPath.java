@@ -9,24 +9,24 @@ import java.util.Objects;
 /**
  * @see  ContentStack
  */
-final class ElementPath {
+public final class ElementPath {
 
     private final ElementPath parent;
     private final String name;
-    private final int index;
+    private final int pos;
 
     private final int hash;
 
     private String xpath;
 
-    ElementPath(String name, int index) {
-        this(null, name, index);
+    public ElementPath(String name) {
+        this(null, name, 1);
     }
 
     private ElementPath(ElementPath parent, String name, int index) {
         this.parent = parent;
         this.name = name;
-        this.index = index;
+        this.pos = index;
         this.hash = Objects.hash(parent, name, index);
     }
 
@@ -44,31 +44,22 @@ final class ElementPath {
         return l;
     }
 
-    public ElementPath child(String name, int index) {
-        return new ElementPath(this, name, index);
+    public ElementPath child(String name, int pos) {
+        return new ElementPath(this, name, pos);
     }
 
     public String xpath() {
         String expr = xpath;
         if (expr == null) {
-            StringBuilder buf = new StringBuilder();
-            append(buf);
-            xpath = expr = buf.toString();
+            if (parent == null) {
+                expr = "/*[name()='" + name + "']";
+            } else {
+                expr = parent.xpath()
+                        + "/*[name()='" + name + "'][" + pos + "]";
+            }
+            xpath = expr;
         }
         return expr;
-    }
-
-    private void append(StringBuilder buf) {
-        if (parent != null) {
-            String parentXPath = parent.xpath;
-            if (parentXPath == null) {
-                parent.append(buf);
-            } else {
-                buf.append(parentXPath);
-            }
-        }
-        buf.append("/*[name()='").append(name)
-                .append("'][").append(index).append(']');
     }
 
     @Override
@@ -83,7 +74,7 @@ final class ElementPath {
         }
         if (obj instanceof ElementPath) {
             ElementPath other = (ElementPath) obj;
-            return index == other.index
+            return pos == other.pos
                     && Objects.equals(name, other.name)
                     && Objects.equals(parent, other.parent);
         }
