@@ -62,6 +62,7 @@ import io.github.stanio.bibata.ThemeConfig.SizeScheme;
  * directly not saving intermediate bitmaps.
  *
  * @see  <a href="https://github.com/weisJ/jsvg">JSVG - Java SVG renderer</a>
+ * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
 public class JSVGBitmapsRenderer {
 

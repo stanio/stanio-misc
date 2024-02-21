@@ -57,6 +57,8 @@ import com.google.gson.JsonParseException;
  * directory) for latter consumption by {@link CursorCompiler}.  <var>###</var>
  * is the specified <var>&lt;viewbox-size></var> associated with the target
  * cursor sizing scheme: <i>Regular</i>, <i>Large</i>, <i>Extra-Large</i>.</p>
+ *
+ * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
 public class SVGSizing {
 

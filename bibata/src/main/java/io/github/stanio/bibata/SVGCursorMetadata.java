@@ -71,6 +71,8 @@ import io.github.stanio.windows.Cursor;
  *
  * &lt;g>
  *   &lt;path class="align-anchor" d="m #,# ..." /></code></pre>
+ *
+ * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
 public class SVGCursorMetadata {
 
