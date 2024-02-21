@@ -11,7 +11,6 @@ import javax.xml.XMLConstants;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.events.XMLEvent;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
@@ -81,26 +80,23 @@ class EventBufferInputFactory extends InputFactoryAdapter {
         } catch (TransformerException e) {
             throw new IllegalStateException(e);
         }
-        Iterable<XMLEvent> buffer = bufferWriter.getBuffer();
-        return () -> buffer.iterator();
+        return bufferWriter.getBuffer()::iterator;
     }
 
     private static final
-    ThreadLocal<Transformer> localTransformer = new ThreadLocal<>() {
-        @Override protected Transformer initialValue() {
-            TransformerFactory tf = TransformerFactory.newInstance();
-            try {
-                tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+    ThreadLocal<Transformer> localTransformer = ThreadLocal.withInitial(() -> {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        try {
+            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
 
-                Transformer transformer = tf.newTransformer();
-                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-                transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-                return transformer;
+            Transformer transformer = tf.newTransformer();
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+            return transformer;
 
-            } catch (TransformerConfigurationException e) {
-                throw new IllegalStateException(e);
-            }
+        } catch (TransformerConfigurationException e) {
+            throw new IllegalStateException(e);
         }
-    };
+    });
 
 }

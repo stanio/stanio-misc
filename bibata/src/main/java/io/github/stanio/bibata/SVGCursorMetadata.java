@@ -524,21 +524,20 @@ public class SVGCursorMetadata {
 
 class XPathCache {
 
-    private static final ThreadLocal<XPath> localXPath = new ThreadLocal<>() {
-        @Override protected XPath initialValue() {
-            XPathFactory xpf = XPathFactory.newInstance();
-            try {
-                xpf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            } catch (XPathFactoryConfigurationException e) {
-                System.err.println(e);
-            }
-            return xpf.newXPath();
+    private static final
+    ThreadLocal<XPath> localXPath = ThreadLocal.withInitial(() -> {
+        XPathFactory xpf = XPathFactory.newInstance();
+        try {
+            xpf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        } catch (XPathFactoryConfigurationException e) {
+            System.err.println(e);
         }
-    };
+        return xpf.newXPath();
+    });
 
     private static final XPathCache instance = new XPathCache();
 
-    private Map<String, XPathExpression> cache = new HashMap<>();
+    private final Map<String, XPathExpression> cache = new HashMap<>();
 
     static XPathExpression getExpr(String xpath) {
         return instance.get(xpath);

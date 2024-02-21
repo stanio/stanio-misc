@@ -142,15 +142,14 @@ public class Cursor {
     } // class Image
 
 
-    private static final ThreadLocal<ImageWriter> pngWriter = new ThreadLocal<ImageWriter>() {
-        @Override protected ImageWriter initialValue() {
-            Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("png");
-            if (iter.hasNext()) {
-                return iter.next();
-            }
-            throw new IllegalStateException("No registered PNG image writer available");
+    private static final
+    ThreadLocal<ImageWriter> pngWriter = ThreadLocal.withInitial(() -> {
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("png");
+        if (writers.hasNext()) {
+            return writers.next();
         }
-    };
+        throw new IllegalStateException("No registered PNG image writer available");
+    });
 
     private final short imageType;
     private final List<Image> entries = new ArrayList<>();

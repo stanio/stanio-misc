@@ -39,12 +39,8 @@ import org.xml.sax.helpers.AttributesImpl;
  */
 public class XMLDoctype {
 
-    private static ThreadLocal<PrologHandler>
-            localHandler = new ThreadLocal<PrologHandler>() {
-        @Override protected PrologHandler initialValue() {
-            return new PrologHandler();
-        }
-    };
+    private static final ThreadLocal<PrologHandler>
+            localHandler = ThreadLocal.withInitial(PrologHandler::new);
 
     String xmlVersion;
     String encoding;
