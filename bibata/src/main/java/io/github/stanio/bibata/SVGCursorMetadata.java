@@ -78,11 +78,10 @@ public class SVGCursorMetadata {
 
     public static final Pattern ANCHOR_POINT;
     static {
-        final String commaWsp ="(?:\\s+(?:,\\s*)?|,\\s*)";
-        final String coordinate = "[-+]?(?:\\d*\\.\\d+|\\d+)(?:e[-+]?\\d+)?";
-        ANCHOR_POINT = Pattern.compile("^\\s*m\\s*(" + coordinate + ")"
-                                       + commaWsp + "(" + coordinate + ")",
-                                       Pattern.CASE_INSENSITIVE);
+        final String coordinate = "[-+]? (?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?";
+        ANCHOR_POINT = Pattern.compile("^\\s* m \\s* (" + coordinate
+                                       + ") \\s*(?:,\\s*)? (" + coordinate + ")",
+                                       Pattern.CASE_INSENSITIVE | Pattern.COMMENTS);
     }
 
     private static final ThreadLocal<XMLReader> localReader = new ThreadLocal<>();
