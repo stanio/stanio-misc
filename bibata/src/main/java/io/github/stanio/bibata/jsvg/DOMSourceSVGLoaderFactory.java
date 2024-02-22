@@ -6,11 +6,13 @@ package io.github.stanio.bibata.jsvg;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.Iterator;
 
 import javax.xml.XMLConstants;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.events.XMLEvent;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
@@ -24,7 +26,7 @@ import org.w3c.dom.Document;
 import com.github.weisj.jsvg.parser.NodeSupplier;
 import com.github.weisj.jsvg.parser.StaxSVGLoader;
 
-class EventBufferInputFactory extends InputFactoryAdapter {
+class DOMSourceSVGLoaderFactory extends InputFactoryAdapter {
 
     // Can be reused after close()
     private static final ByteArrayInputStream
@@ -32,7 +34,7 @@ class EventBufferInputFactory extends InputFactoryAdapter {
 
     private final XMLInputFactory defaultDelegate;
 
-    public EventBufferInputFactory() {
+    DOMSourceSVGLoaderFactory() {
         defaultDelegate = XMLInputFactory.newInstance();
         defaultDelegate.setXMLResolver(
                 (publicID, systemID, baseURI, namespace) -> EMPTY_ENTITY);
@@ -43,15 +45,20 @@ class EventBufferInputFactory extends InputFactoryAdapter {
         return defaultDelegate;
     }
 
-    protected final XMLEventReader createReader(EventBuffer buffer) {
-        return new EventBufferReader(buffer.iterator());
+    protected final XMLEventReader createReader(DOMInput input)
+            throws XMLStreamException {
+        try {
+            return super.createXMLEventReader(input.asDOMSource());
+        } catch (UnsupportedClassVersionError e) {
+            return new EventBufferReader(eventIterator(input.document()));
+        }
     }
 
     @Override
     public XMLEventReader createXMLEventReader(InputStream stream)
             throws XMLStreamException {
-        if (stream instanceof EventBuffer) {
-            return createReader((EventBuffer) stream);
+        if (stream instanceof DOMInput) {
+            return createReader((DOMInput) stream);
         }
         return super.createXMLEventReader(stream);
     }
@@ -59,8 +66,8 @@ class EventBufferInputFactory extends InputFactoryAdapter {
     @Override
     public XMLEventReader createXMLEventReader(InputStream stream, String encoding)
             throws XMLStreamException {
-        if (stream instanceof EventBuffer) {
-            return createReader((EventBuffer) stream);
+        if (stream instanceof DOMInput) {
+            return createReader((DOMInput) stream);
         }
         return super.createXMLEventReader(stream, encoding);
     }
@@ -68,10 +75,10 @@ class EventBufferInputFactory extends InputFactoryAdapter {
     private static final NodeSupplier NODE_SUPPLIER = new NodeSupplier();
 
     public static StaxSVGLoader newSVGLoader() {
-        return new StaxSVGLoader(NODE_SUPPLIER, new EventBufferInputFactory());
+        return new StaxSVGLoader(NODE_SUPPLIER, new DOMSourceSVGLoaderFactory());
     }
 
-    public static EventBuffer makeBuffer(Document document) {
+    static Iterator<XMLEvent> eventIterator(Document document) {
         EventBufferWriter bufferWriter = new EventBufferWriter();
         try {
             localTransformer.get()
@@ -80,7 +87,7 @@ class EventBufferInputFactory extends InputFactoryAdapter {
         } catch (TransformerException e) {
             throw new IllegalStateException(e);
         }
-        return bufferWriter.getBuffer()::iterator;
+        return bufferWriter.getBuffer().iterator();
     }
 
     private static final

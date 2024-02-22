@@ -33,6 +33,7 @@ shadowJar {
     minimize {
         exclude dependency('com.google.code.gson:gson')
         exclude dependency('com.github.weisj:jsvg')
+        exclude dependency('com.fasterxml.woodstox:woodstox-core')
     }
     dependencies {
         exclude dependency('org.apache.xmlgraphics:.*')
@@ -45,4 +46,5 @@ dependencies {
     implementation rootProject
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.github.weisj:jsvg:1.4.0'
+    runtimeOnly    'com.fasterxml.woodstox:woodstox-core:6.6.0'
 }

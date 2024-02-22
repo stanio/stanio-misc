@@ -97,9 +97,8 @@ public class JSVGImageTranscoder {
     }
 
     private SVGDocument getSVG() {
-        EventBuffer buffer = EventBuffer.from(document());
         SVGDocument svg;
-        try (InputStream input = EventBuffer.fakeStream(buffer)) {
+        try (InputStream input = DOMInput.fakeStream(document())) {
             svg = svgLoader().load(input, new DefaultParserProvider(),
                                           new SynchronousResourceLoader());
         } catch (IOException | XMLStreamException e) {
@@ -114,7 +113,7 @@ public class JSVGImageTranscoder {
     private StaxSVGLoader svgLoader() {
         if (svgLoader == null) {
             //svgLoader = new SVGLoader();
-            svgLoader = EventBuffer.newSVGLoader();
+            svgLoader = DOMInput.newSVGLoader();
         }
         return svgLoader;
     }
