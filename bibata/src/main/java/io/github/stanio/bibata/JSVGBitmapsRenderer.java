@@ -286,7 +286,9 @@ public class JSVGBitmapsRenderer {
             }
 
             for (int res : resolutions(config)) {
-                if (animation != null && res > CursorCompiler.maxAnimSize)
+                if (animation != null
+                        && (res > CursorCompiler.maxAnimSize
+                                || res < CursorCompiler.minAnimSize))
                     continue;
 
                 Point hs = svgSizing.apply(cursorName, cursorMetadata,

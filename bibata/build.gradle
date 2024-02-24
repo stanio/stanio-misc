@@ -6,6 +6,8 @@ plugins {
 
 application {
     mainClass = 'io.github.stanio.bibata.Command'
+    applicationDefaultJvmArgs = ["-Dbibata.maxAnimSize=${maxAnimRes}",
+                                 "-Dbibata.minAnimSize=${minAnimRes}"]
 }
 
 java {
