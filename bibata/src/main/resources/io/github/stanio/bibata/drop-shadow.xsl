@@ -5,6 +5,11 @@
     exclude-result-prefixes="xsl svg"
     xmlns="http://www.w3.org/2000/svg">
 
+  <xsl:param name="shadow-blur" select="3" />
+  <xsl:param name="shadow-dx" select="12" />
+  <xsl:param name="shadow-dy" select="6" />
+  <xsl:param name="shadow-opacity" select="0.5" />
+
   <xsl:template match="/svg:svg">
     <xsl:copy>
       <xsl:copy-of select="@*" />
@@ -20,9 +25,9 @@
         <!-- https://www.w3.org/TR/filter-effects-1/#feDropShadowElement -->
         <!-- https://drafts.fxtf.org/filter-effects/#feDropShadowElement -->
         <filter id="drop-shadow" filterUnits="userSpaceOnUse">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
-          <feOffset dx="12" dy="6" result="offsetblur" />
-          <feFlood flood-color="black" flood-opacity="0.5" />
+          <feGaussianBlur in="SourceAlpha" stdDeviation="{$shadow-blur}" />
+          <feOffset dx="{$shadow-dx}" dy="{$shadow-dy}" result="offsetblur" />
+          <feFlood flood-color="black" flood-opacity="{$shadow-opacity}" />
           <feComposite in2="offsetblur" operator="in" />
           <feMerge>
             <feMergeNode />

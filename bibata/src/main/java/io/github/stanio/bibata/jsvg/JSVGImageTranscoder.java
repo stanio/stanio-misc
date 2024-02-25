@@ -40,12 +40,50 @@ import com.github.weisj.jsvg.parser.DefaultParserProvider;
 import com.github.weisj.jsvg.parser.StaxSVGLoader;
 import com.github.weisj.jsvg.parser.SynchronousResourceLoader;
 
+import com.jhlabs.image.ShadowFilter;
+
 /**
  * Mimics the (Batik) DynamicImageTranscoder API, partially.
  *
  * @see  io.github.stanio.batik.DynamicImageTranscoder
  */
 public class JSVGImageTranscoder {
+
+    private static class ShadowParams {
+        final boolean useSvg;
+        final float blur;
+        final float dx;
+        final float dy;
+        final float opacity;
+
+        private ShadowParams() {
+            this.useSvg = Boolean.getBoolean("bibata.svgShadow");
+            if (useSvg) {
+                this.blur = getFloat("bibata.shadow.blur", 3);
+                this.dx = getFloat("bibata.shadow.dx", 12);
+                this.dy = getFloat("bibata.shadow.dy", 6);
+                this.opacity = getFloat("bibata.shadow.opacity", 0.5f);
+            } else {
+                this.blur = getFloat("bibata.shadow.blur", 9);
+                this.dx = getFloat("bibata.shadow.dx", 11);
+                this.dy = getFloat("bibata.shadow.dy", -5);
+                this.opacity = getFloat("bibata.shadow.opacity", 0.75f);
+            }
+        }
+
+        private static float getFloat(String name, float defaultValue) {
+            String str = System.getProperty(name);
+            try {
+                return str == null || str.isBlank() ? defaultValue
+                                                    : Float.parseFloat(str);
+            } catch (NumberFormatException e) {
+                System.err.append(name).append(": ").println(e);
+                return defaultValue;
+            }
+        }
+    }
+
+    private static final ShadowParams SHADOW = new ShadowParams();
 
     private Document document;
 
@@ -87,7 +125,7 @@ public class JSVGImageTranscoder {
                 System.err.append("FEATURE_SECURE_PROCESSING not supported: ").println(e);
             }
 
-            if (addDropShadow) {
+            if (addDropShadow && SHADOW.useSvg) {
                 URL transformSheet = JSVGImageTranscoder.class
                         .getResource("/io/github/stanio/bibata/drop-shadow.xsl");
                 if (transformSheet == null) {
@@ -95,6 +133,10 @@ public class JSVGImageTranscoder {
                             + "not found: io/github/stanio/bibata/drop-shadow.xsl");
                 }
                 sourceTransformer = tf.newTransformer(new StreamSource(transformSheet.toString()));
+                sourceTransformer.setParameter("shadow-blur", SHADOW.blur);
+                sourceTransformer.setParameter("shadow-dx", SHADOW.dx);
+                sourceTransformer.setParameter("shadow-dy", SHADOW.dy);
+                sourceTransformer.setParameter("shadow-opacity", SHADOW.opacity);
             } else {
                 sourceTransformer = tf.newTransformer();
             }
@@ -160,6 +202,26 @@ public class JSVGImageTranscoder {
             g.setRenderingHint(SVGRenderingHints.KEY_SOFT_CLIPPING,
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
             svg.render(null, g);
+
+            if (addDropShadow && !SHADOW.useSvg) {
+                g.dispose();
+
+                float vsize;
+                try {
+                    String vbox = document().getDocumentElement().getAttribute("viewBox");
+                    vsize = Float.parseFloat(vbox.replaceFirst(".*?(\\S+)\\s*$", "$1"));
+                } catch (NumberFormatException e) {
+                    System.err.println(e);
+                    vsize = 256;
+                }
+
+                float scale = image.getWidth() / vsize;
+                return new ShadowFilter(SHADOW.blur * scale,
+                                        SHADOW.dx * scale,
+                                        SHADOW.dy * scale,
+                                        SHADOW.opacity)
+                        .filter(image, null);
+            }
             return image;
         } finally {
             g.dispose();
