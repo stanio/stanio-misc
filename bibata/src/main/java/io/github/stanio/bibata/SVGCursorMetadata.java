@@ -349,6 +349,17 @@ public class SVGCursorMetadata {
         return target;
     }
 
+    @Override
+    public String toString() {
+        return "SVGCursorMetadata"
+                + "(sourceFile: " + sourceFile
+                + ", sourceSVG: " + sourceSVG
+                + ", sourceViewBox: " + sourceViewBox
+                + ", hotspot: " + hotspot
+                + ", rootAnchor: " + rootAnchor
+                + ", childAnchors: " + childAnchors + ")";
+    }
+
 
     private class ParseHandler extends DefaultHandler {
 
@@ -389,10 +400,10 @@ public class SVGCursorMetadata {
             if (viewBox.length == 1) return; // empty
 
             try {
-                int x = Integer.parseInt(viewBox[0]);
-                int y = Integer.parseInt(viewBox[1]);
-                int width = Integer.parseInt(viewBox[2]);
-                int height = Integer.parseInt(viewBox[3]);
+                double x = Double.parseDouble(viewBox[0]);
+                double y = Double.parseDouble(viewBox[1]);
+                double width = Double.parseDouble(viewBox[2]);
+                double height = Double.parseDouble(viewBox[3]);
                 sourceViewBox = new Rectangle2D.Double(x, y, width, height);
             } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
                 error(new SAXParseException("Invalid viewBox: " + spec, (Locator) null, e));
