@@ -42,6 +42,8 @@ import com.github.weisj.jsvg.parser.SynchronousResourceLoader;
 
 import com.jhlabs.image.ShadowFilter;
 
+import io.github.stanio.bibata.DropShadow;
+
 /**
  * Mimics the (Batik) DynamicImageTranscoder API, partially.
  *
@@ -49,41 +51,7 @@ import com.jhlabs.image.ShadowFilter;
  */
 public class JSVGImageTranscoder {
 
-    private static class ShadowParams {
-        final boolean useSvg;
-        final float blur;
-        final float dx;
-        final float dy;
-        final float opacity;
-
-        private ShadowParams() {
-            this.useSvg = Boolean.getBoolean("bibata.svgShadow");
-            if (useSvg) {
-                this.blur = getFloat("bibata.shadow.blur", 3);
-                this.dx = getFloat("bibata.shadow.dx", 12);
-                this.dy = getFloat("bibata.shadow.dy", 6);
-                this.opacity = getFloat("bibata.shadow.opacity", 0.5f);
-            } else {
-                this.blur = getFloat("bibata.shadow.blur", 9);
-                this.dx = getFloat("bibata.shadow.dx", 11);
-                this.dy = getFloat("bibata.shadow.dy", -5);
-                this.opacity = getFloat("bibata.shadow.opacity", 0.75f);
-            }
-        }
-
-        private static float getFloat(String name, float defaultValue) {
-            String str = System.getProperty(name);
-            try {
-                return str == null || str.isBlank() ? defaultValue
-                                                    : Float.parseFloat(str);
-            } catch (NumberFormatException e) {
-                System.err.append(name).append(": ").println(e);
-                return defaultValue;
-            }
-        }
-    }
-
-    private static final ShadowParams SHADOW = new ShadowParams();
+    private static final DropShadow SHADOW = DropShadow.instance();
 
     private Document document;
 
@@ -125,14 +93,14 @@ public class JSVGImageTranscoder {
                 System.err.append("FEATURE_SECURE_PROCESSING not supported: ").println(e);
             }
 
-            if (addDropShadow && SHADOW.useSvg) {
+            if (addDropShadow && SHADOW.svg) {
                 URL transformSheet = JSVGImageTranscoder.class
                         .getResource("/io/github/stanio/bibata/drop-shadow.xsl");
                 if (transformSheet == null) {
                     throw new IllegalStateException("Resource "
                             + "not found: io/github/stanio/bibata/drop-shadow.xsl");
                 }
-                sourceTransformer = tf.newTransformer(new StreamSource(transformSheet.toString()));
+                sourceTransformer = tf.newTransformer(new StreamSource(DropShadow.xslt()));
                 sourceTransformer.setParameter("shadow-blur", SHADOW.blur);
                 sourceTransformer.setParameter("shadow-dx", SHADOW.dx);
                 sourceTransformer.setParameter("shadow-dy", SHADOW.dy);
@@ -203,7 +171,7 @@ public class JSVGImageTranscoder {
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
             svg.render(null, g);
 
-            if (addDropShadow && !SHADOW.useSvg) {
+            if (addDropShadow && !SHADOW.svg) {
                 g.dispose();
 
                 float vsize;

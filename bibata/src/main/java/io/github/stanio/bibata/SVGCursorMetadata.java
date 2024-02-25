@@ -86,12 +86,13 @@ public class SVGCursorMetadata {
                                        Pattern.CASE_INSENSITIVE | Pattern.COMMENTS);
     }
 
+    private static final DropShadow SHADOW = DropShadow.instance(true);
+
     private static final ThreadLocal<XMLReader> localReader = new ThreadLocal<>();
-    private static final ThreadLocal<Transformer> identityTransformer =
-            ThreadLocal.withInitial(() -> newTransformer(null));
-    private static final ThreadLocal<Transformer> shadowTransformer =
-            ThreadLocal.withInitial(() -> newTransformer(new StreamSource(
-                    SVGSizing.class.getResource("drop-shadow.xsl").toString())));
+    private static final ThreadLocal<Transformer>
+            identityTransformer = ThreadLocal.withInitial(() -> newTransformer(null));
+    private static final ThreadLocal<Transformer> shadowTransformer = ThreadLocal
+            .withInitial(() -> newTransformer(new StreamSource(DropShadow.xslt())));
 
     private final Path sourceFile;
     private final Document sourceSVG;
@@ -372,10 +373,10 @@ public class SVGCursorMetadata {
         }
         transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
         transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-        transformer.setParameter("shadow-blur", 3);
-        transformer.setParameter("shadow-dx", 12);
-        transformer.setParameter("shadow-dy", 6);
-        transformer.setParameter("shadow-opacity", 0.5);
+        transformer.setParameter("shadow-blur", SHADOW.blur);
+        transformer.setParameter("shadow-dx", SHADOW.dx);
+        transformer.setParameter("shadow-dy", SHADOW.dy);
+        transformer.setParameter("shadow-opacity", SHADOW.opacity);
         return transformer;
     }
 
