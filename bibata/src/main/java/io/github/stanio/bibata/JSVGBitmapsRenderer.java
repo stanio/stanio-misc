@@ -221,6 +221,9 @@ public class JSVGBitmapsRenderer {
         ColorTheme colorTheme = ColorTheme
                 .forDocument(imageTranscoder.loadDocument(svgFile));
 
+        SVGCursorMetadata cursorMetadata =
+                SVGCursorMetadata.read(imageTranscoder.document());
+
         boolean first = true;
         for (ThemeConfig config : renderConfig) {
             if (exclude(config, cursorName))
@@ -231,7 +234,7 @@ public class JSVGBitmapsRenderer {
             System.out.print(Path.of(config.out).getFileName());
 
             colorTheme.apply(config.colors());
-            renderSVG(config, cursorName);
+            renderSVG(config, cursorName, cursorMetadata);
         }
         System.out.println('.');
     }
@@ -243,11 +246,9 @@ public class JSVGBitmapsRenderer {
         return !filter.contains(frameNumSuffix.reset(cursorName).replaceFirst(""));
     }
 
-    private void renderSVG(ThemeConfig config, String cursorName)
+    private void renderSVG(ThemeConfig config, String cursorName, SVGCursorMetadata cursorMetadata)
             throws IOException {
         Path outBase = baseDir.resolve(config.out);
-        SVGCursorMetadata cursorMetadata =
-                SVGCursorMetadata.read(imageTranscoder.document());
         Animation animation = Animation
                 .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
 
