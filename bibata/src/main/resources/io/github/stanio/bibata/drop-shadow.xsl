@@ -10,14 +10,14 @@
   <xsl:param name="shadow-dy" select="6" />
   <xsl:param name="shadow-opacity" select="0.5" />
 
-  <xsl:template match="/svg:svg">
+  <!-- Avoid duplicating previous update -->
+  <xsl:template match="/svg:svg[not(.//*[@id='drop-shadow'])]">
     <xsl:copy>
       <xsl:copy-of select="@*" />
       <xsl:text>&#xA;</xsl:text>
       <!-- https://github.com/weisJ/jsvg/issues/61 -->
       <!-- XXX: https://github.com/weisJ/jsvg/issues/62 -->
       <g filter="url(#drop-shadow)">
-        <xsl:text>&#xA;</xsl:text>
         <xsl:copy-of select="node()" />
       </g>
       <xsl:text>&#xA;</xsl:text>
@@ -36,6 +36,13 @@
         </filter>
       </defs>
       <xsl:text>&#xA;</xsl:text>
+    </xsl:copy>
+  </xsl:template>
+
+  <!-- Fall back to identity copy -->
+  <xsl:template match="@*|node()">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()"/>
     </xsl:copy>
   </xsl:template>
 

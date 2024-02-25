@@ -15,6 +15,8 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +67,7 @@ public class SVGSizing {
     private int viewBoxSize;
     private Path hotspotsFile;
     private Map<String, Map<Integer, String>> adjustedHotspots;
+    private boolean pointerShadow;
 
     SVGSizing(int viewBoxSize) {
         this(viewBoxSize, Path.of("cursor-hotspots-" + viewBoxSize + ".json"));
@@ -73,6 +76,11 @@ public class SVGSizing {
     SVGSizing(int viewBoxSize, Path hotspotsFile) {
         this.viewBoxSize = viewBoxSize;
         this.hotspotsFile = hotspotsFile;
+    }
+
+    SVGSizing withPointerShadow(boolean shadow) {
+        this.pointerShadow = shadow;
+        return this;
     }
 
     private Map<String, Map<Integer, String>>
@@ -117,6 +125,7 @@ public class SVGSizing {
 
     private void updateSVG(Path svg, int targetSize) throws IOException {
         SVGCursorMetadata metadata = SVGCursorMetadata.read(svg);
+        metadata.addDropShadow(pointerShadow);
         String cursorName = svg.getFileName().toString().replaceFirst("\\.svg$", "");
         apply(cursorName, metadata, targetSize);
     }
@@ -160,21 +169,24 @@ public class SVGSizing {
             int targetSize;
             int viewBoxSize;
             Path path;
+            boolean pointerShadow;
 
             CommandArgs(String[] args) {
-                List<String> argList = List.of(args);
+                List<String> argList = new ArrayList<>(Arrays.asList(args));
                 if (argList.contains("-h") || argList.contains("--help")) {
                     exitWithHelp(0);
                 }
 
-                if (args.length != 3) {
+                pointerShadow = argList.remove("--pointer-shadow");
+
+                if (argList.size() != 3) {
                     exitWithHelp(1);
                 }
 
                 try {
-                    targetSize = Integer.parseInt(args[0]);
-                    viewBoxSize = Integer.parseInt(args[1]);
-                    path = Path.of(args[2]);
+                    targetSize = Integer.parseInt(argList.get(0));
+                    viewBoxSize = Integer.parseInt(argList.get(1));
+                    path = Path.of(argList.get(2));
                 } catch (NumberFormatException | InvalidPathException e) {
                     exitWithHelp(2, "Error: ", e);
                 }
@@ -184,6 +196,7 @@ public class SVGSizing {
         CommandArgs cmdArgs = new CommandArgs(args);
         try {
             new SVGSizing(cmdArgs.viewBoxSize)
+                    .withPointerShadow(cmdArgs.pointerShadow)
                     .update(cmdArgs.path, cmdArgs.targetSize);
         } catch (IOException | JsonParseException | SAXException e) {
             exitMessage(3, "Error: ", e);

@@ -25,6 +25,7 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -33,6 +34,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
 import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
@@ -85,7 +87,11 @@ public class SVGCursorMetadata {
     }
 
     private static final ThreadLocal<XMLReader> localReader = new ThreadLocal<>();
-    private static final ThreadLocal<Transformer> localTransformer = new ThreadLocal<>();
+    private static final ThreadLocal<Transformer> identityTransformer =
+            ThreadLocal.withInitial(() -> newTransformer(null));
+    private static final ThreadLocal<Transformer> shadowTransformer =
+            ThreadLocal.withInitial(() -> newTransformer(new StreamSource(
+                    SVGSizing.class.getResource("drop-shadow.xsl").toString())));
 
     private final Path sourceFile;
     private final Document sourceSVG;
@@ -93,6 +99,8 @@ public class SVGCursorMetadata {
     private Point2D hotspot;
     private Point2D rootAnchor;
     private Map<ElementPath, Point2D> childAnchors;
+    private boolean addDropShadow;
+    private boolean hasShadowFilter;
 
     private SVGCursorMetadata(Path file, Document svg) {
         sourceFile = file;
@@ -106,6 +114,7 @@ public class SVGCursorMetadata {
         XMLReader xmlReader = localReader.get();
         if (xmlReader == null) {
             SAXParserFactory spf = SAXParserFactory.newInstance();
+            spf.setNamespaceAware(true);
             try {
                 spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
                 xmlReader = spf.newSAXParser().getXMLReader();
@@ -120,6 +129,8 @@ public class SVGCursorMetadata {
                 throw new IllegalStateException(e);
             }
             localReader.set(xmlReader);
+        } else {
+            unsetHandlers(xmlReader);
         }
 
         ParseHandler handler = new ParseHandler();
@@ -127,6 +138,24 @@ public class SVGCursorMetadata {
         xmlReader.setEntityResolver(handler);
         xmlReader.setErrorHandler(handler);
         return xmlReader;
+    }
+
+    private static void unsetHandlers(XMLReader xmlReader) {
+        xmlReader.setEntityResolver(null);
+        xmlReader.setContentHandler(null);
+        xmlReader.setErrorHandler(null);
+        // The transformer may set any of these and does set the lexical-handler.
+        // Unset them so they don't accidentally kick in when the xmlReader gets
+        // reused (w/o reseting them explicitly).
+        xmlReader.setDTDHandler(null);
+        try {
+            xmlReader.setProperty("http://xml.org/sax/properties/"
+                                  + "lexical-handler", null);
+            xmlReader.setProperty("http://xml.org/sax/properties/"
+                                  + "declaration-handler", null);
+        } catch (SAXException e) {
+            System.err.println(e);
+        }
     }
 
     /**
@@ -152,7 +181,7 @@ public class SVGCursorMetadata {
      */
     public static SVGCursorMetadata read(Document svg) {
         SVGCursorMetadata extractor = new SVGCursorMetadata(null, svg);
-        Transformer identityTransformer = extractor.getTransformer();
+        Transformer identityTransformer = extractor.getTransformer(false);
         try {
             identityTransformer.transform(new DOMSource(svg),
                     new SAXResult(extractor.new ParseHandler()));
@@ -190,6 +219,10 @@ public class SVGCursorMetadata {
         return Collections.unmodifiableMap(childAnchors);
     }
 
+    void addDropShadow(boolean add) {
+        this.addDropShadow = add;
+    }
+
     /**
      * Applies specified sizing, and updates offsets to align anchors to the
      * target pixel grid, to the source this metadata has been initialized from:
@@ -224,18 +257,12 @@ public class SVGCursorMetadata {
             Path tempFile = Files.createTempFile(resolvedSource.getParent(),
                     svgFile.getFileName() + "-", null);
 
+            UpdateFilter filter = UpdateFilter.withParent(getXMLReader(),
+                    targetSize, viewBoxSize, viewBoxOrigin, childOffsets);
             try (OutputStream fileOut = Files.newOutputStream(tempFile)) {
-                UpdateFilter filter = UpdateFilter.withParent(getXMLReader(),
-                        targetSize, viewBoxSize, viewBoxOrigin, childOffsets);
                 InputSource input = new InputSource(svgFile.toUri().toString());
-                getTransformer().transform(new SAXSource(filter, input),
-                                           new StreamResult(fileOut));
-                {
-                    XMLReader xmlReader = filter.getParent();
-                    xmlReader.setEntityResolver(null);
-                    xmlReader.setContentHandler(null);
-                    xmlReader.setErrorHandler(null);
-                }
+                getTransformer(true).transform(new SAXSource(filter, input),
+                                               new StreamResult(fileOut));
                 fileOut.write('\n');
             } catch (TransformerException e) {
                 Throwable cause = e.getCause();
@@ -243,6 +270,8 @@ public class SVGCursorMetadata {
                     throw (IOException) cause;
                 }
                 throw new IOException(e);
+            } finally {
+                unsetHandlers(filter.getParent());
             }
             try {
                 Files.move(tempFile, resolvedSource, StandardCopyOption.ATOMIC_MOVE);
@@ -325,19 +354,28 @@ public class SVGCursorMetadata {
         return alignedHotspot;
     }
 
-    private Transformer getTransformer() {
-        Transformer transformer = localTransformer.get();
-        if (transformer == null) {
+    private Transformer getTransformer(boolean forUpdate) {
+        return forUpdate & (addDropShadow ^ hasShadowFilter)
+                ? shadowTransformer.get()
+                : identityTransformer.get();
+    }
+
+    private static Transformer newTransformer(Source sheet) {
+        Transformer transformer;
+        try {
             TransformerFactory tf = TransformerFactory.newInstance();
-            try {
-                tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                transformer = tf.newTransformer();
-            } catch (TransformerConfigurationException e) {
-                throw new IllegalStateException(e);
-            }
-            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            transformer = (sheet == null) ? tf.newTransformer()
+                                          : tf.newTransformer(sheet);
+        } catch (TransformerConfigurationException e) {
+            throw new IllegalStateException(e);
         }
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        transformer.setParameter("shadow-blur", 3);
+        transformer.setParameter("shadow-dx", 12);
+        transformer.setParameter("shadow-dy", 6);
+        transformer.setParameter("shadow-opacity", 0.5);
         return transformer;
     }
 
@@ -382,6 +420,8 @@ public class SVGCursorMetadata {
                     && qname.equals("path")) {
                 childAnchors.put(contentStack.currentPath().parent(),
                         parseAnchor(attributes.getValue("d")));
+            } else if ("drop-shadow".equals(id)) {
+                hasShadowFilter = true;
             }
         }
 
