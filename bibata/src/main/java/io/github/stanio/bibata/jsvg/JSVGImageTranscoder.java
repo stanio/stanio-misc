@@ -7,21 +7,22 @@ package io.github.stanio.bibata.jsvg;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.StringReader;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Objects;
 
 import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.XMLStreamException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMResult;
+import javax.xml.transform.stream.StreamSource;
 
 import org.w3c.dom.Document;
-
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
 
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -48,9 +49,15 @@ public class JSVGImageTranscoder {
 
     private Document document;
 
-    private DocumentBuilder domBuilder;
+    private boolean addDropShadow;
+    private Transformer sourceTransformer;
     private StaxSVGLoader svgLoader;
     private ImageWriter pngWriter;
+
+    public void addDropShadow(boolean addDropShadow) {
+        this.addDropShadow = addDropShadow;
+        sourceTransformer = null;
+    }
 
     public Document document() {
         return document;
@@ -68,26 +75,44 @@ public class JSVGImageTranscoder {
         return this;
     }
 
-    private DocumentBuilder documentBuilder() {
-        if (domBuilder == null) {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setNamespaceAware(true);
+    private Transformer sourceTransformer() throws TransformerConfigurationException {
+        if (sourceTransformer != null)
+            return sourceTransformer;
+
+        try {
+            TransformerFactory tf = TransformerFactory.newInstance();
             try {
-                dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                domBuilder = dbf.newDocumentBuilder();
-                domBuilder.setEntityResolver(
-                        (publicId, systemId) -> new InputSource(new StringReader("")));
-            } catch (ParserConfigurationException e) {
-                throw new IllegalStateException(e);
+                tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            } catch (TransformerConfigurationException e) {
+                System.err.append("FEATURE_SECURE_PROCESSING not supported: ").println(e);
             }
+
+            if (addDropShadow) {
+                URL transformSheet = JSVGImageTranscoder.class
+                        .getResource("/io/github/stanio/bibata/drop-shadow.xsl");
+                if (transformSheet == null) {
+                    throw new IllegalStateException("Resource "
+                            + "not found: io/github/stanio/bibata/drop-shadow.xsl");
+                }
+                sourceTransformer = tf.newTransformer(new StreamSource(transformSheet.toString()));
+            } else {
+                sourceTransformer = tf.newTransformer();
+            }
+            return sourceTransformer;
+
+        } catch (TransformerConfigurationException e) {
+            throw new IllegalStateException(e);
         }
-        return domBuilder;
     }
 
     public Document loadDocument(Path file) throws IOException {
         try {
-            return document = documentBuilder().parse(file.toFile());
-        } catch (SAXException e) {
+            DOMResult result = new DOMResult();
+            sourceTransformer().transform(new StreamSource(file.toFile()), result);
+            return document = (Document) Objects.requireNonNull(result.getNode());
+        } catch (TransformerConfigurationException e) {
+            throw new IllegalStateException(e);
+        } catch (TransformerException e) {
             Throwable cause = e.getCause();
             if (cause instanceof IOException) {
                 throw (IOException) cause;
@@ -128,6 +153,10 @@ public class JSVGImageTranscoder {
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                                RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL,
+                               RenderingHints.VALUE_STROKE_PURE);
+            g.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION,
+                               RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
             g.setRenderingHint(SVGRenderingHints.KEY_SOFT_CLIPPING,
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
             svg.render(null, g);

@@ -111,6 +111,11 @@ public class JSVGBitmapsRenderer {
         return this;
     }
 
+    public JSVGBitmapsRenderer withPointerShadow(boolean addShadows) {
+        imageTranscoder.addDropShadow(addShadows);
+        return this;
+    }
+
     public JSVGBitmapsRenderer filterCursors(String... names) {
         return filterCursors(Arrays.asList(names));
     }
@@ -376,6 +381,7 @@ public class JSVGBitmapsRenderer {
             JSVGBitmapsRenderer.forBaseDir(configFile.getParent())
                     .withSizes(cmdArgs.sizes)
                     .withResolutions(cmdArgs.resolutions)
+                    .withPointerShadow(cmdArgs.pointerShadow)
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.createCursors)
                     .render(renderConfig);
@@ -426,6 +432,7 @@ public class JSVGBitmapsRenderer {
         final Set<SizeScheme> sizes = new LinkedHashSet<>(2);
         final Set<String> cursorFilter = new LinkedHashSet<>();
         boolean createCursors;
+        boolean pointerShadow;
 
         CommandArgs(String... args) {
             Runnable standardSizes = () -> {
@@ -460,6 +467,7 @@ public class JSVGBitmapsRenderer {
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> createCursors = true)
                     .acceptFlag("--standard-sizes", standardSizes)
+                    .acceptFlag("--pointer-shadow", () -> pointerShadow = true)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
@@ -470,6 +478,7 @@ public class JSVGBitmapsRenderer {
 
         public static void printHelp(PrintStream out) {
             out.println("USAGE: render [<base-path>]"
+                    + " [--pointer-shadow]"
                     + " [--standard-sizes] [--windows-cursors]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]...");
