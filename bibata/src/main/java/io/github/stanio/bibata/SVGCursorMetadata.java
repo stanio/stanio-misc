@@ -220,7 +220,8 @@ public class SVGCursorMetadata {
     Point applySizing(Path svgFile, int targetSize, int viewBoxSize)
             throws IOException {
         return updateOffsets(targetSize, viewBoxSize, (viewBoxOrigin, childOffsets) -> {
-            Path tempFile = Files.createTempFile(resolveParent(svgFile),
+            Path resolvedSource = resolveLinks(sourceFile);
+            Path tempFile = Files.createTempFile(resolvedSource.getParent(),
                     svgFile.getFileName() + "-", null);
 
             try (OutputStream fileOut = Files.newOutputStream(tempFile)) {
@@ -244,10 +245,10 @@ public class SVGCursorMetadata {
                 throw new IOException(e);
             }
             try {
-                Files.move(tempFile, sourceFile, StandardCopyOption.ATOMIC_MOVE);
+                Files.move(tempFile, resolvedSource, StandardCopyOption.ATOMIC_MOVE);
             } catch (FileAlreadyExistsException | AtomicMoveNotSupportedException e) {
                 System.err.println(e);
-                Files.move(tempFile, sourceFile, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tempFile, resolvedSource, StandardCopyOption.REPLACE_EXISTING);
             }
         });
     }
@@ -340,14 +341,12 @@ public class SVGCursorMetadata {
         return transformer;
     }
 
-    private static Path resolveParent(Path path) throws IOException {
+    private static Path resolveLinks(Path path) throws IOException {
         Path target = path;
         while (Files.isSymbolicLink(target)) {
             target = target.resolveSibling(Files.readSymbolicLink(target));
         }
-        Path parent = target.getParent();
-        return (parent == null) ? target.getFileSystem().getPath("")
-                                : parent;
+        return target;
     }
 
 
