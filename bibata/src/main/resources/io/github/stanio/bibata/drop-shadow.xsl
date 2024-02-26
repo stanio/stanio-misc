@@ -14,17 +14,12 @@
   <xsl:template match="/svg:svg[not(.//*[@id='drop-shadow'])]">
     <xsl:copy>
       <xsl:copy-of select="@*" />
-      <xsl:text>&#xA;</xsl:text>
-      <!-- https://github.com/weisJ/jsvg/issues/61 -->
-      <!-- XXX: https://github.com/weisJ/jsvg/issues/62 -->
-      <g filter="url(#drop-shadow)">
-        <xsl:copy-of select="node()" />
-      </g>
-      <xsl:text>&#xA;</xsl:text>
+      <xsl:attribute name="filter">url(#drop-shadow)</xsl:attribute>
+      <xsl:copy-of select="node()" />
       <defs>
-        <!-- https://www.w3.org/TR/filter-effects-1/#feDropShadowElement -->
-        <!-- https://drafts.fxtf.org/filter-effects/#feDropShadowElement -->
         <filter id="drop-shadow" filterUnits="userSpaceOnUse">
+          <xsl:comment> https://www.w3.org/TR/filter-effects-1/#feDropShadowElement </xsl:comment>
+          <!-- https://drafts.fxtf.org/filter-effects/#feDropShadowElement -->
           <feGaussianBlur in="SourceAlpha" stdDeviation="{$shadow-blur}" />
           <feOffset dx="{$shadow-dx}" dy="{$shadow-dy}" result="offsetblur" />
           <feFlood flood-color="black" flood-opacity="{$shadow-opacity}" />

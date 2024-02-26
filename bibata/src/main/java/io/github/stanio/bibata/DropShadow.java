@@ -9,11 +9,13 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Locale;
 
 public class DropShadow {
 
     private static final DropShadow SVG = new DropShadow(true, 3, 12, 6, 0.5f);
-    private static final DropShadow BMP = new DropShadow(false, 9, 11, -5, 0.75f);
+    private static final DropShadow BMP = new DropShadow(false, 6, 18, -9, 0.7f);
 
     public final boolean svg;
     public final float blur;
@@ -34,7 +36,15 @@ public class DropShadow {
     }
 
     public static DropShadow instance() {
-        return instance(Boolean.getBoolean("bibata.shadow.svg"));
+        return instance(getBoolean("bibata.shadow.svg", true));
+    }
+
+    private static boolean getBoolean(String name, boolean defaultValue) {
+        String str = System.getProperty(name);
+        return (str != null)
+                ? !Arrays.asList("f", "false", "n", "no", "0", "off", "[]")
+                        .contains(str.trim().toLowerCase(Locale.ROOT))
+                : defaultValue;
     }
 
     public static DropShadow instance(boolean svg) {
