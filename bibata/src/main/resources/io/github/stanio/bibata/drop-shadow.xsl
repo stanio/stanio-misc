@@ -10,31 +10,46 @@
   <xsl:param name="shadow-dy" select="6" />
   <xsl:param name="shadow-opacity" select="0.5" />
 
-  <!-- Avoid duplicating previous update -->
-  <xsl:template match="/svg:svg[not(.//*[@id='drop-shadow'])]">
+  <xsl:template match="/svg:svg">
     <xsl:copy>
       <xsl:copy-of select="@*" />
       <xsl:attribute name="filter">url(#drop-shadow)</xsl:attribute>
-      <xsl:copy-of select="node()" />
-      <defs>
-        <filter id="drop-shadow" filterUnits="userSpaceOnUse">
-          <xsl:comment> https://www.w3.org/TR/filter-effects-1/#feDropShadowElement </xsl:comment>
-          <!-- https://drafts.fxtf.org/filter-effects/#feDropShadowElement -->
-          <feGaussianBlur in="SourceAlpha" stdDeviation="{$shadow-blur}" />
-          <feOffset dx="{$shadow-dx}" dy="{$shadow-dy}" result="offsetblur" />
-          <feFlood flood-color="black" flood-opacity="{$shadow-opacity}" />
-          <feComposite in2="offsetblur" operator="in" />
-          <feMerge>
-            <feMergeNode />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      <xsl:text>&#xA;</xsl:text>
+      <xsl:apply-templates />
+      <xsl:if test="not(.//*[@id='drop-shadow'])">
+        <!-- Insert new -->
+        <defs>
+          <filter id="drop-shadow" filterUnits="userSpaceOnUse">
+            <xsl:call-template name="drop-shadow" />
+          </filter>
+        </defs>
+        <xsl:text>&#xA;</xsl:text>
+      </xsl:if>
     </xsl:copy>
   </xsl:template>
 
-  <!-- Fall back to identity copy -->
+  <!-- Update existing -->
+  <xsl:template match="svg:filter[@id='drop-shadow']">
+    <xsl:copy>
+      <xsl:attribute name="id">drop-shadow</xsl:attribute>
+      <xsl:attribute name="filterUnits">userSpaceOnUse</xsl:attribute>
+      <xsl:call-template name="drop-shadow" />
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template name="drop-shadow">
+    <xsl:comment> https://www.w3.org/TR/filter-effects-1/#feDropShadowElement </xsl:comment>
+    <!-- https://drafts.fxtf.org/filter-effects/#feDropShadowElement -->
+    <feGaussianBlur in="SourceAlpha" stdDeviation="{$shadow-blur}" />
+    <feOffset dx="{$shadow-dx}" dy="{$shadow-dy}" result="offsetblur" />
+    <feFlood flood-color="black" flood-opacity="{$shadow-opacity}" />
+    <feComposite in2="offsetblur" operator="in" />
+    <feMerge>
+      <feMergeNode />
+      <feMergeNode in="SourceGraphic" />
+    </feMerge>
+  </xsl:template>
+
+  <!-- Identity copy -->
   <xsl:template match="@*|node()">
     <xsl:copy>
       <xsl:apply-templates select="@*|node()"/>

@@ -101,7 +101,6 @@ public class SVGCursorMetadata {
     private Point2D rootAnchor;
     private Map<ElementPath, Point2D> childAnchors;
     private boolean addDropShadow;
-    private boolean hasShadowFilter;
 
     private SVGCursorMetadata(Path file, Document svg) {
         sourceFile = file;
@@ -356,7 +355,7 @@ public class SVGCursorMetadata {
     }
 
     private Transformer getTransformer(boolean forUpdate) {
-        return forUpdate & (addDropShadow ^ hasShadowFilter)
+        return forUpdate && addDropShadow
                 ? shadowTransformer.get()
                 : identityTransformer.get();
     }
@@ -421,8 +420,6 @@ public class SVGCursorMetadata {
                     && qname.equals("path")) {
                 childAnchors.put(contentStack.currentPath().parent(),
                         parseAnchor(attributes.getValue("d")));
-            } else if ("drop-shadow".equals(id)) {
-                hasShadowFilter = true;
             }
         }
 
