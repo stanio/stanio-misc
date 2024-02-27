@@ -28,7 +28,7 @@ interface DOMInput {
     }
 
     static StaxSVGLoader newSVGLoader() {
-        return DOMSourceSVGLoaderFactory.newSVGLoader();
+        return DOMSourceInputFactory.newSVGLoader();
     }
 
 }

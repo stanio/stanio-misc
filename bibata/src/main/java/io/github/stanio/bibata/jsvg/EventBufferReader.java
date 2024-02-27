@@ -5,17 +5,27 @@
 package io.github.stanio.bibata.jsvg;
 
 import java.util.Iterator;
+
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.XMLEvent;
 
+import org.w3c.dom.Document;
+
+/**
+ * @see  EventBufferWriter
+ */
 class EventBufferReader implements XMLEventReader {
 
     private Iterator<XMLEvent> events;
     private XMLEvent nextEvent;
 
-    public EventBufferReader(Iterator<XMLEvent> events) {
+    EventBufferReader(Iterator<XMLEvent> events) {
         this.events = events;
+    }
+
+    public static EventBufferReader forDocument(Document document) {
+        return new EventBufferReader(EventBufferWriter.eventIterator(document));
     }
 
     @Override
