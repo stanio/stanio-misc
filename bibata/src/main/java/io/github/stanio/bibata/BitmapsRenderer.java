@@ -202,7 +202,7 @@ public class BitmapsRenderer {
         ColorTheme colorTheme = imageTranscoder
                 //.withDynamicContext(Animation.lookUp(cursorName) != null)
                 .loadDocument(fileInput(svgFile))
-                .fromContext(ctx -> ColorTheme.forDocument(ctx.getDocument()));
+                .fromDocument(svg -> ColorTheme.forDocument(svg));
 
         boolean first = true;
         for (ThemeConfig config : renderConfig) {
@@ -213,8 +213,8 @@ public class BitmapsRenderer {
             else System.out.print(";\n\t");
             System.out.print(Path.of(config.out).getFileName());
 
-            imageTranscoder.updateContext(
-                    ctx -> colorTheme.apply(config.colors()));
+            imageTranscoder.updateDocument(
+                    svg -> colorTheme.apply(config.colors()));
             renderSVG(config, cursorName);
         }
         System.out.println('.');
@@ -230,10 +230,10 @@ public class BitmapsRenderer {
     private void renderSVG(ThemeConfig config, String cursorName)
             throws IOException, TranscoderException {
         Path outBase = baseDir.resolve(config.out);
-        String originalViewBox = imageTranscoder.fromContext(ctx ->
-                ctx.getDocument().getDocumentElement().getAttribute("viewBox"));
-        Point2D hotspot = imageTranscoder.fromContext(ctx -> {
-            Element hs = ctx.getDocument().getElementById("cursor-hotspot");
+        String originalViewBox = imageTranscoder.fromDocument(svg ->
+                svg.getDocumentElement().getAttribute("viewBox"));
+        Point2D hotspot = imageTranscoder.fromDocument(svg -> {
+            Element hs = svg.getElementById("cursor-hotspot");
             if (hs == null) return new Point2D.Float(127, 128);
             return new Point2D.Float(Float.parseFloat(hs.getAttribute("cx")),
                                      Float.parseFloat(hs.getAttribute("cy")));
@@ -255,8 +255,8 @@ public class BitmapsRenderer {
             } else {
                 outDir = outBase.resolveSibling(
                         outBase.getFileName() + "-" + scheme.name);
-                imageTranscoder.updateContext(ctx -> resizeViewBox(ctx
-                        .getDocument().getDocumentElement(), scheme.canvasSize));
+                imageTranscoder.updateDocument(svg -> resizeViewBox(svg
+                        .getDocumentElement(), scheme.canvasSize));
             }
             Files.createDirectories(outDir);
 
@@ -268,7 +268,7 @@ public class BitmapsRenderer {
                     continue;
 
                 Point2D pixelAlign = imageTranscoder
-                        .fromContext(ctx -> alignToGrid(ctx.getDocument(), res));
+                        .fromDocument(svg -> alignToGrid(svg, res));
 
                 String fileName;
                 Point hs = new Point();
@@ -295,7 +295,7 @@ public class BitmapsRenderer {
                             animation.frameRate, outDir.resolve(cursorName), nameFormat, hs);
                 }
             }
-            imageTranscoder.updateContext(ctx -> ctx.getDocument()
+            imageTranscoder.updateDocument(svg -> svg
                     .getDocumentElement().setAttribute("viewBox", originalViewBox));
 
             if (createCursors) {

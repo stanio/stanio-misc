@@ -507,11 +507,23 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
     }
 
     public DynamicImageTranscoder
+            updateDocument(Consumer<? super Document> update) {
+        return fromContext(ctx -> {
+            update.accept(ctx.getDocument());
+            return this;
+        });
+    }
+
+    public DynamicImageTranscoder
             updateContext(Consumer<? super BridgeContext> update) {
         return fromContext(ctx -> {
             update.accept(ctx);
             return this;
         });
+    }
+
+    public <T> T fromDocument(Function<? super Document, ? extends T> func) {
+        return fromContext(ctx -> func.apply(ctx.getDocument()));
     }
 
     public <T> T fromContext(Function<? super BridgeContext, ? extends T> func) {
