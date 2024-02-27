@@ -29,6 +29,7 @@ import org.w3c.dom.Element;
 import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.Paint;
+import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
@@ -134,7 +135,7 @@ import org.apache.batik.transcoder.image.ImageTranscoder;
  * <p>
  * The output dimensions remain the same:</p>
  * <pre>
- * <code>         transcoder.loadDocument(fileInput("static.svg"));
+ * <code>        transcoder.loadDocument(fileInput("static.svg"));
  *
  *         int variant = 1;
  *         for (int size : new int[] { 200, 300, 400 }) {
@@ -499,6 +500,8 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
         ImageRendererFactory factory = new ConcreteImageRendererFactory();
         ImageRenderer renderer = factory.createDynamicImageRenderer();
         renderer.setDoubleBuffered(false);
+        renderer.getRenderingHints().put(RenderingHints.KEY_STROKE_CONTROL,
+                                         RenderingHints.VALUE_STROKE_PURE);
         //savedRoot = root;
         return renderer;
     }
