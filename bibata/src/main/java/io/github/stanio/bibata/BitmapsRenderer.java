@@ -8,14 +8,14 @@ import static io.github.stanio.batik.DynamicImageTranscoder.fileInput;
 import static io.github.stanio.batik.DynamicImageTranscoder.fileOutput;
 import static io.github.stanio.bibata.Command.endsWithIgnoreCase;
 import static io.github.stanio.bibata.Command.exitMessage;
-import static io.github.stanio.bibata.SVGCursorMetadata.ANCHOR_POINT;
-import static io.github.stanio.cli.CommandLine.stripString;
+import static io.github.stanio.cli.CommandLine.splitOnComma;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
@@ -24,6 +24,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -33,17 +36,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.w3c.dom.DOMException;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-
-import java.awt.Dimension;
 import java.awt.Point;
-import java.awt.geom.Point2D;
 
 import org.apache.batik.transcoder.TranscoderException;
 import org.apache.batik.transcoder.TranscoderOutput;
@@ -72,9 +71,8 @@ import io.github.stanio.bibata.ThemeConfig.SizeScheme;
  * @see  <a href="https://xmlgraphics.apache.org/batik/">Apache Batik SVG Toolkit</a>
  * @see  DynamicImageTranscoder
  *
- * @deprecated  In favor of {@link JSVGBitmapsRenderer}.
+ * $deprecated  In favor of {@link JSVGBitmapsRenderer}.
  */
-@Deprecated
 public class BitmapsRenderer {
     /* REVISIT: Try extracting DynamicImageTranscoder, renderStatic, and
      * renderAnimation into a separate module.  This class implementation
@@ -147,10 +145,21 @@ public class BitmapsRenderer {
         return Objects.requireNonNullElse(config.resolutions, resolutions);
     }
 
+    private Map<Path, SVGSizing> svgSizingPool = new HashMap<>();
+
     public void render(ThemeConfig... config)
             throws IOException, TranscoderException {
-        for (var entry : groupByDir(config).entrySet()) {
-            renderDir(entry.getKey(), entry.getValue());
+        svgSizingPool.clear();
+        try {
+            for (var entry : groupByDir(config).entrySet()) {
+                renderDir(entry.getKey(), entry.getValue());
+            }
+        } finally {
+            if (createCursors) return;
+
+            for (SVGSizing sizing : svgSizingPool.values()) {
+                sizing.saveHotspots();
+            }
         }
     }
 
@@ -159,14 +168,23 @@ public class BitmapsRenderer {
         return Stream.of(config)
                 .collect(Collectors.toMap(ThemeConfig::dir,
                                           Arrays::asList,
-                                          ThemeConfig::concat));
+                                          ThemeConfig::concat,
+                                          LinkedHashMap::new));
     }
 
     private void renderDir(String svgDir, Collection<ThemeConfig> config)
             throws IOException, TranscoderException {
+        deferredFrames.clear();
         try (Stream<Path> svgStream = listSVGFiles(svgDir, config)) {
             for (Path svg : (Iterable<Path>) svgStream::iterator) {
                 renderSVG(svg, config);
+            }
+        }
+        if (createCursors) {
+            for (var entry : deferredFrames.entrySet()) {
+                String cursorName = entry.getKey().getFileName().toString();
+                saveCursor(entry.getKey().getParent(), cursorName,
+                        Animation.lookUp(cursorName), entry.getValue());
             }
         }
     }
@@ -181,28 +199,39 @@ public class BitmapsRenderer {
             return listSVGFiles(svgDir);
         }
 
-        Collection<String> names = new LinkedHashSet<>(cursorFilter);
+        Collection<String> names = new HashSet<>(cursorFilter);
         configs.stream().map(ThemeConfig::cursors)
                         .flatMap(Collection::stream)
                         .forEach(names::add);
-        return names.stream().map(cname -> svgDir.resolve(cname + ".svg"))
-                             .filter(path -> {
-            if (Files.isRegularFile(path)) return true;
-            System.err.println(path.getFileName() + ": does not exist");
-            return false;
-        });
+        return listSVGFiles(svgDir).filter(file ->
+                names.contains(cursorName(file.getFileName().toString(), true)));
+    }
+
+    private final Matcher svgExt = Pattern.compile("(?i)\\.svg$").matcher("");
+    private final Matcher frameNumSvgExt = Pattern.compile("(?i)(?:-\\d{2,3})?\\.svg$").matcher("");
+    private final Matcher frameNumSuffix = Pattern.compile("-(\\d{2,3})$").matcher("");
+
+    private String cursorName(String fileName, boolean stripFrameNum) {
+        Matcher regex = stripFrameNum ? frameNumSvgExt : svgExt;
+        return regex.reset(fileName).replaceFirst("");
+    }
+
+    private String cursorName(Path file) {
+        return cursorName(file.getFileName().toString(), false);
     }
 
     private void renderSVG(Path svgFile, Collection<ThemeConfig> renderConfig)
             throws IOException, TranscoderException {
-        String cursorName = svgFile.getFileName().toString()
-                                   .replaceFirst("(?i)\\.svg$", "");
+        String cursorName = cursorName(svgFile);
         System.out.append(cursorName).append(": ");
 
         ColorTheme colorTheme = imageTranscoder
                 //.withDynamicContext(Animation.lookUp(cursorName) != null)
                 .loadDocument(fileInput(svgFile))
                 .fromDocument(svg -> ColorTheme.forDocument(svg));
+
+        SVGCursorMetadata cursorMetadata = imageTranscoder
+                .fromDocument(svg -> SVGCursorMetadata.read(svg));
 
         boolean first = true;
         for (ThemeConfig config : renderConfig) {
@@ -215,7 +244,7 @@ public class BitmapsRenderer {
 
             imageTranscoder.updateDocument(
                     svg -> colorTheme.apply(config.colors()));
-            renderSVG(config, cursorName);
+            renderSVG(config, cursorName, cursorMetadata);
         }
         System.out.println('.');
     }
@@ -224,22 +253,20 @@ public class BitmapsRenderer {
         Set<String> filter = config.cursors();
         if (filter.isEmpty()) filter = cursorFilter;
         if (filter.isEmpty()) return false;
-        return !filter.contains(cursorName);
+        return !filter.contains(frameNumSuffix.reset(cursorName).replaceFirst(""));
     }
 
-    private void renderSVG(ThemeConfig config, String cursorName)
+    private void renderSVG(ThemeConfig config, String cursorName, SVGCursorMetadata cursorMetadata)
             throws IOException, TranscoderException {
         Path outBase = baseDir.resolve(config.out);
-        String originalViewBox = imageTranscoder.fromDocument(svg ->
-                svg.getDocumentElement().getAttribute("viewBox"));
-        Point2D hotspot = imageTranscoder.fromDocument(svg -> {
-            Element hs = svg.getElementById("cursor-hotspot");
-            if (hs == null) return new Point2D.Float(127, 128);
-            return new Point2D.Float(Float.parseFloat(hs.getAttribute("cx")),
-                                     Float.parseFloat(hs.getAttribute("cy")));
-        });
-        double hotspotRoundX = (hotspot.getX() < 128) ? 0.25 : 0;
-        double hotspotRoundY = (hotspot.getY() < 128) ? 0.25 : 0;
+        Animation animation = Animation
+                .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
+
+        Integer frameNum = staticFrame;
+        if (animation != null
+                && frameNumSuffix.reset(cursorName).find()) {
+            frameNum = Integer.valueOf(frameNumSuffix.group(1));
+        }
 
         boolean first = true;
         for (SizeScheme scheme : sizes(config)) {
@@ -255,117 +282,76 @@ public class BitmapsRenderer {
             } else {
                 outDir = outBase.resolveSibling(
                         outBase.getFileName() + "-" + scheme.name);
-                imageTranscoder.updateDocument(svg -> resizeViewBox(svg
-                        .getDocumentElement(), scheme.canvasSize));
+            }
+
+            int viewBoxSize = (int) Math.round(256 * scheme.canvasSize);
+            SVGSizing svgSizing = svgSizingPool.computeIfAbsent(outDir, dir ->
+                    new SVGSizing(viewBoxSize, dir.resolve("cursor-hotspots.json")));
+
+            NavigableMap<Integer, Cursor> frames = immediateFrames;
+            // These should be cleared already during saveCursor()
+            (currentFrames = frames).clear();
+            if (animation != null) {
+                Path animDir = outDir.resolve(animation.lowerName);
+                if (!createCursors) {
+                    // Place individual frame bitmaps in a subdirectory.
+                    outDir = animDir;
+                } else if (frameNum != staticFrame) {
+                    // Collect static animation frames to save after full file traversal.
+                    frames = deferredFrames.computeIfAbsent(animDir, k -> new TreeMap<>());
+                }
             }
             Files.createDirectories(outDir);
 
-            Animation animation = Animation.lookUp(cursorName);
-            frames.clear();
-
             for (int res : resolutions(config)) {
-                if (animation != null && res > CursorCompiler.maxAnimSize)
+                if (animation != null
+                        && (res > CursorCompiler.maxAnimSize
+                                || res < CursorCompiler.minAnimSize)
+                        && resolutions(config).length > 1)
                     continue;
 
-                Point2D pixelAlign = imageTranscoder
-                        .fromDocument(svg -> alignToGrid(svg, res));
+                Point hs = imageTranscoder.fromDocument(svg -> {
+                    try {
+                        return svgSizing.apply(cursorName,
+                                cursorMetadata, res > 0 ? res : 256);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
 
                 String fileName;
-                Point hs = new Point();
                 if (res > 0) {
                     System.out.append(' ').print(res);
-                    fileName = cursorName + "-" + res;
+                    fileName = cursorName + "-" + (res < 100 ? "0" + res : res);
                     imageTranscoder.withImageWidth(res)
                                    .withImageHeight(res)
                                    .resetView();
-                    hs.setLocation((int) ((pixelAlign.getX() + hotspot.getX()) * res / (256 * scheme.canvasSize) + hotspotRoundX),
-                                   (int) ((pixelAlign.getY() + hotspot.getY()) * res / (256 * scheme.canvasSize) + hotspotRoundY));
                 } else {
                     fileName = cursorName;
-                    hs.setLocation((int) ((pixelAlign.getX() + hotspot.getX()) / scheme.canvasSize + hotspotRoundX),
-                                   (int) ((pixelAlign.getY() + hotspot.getY()) / scheme.canvasSize + hotspotRoundY));
                 }
 
-                if (animation == null) {
-                    renderStatic(outDir, fileName, hs);
+                if (animation == null || frameNum != staticFrame) {
+                    // Static cursor or static animation frame
+                    renderStatic(outDir, fileName, frameNum, hs);
                 } else {
+                    assert (animation != null && frameNum == staticFrame);
+                    String resStr = (res < 100 ? "0" : "") + res;
                     String nameFormat = cursorName + "-%0" + animation.numDigits + "d"
-                                        + (res > 0 ? "-" + res : "") + ".png";
+                                        + (res > 0 ? "-" + resStr : "") + ".png";
                     renderAnimation(animation.duration,
-                            animation.frameRate, outDir.resolve(cursorName), nameFormat, hs);
+                            animation.frameRate, outDir, nameFormat, hs);
                 }
             }
-            imageTranscoder.updateDocument(svg -> svg
-                    .getDocumentElement().setAttribute("viewBox", originalViewBox));
 
-            if (createCursors) {
-                saveCursor(outDir, cursorName, animation);
+            if (createCursors && frameNum == staticFrame) {
+                saveCursor(outDir, cursorName, animation, frames);
             }
         }
     }
 
-    private static void resizeViewBox(Element svg, double factor) {
-        if (factor == 1.0) return;
+    private NavigableMap<Integer, Cursor> currentFrames;
 
-        final String spaceAndOrComma = "\\s+(?:,\\s*)?|,\\s*";
-        String[] viewBox = svg.getAttribute("viewBox")
-                              .strip().split(spaceAndOrComma, 5);
-        if (viewBox.length != 4) return; // likely empty
-
-        try {
-            //int x = Integer.parseInt(viewBox[0]);
-            //int y = Integer.parseInt(viewBox[1]);
-            int width = Integer.parseInt(viewBox[2]);
-            int height = Integer.parseInt(viewBox[3]);
-
-            svg.setAttribute("viewBox",
-                    String.format(Locale.ROOT, "%s %s %d %d",
-                                  viewBox[0], viewBox[1],
-                                  (int) Math.ceil(width * factor),
-                                  (int) Math.ceil(height * factor)));
-        } catch (NumberFormatException | DOMException e) {
-            System.err.append("resizeViewBox: ").println(e);
-        }
-    }
-
-    private static Point2D alignToGrid(Document svgDoc, int res) {
-        if (res <= 0) return new Point();
-
-        Element pixelAlign = svgDoc.getElementById("align-anchor");
-        if (pixelAlign == null) return new Point();
-
-        final String spaceAndOrComma = "\\s+(?:,\\s*)?|,\\s*";
-        Element svgRoot = svgDoc.getDocumentElement();
-        String[] viewBox = svgRoot.getAttribute("viewBox")
-                                  .strip().split(spaceAndOrComma, 5);
-        if (viewBox.length != 4) return new Point(); // likely empty
-
-        Matcher corner = ANCHOR_POINT.matcher(pixelAlign.getAttribute("d"));
-        if (!corner.find()) return new Point();
-
-        try {
-            double anchorX = Double.parseDouble(corner.group(1));
-            double anchorY = Double.parseDouble(corner.group(2));
-            int viewWidth = (int) Double.parseDouble(viewBox[2]);
-            int viewHeight = (int) Double.parseDouble(viewBox[3]);
-
-            Point2D offset = SVGSizing
-                    .alignToGrid(new Point2D.Double(anchorX, anchorY),
-                                 new Dimension(res, res),
-                                 new Dimension(viewWidth, viewHeight));
-
-            svgRoot.setAttribute("viewBox",
-                    String.format(Locale.ROOT, "%s %s %d %d",
-                                  // The view-box origin is negative of the required offset
-                                  -offset.getX(), -offset.getY(), viewWidth, viewHeight));
-            return offset;
-        } catch (NumberFormatException | DOMException e) {
-            System.err.append("resizeViewBox: ").println(e);
-            return new Point();
-        }
-    }
-
-    private void renderStatic(Path outDir, String filePrefix, Point2D hotspot) throws TranscoderException {
+    private void renderStatic(Path outDir, String filePrefix, Integer frameNum, Point hotspot) throws TranscoderException {
         TranscoderOutput output = createCursors
                                   ? new RenderedTranscoderOutput()
                                   : fileOutput(outDir.resolve(filePrefix + ".png"));
@@ -374,7 +360,7 @@ public class BitmapsRenderer {
         imageTranscoder.transcodeTo(output);
 
         if (createCursors) {
-            frames.computeIfAbsent(staticFrame, k -> new Cursor())
+            currentFrames.computeIfAbsent(frameNum, k -> new Cursor())
                     .addImage(((RenderedTranscoderOutput) output).getImage(), hotspot);
         }
     }
@@ -387,38 +373,37 @@ public class BitmapsRenderer {
             throws IOException,
                    TranscoderException
     {
-        if (!createCursors) {
-            Files.createDirectories(outDir);
-        }
-
         float currentTime = 0f;
         for (int frame = 1;
                 currentTime < duration;
                 currentTime = frame++ / frameRate) {
             float snapshotTime = currentTime;
 
-            TranscoderOutput output;
-            if (createCursors) {
-                output = new RenderedTranscoderOutput();
-            } else {
-                output = fileOutput(outDir.resolve(String
-                        .format(Locale.ROOT, nameFormat, frame)));
-            }
+            TranscoderOutput
+            output = createCursors
+                     ? new RenderedTranscoderOutput()
+                     : fileOutput(outDir.resolve(String
+                             .format(Locale.ROOT, nameFormat, frame)));
 
             imageTranscoder.transcodeDynamic(output,
                     ctx -> ctx.getAnimationEngine().setCurrentTime(snapshotTime));
 
             if (createCursors) {
-                frames.computeIfAbsent(frame, k -> new Cursor())
+                currentFrames.computeIfAbsent(frame, k -> new Cursor())
                         .addImage(((RenderedTranscoderOutput) output).getImage(), hotspot);
             }
         }
     }
 
-    private final NavigableMap<Integer, Cursor> frames = new TreeMap<>();
+    private final Map<Path, NavigableMap<Integer, Cursor>>
+            deferredFrames = new HashMap<>();
+    private final NavigableMap<Integer, Cursor> immediateFrames = new TreeMap<>();
     private static final Integer staticFrame = 0;
 
-    private void saveCursor(Path outDir, String cursorName, Animation animation)
+    private void saveCursor(Path outDir,
+                            String cursorName,
+                            Animation animation,
+                            NavigableMap<Integer, Cursor> frames)
             throws IOException {
         String winName = CursorNames.winName(cursorName);
         if (winName == null) {
@@ -429,10 +414,10 @@ public class BitmapsRenderer {
         }
 
         if (animation == null) {
-            frames.get(staticFrame).write(outDir.resolve(winName + ".cur"));
+            frames.remove(staticFrame).write(outDir.resolve(winName + ".cur"));
         } else {
             AnimatedCursor ani = new AnimatedCursor(animation.jiffies());
-            for (Map.Entry<Integer, Cursor> entry = frames.pollFirstEntry();
+            for (var entry = frames.pollFirstEntry();
                     entry != null; entry = frames.pollFirstEntry()) {
                 ani.addFrame(entry.getValue());
             }
@@ -502,8 +487,8 @@ public class BitmapsRenderer {
 
     private static Stream<Path> listSVGFiles(Path dir) throws IOException {
         return Files.walk(dir, 2, FileVisitOption.FOLLOW_LINKS)
-                .filter(Files::isRegularFile)
-                .filter(path -> endsWithIgnoreCase(path, ".svg"));
+                    .filter(path -> Files.isRegularFile(path)
+                                    && endsWithIgnoreCase(path, ".svg"));
     }
 
 
@@ -527,12 +512,13 @@ public class BitmapsRenderer {
                 resolutions.addAll(List.of(32, 48, 64, 96, 128));
             };
 
+            Function<String, String> toUpper = str -> str.toUpperCase(Locale.ROOT);
+
             CommandLine cmd = CommandLine.ofUnixStyle()
-                    .acceptOption("-s", sizes::add,
-                            stripString().andThen(String::toUpperCase)
-                                         .andThen(SizeScheme::valueOf))
-                    .acceptOption("-r", resolutions::add,
-                            stripString().andThen(Integer::valueOf))
+                    .acceptOption("-s", sizes::addAll,
+                            splitOnComma(toUpper.andThen(SizeScheme::valueOf)))
+                    .acceptOption("-r", resolutions::addAll,
+                            splitOnComma(Integer::valueOf))
                     .acceptOption("-t", themeFilter::add, String::strip)
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> createCursors = true)

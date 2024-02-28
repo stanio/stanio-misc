@@ -6,7 +6,7 @@ package io.github.stanio.bibata;
 
 import static io.github.stanio.bibata.Command.endsWithIgnoreCase;
 import static io.github.stanio.bibata.Command.exitMessage;
-import static io.github.stanio.cli.CommandLine.stripString;
+import static io.github.stanio.cli.CommandLine.splitOnComma;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -252,6 +252,12 @@ public class JSVGBitmapsRenderer {
         Animation animation = Animation
                 .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
 
+        Integer frameNum = staticFrame;
+        if (animation != null
+                && frameNumSuffix.reset(cursorName).find()) {
+            frameNum = Integer.valueOf(frameNumSuffix.group(1));
+        }
+
         boolean first = true;
         for (SizeScheme scheme : sizes(config)) {
             if (first) first = false;
@@ -272,24 +278,20 @@ public class JSVGBitmapsRenderer {
             SVGSizing svgSizing = svgSizingPool.computeIfAbsent(outDir, dir ->
                     new SVGSizing(viewBoxSize, dir.resolve("cursor-hotspots.json")));
 
-            NavigableMap<Integer, Cursor> frames = singleFrame;
+            NavigableMap<Integer, Cursor> frames = immediateFrames;
+            // These should be cleared already during saveCursor()
+            frames.clear();
             if (animation != null) {
-                Path animDir = outDir.resolve(animation.name().toLowerCase(Locale.ROOT));
-                if (createCursors) {
-                    frames = deferredFrames.computeIfAbsent(animDir, k -> new TreeMap<>());
-                } else {
+                Path animDir = outDir.resolve(animation.lowerName);
+                if (!createCursors) {
+                    // Place individual frame bitmaps in a subdirectory.
                     outDir = animDir;
+                } else if (frameNum != staticFrame) {
+                    // Collect static animation frames to save after full file traversal.
+                    frames = deferredFrames.computeIfAbsent(animDir, k -> new TreeMap<>());
                 }
-            } else {
-                frames.clear();
             }
             Files.createDirectories(outDir);
-
-            Integer frameNum = staticFrame;
-            if (animation != null
-                    && frameNumSuffix.reset(cursorName).find()) {
-                frameNum = Integer.valueOf(frameNumSuffix.group(1));
-            }
 
             for (int res : resolutions(config)) {
                 if (animation != null
@@ -319,7 +321,7 @@ public class JSVGBitmapsRenderer {
                 }
             }
 
-            if (createCursors && animation == null) {
+            if (createCursors && frameNum == staticFrame) {
                 saveCursor(outDir, cursorName, animation, frames);
             }
         }
@@ -327,7 +329,7 @@ public class JSVGBitmapsRenderer {
 
     private final Map<Path, NavigableMap<Integer, Cursor>>
             deferredFrames = new HashMap<>();
-    private final NavigableMap<Integer, Cursor> singleFrame = new TreeMap<>();
+    private final NavigableMap<Integer, Cursor> immediateFrames = new TreeMap<>();
     private static final Integer staticFrame = 0;
 
     private void saveCursor(Path outDir,
@@ -444,27 +446,13 @@ public class JSVGBitmapsRenderer {
                 resolutions.addAll(List.of(32, 48, 64, 96, 128));
             };
 
-            Function<String, Collection<SizeScheme>> parseSizes = str -> {
-                Collection<SizeScheme> sizes = new LinkedHashSet<>();
-                for (String token : str.split(",")) {
-                    sizes.add(SizeScheme.valueOf(token.toUpperCase(Locale.ROOT)));
-                }
-                return sizes;
-            };
-
-            Function<String, Collection<Integer>> parseResolutions = str -> {
-                Collection<Integer> resolutions = new LinkedHashSet<>();
-                for (String token : str.split(",")) {
-                    resolutions.add(Integer.valueOf(token));
-                }
-                return resolutions;
-            };
+            Function<String, String> toUpper = str -> str.toUpperCase(Locale.ROOT);
 
             CommandLine cmd = CommandLine.ofUnixStyle()
                     .acceptOption("-s", sizes::addAll,
-                            stripString().andThen(parseSizes))
+                            splitOnComma(toUpper.andThen(SizeScheme::valueOf)))
                     .acceptOption("-r", resolutions::addAll,
-                            stripString().andThen(parseResolutions))
+                            splitOnComma(Integer::valueOf))
                     .acceptOption("-t", themeFilter::add, String::strip)
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> createCursors = true)
