@@ -241,9 +241,17 @@ public class Cursor {
             imageWriter.setOutput(null);
         }
 
+        int width = image.getWidth();
+        int height = image.getHeight();
+        if (entries.stream().anyMatch(item ->
+                item.width == width && item.height == height)) {
+            // We are compiling only 32-bit PNGs for the time being.
+            throw new IllegalStateException(
+                    "Image size already added: " + width + "x" + height);
+        }
+
         final int maxUnsignedShort = 0xFFFF;
-        entries.add(new Image(image.getWidth(),
-                              image.getHeight(),
+        entries.add(new Image(width, height,
                               (short) clamp(hotspot.x, 0, maxUnsignedShort),
                               (short) clamp(hotspot.y, 0, maxUnsignedShort),
                               buf.size(),
