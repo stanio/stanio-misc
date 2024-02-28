@@ -6,6 +6,7 @@ package io.github.stanio.cli;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -267,6 +268,16 @@ public class CommandLine {
         return String::trim; // Java 1.8
     }
 
+    public static <T> Function<String, Collection<T>>
+            splitOnComma(Function<String, T> valueMapper) {
+        return str -> {
+            Collection<T> values = new ArrayList<>();
+            for (String token : str.split(",")) {
+                values.add(valueMapper.apply(token.trim()));
+            }
+            return values;
+        };
+    }
 
     public static class ArgumentException extends RuntimeException {
 
