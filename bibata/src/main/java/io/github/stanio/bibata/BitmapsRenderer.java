@@ -71,8 +71,7 @@ public class BitmapsRenderer {
     BitmapsRenderer(Path baseDir) {
         this.baseDir = Objects.requireNonNull(baseDir, "null baseDir");
 
-        //rendererBackend = new BatikRendererBackend();
-        rendererBackend = new JSVGRendererBackend();
+        rendererBackend = BitmapsRendererBackend.newInstance();
     }
 
     public static BitmapsRenderer forBaseDir(Path baseDir) {
@@ -305,6 +304,8 @@ public class BitmapsRenderer {
                     .render(renderConfig);
         } catch (IOException e) {
             exitMessage(3, "Error: ", e);
+        } catch (Throwable e) {
+            exitMessage(4, "Internal Error: ", e);
         } finally {
             Duration elapsedTime = Duration
                     .ofMillis(System.currentTimeMillis() - startTime);

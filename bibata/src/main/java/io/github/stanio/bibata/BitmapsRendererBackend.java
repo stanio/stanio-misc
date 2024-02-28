@@ -30,6 +30,10 @@ import io.github.stanio.windows.Cursor;
  */
 abstract class BitmapsRendererBackend {
 
+    private static final Map<String, String>
+            BACKENDS = Map.of("batik", "io.github.stanio.bibata.BatikRendererBackend",
+                              "jsvg", "io.github.stanio.bibata.JSVGRendererBackend");
+
     public static final Integer staticFrame = 0;
 
     /** XXX: Try to eliminate dependency on this one. */
@@ -54,6 +58,22 @@ abstract class BitmapsRendererBackend {
     private final Map<Path, SVGSizing> svgSizingPool = new HashMap<>();
 
     private boolean outputSet;
+
+    public static BitmapsRendererBackend newInstance() {
+        String key = System.getProperty("bibata.renderer", "").strip();
+        String klass = BACKENDS.get(key);
+        if (klass != null) {
+            try {
+                return (BitmapsRendererBackend) Class
+                        .forName(klass).getConstructor().newInstance();
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        } else if (!key.isEmpty()) {
+            System.err.append("Unknown bibata.renderer=").println(key);
+        }
+        return new JSVGRendererBackend();
+    }
 
     public void setCreateCursors(boolean createCursors) {
         this.createCursors = createCursors;
