@@ -4,8 +4,6 @@
  */
 package io.github.stanio.bibata;
 
-import static io.github.stanio.batik.DynamicImageTranscoder.fileInput;
-import static io.github.stanio.batik.DynamicImageTranscoder.fileOutput;
 import static io.github.stanio.bibata.Command.endsWithIgnoreCase;
 import static io.github.stanio.bibata.Command.exitMessage;
 import static io.github.stanio.cli.CommandLine.splitOnComma;
@@ -15,7 +13,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.Reader;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
@@ -24,17 +21,14 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -42,41 +36,28 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import java.awt.Point;
-
-import org.apache.batik.transcoder.TranscoderException;
-import org.apache.batik.transcoder.TranscoderOutput;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 
-import io.github.stanio.batik.DynamicImageTranscoder;
-import io.github.stanio.batik.DynamicImageTranscoder.RenderedTranscoderOutput;
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
-import io.github.stanio.windows.AnimatedCursor;
-import io.github.stanio.windows.Cursor;
 
 import io.github.stanio.bibata.CursorNames.Animation;
-import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.bibata.ThemeConfig.SizeScheme;
 
 /**
  * Command-line utility for rendering Bibata cursor bitmap images.  Alternative
  * to {@code yarn render} (using <a href="https://pptr.dev/">Puppeteer</a>)
- * using the Batik SVG Toolkit.  Can create Windows cursors directly not saving
- * intermediate bitmaps.
+ * using Java SVG rendering libraries.  Can create Windows cursors directly, not
+ * saving intermediate bitmaps.
+ * <p>
+ * Renders each target size individually, aligning hinted elements to the target
+ * pixel grid for maximum quality.</p>
  *
- * @see  <a href="https://xmlgraphics.apache.org/batik/">Apache Batik SVG Toolkit</a>
- * @see  DynamicImageTranscoder
- *
- * $deprecated  In favor of {@link JSVGBitmapsRenderer}.
+ * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
 public class BitmapsRenderer {
-    /* REVISIT: Try extracting DynamicImageTranscoder, renderStatic, and
-     * renderAnimation into a separate module.  This class implementation
-     * could deal with configuration and file traversal, only. */
 
     private final Path baseDir;
 
@@ -84,14 +65,14 @@ public class BitmapsRenderer {
     private Set<String> cursorFilter = Set.of(); // include all
     private Collection<SizeScheme> sizes = List.of(SizeScheme.SOURCE);
     private int[] resolutions = { -1 }; // original/source
-    private boolean createCursors;
 
-    private final DynamicImageTranscoder imageTranscoder;
+    private final BitmapsRendererBackend rendererBackend;
 
     BitmapsRenderer(Path baseDir) {
         this.baseDir = Objects.requireNonNull(baseDir, "null baseDir");
 
-        imageTranscoder = new DynamicImageTranscoder();
+        //rendererBackend = new BatikRendererBackend();
+        rendererBackend = new JSVGRendererBackend();
     }
 
     public static BitmapsRenderer forBaseDir(Path baseDir) {
@@ -123,6 +104,11 @@ public class BitmapsRenderer {
         return this;
     }
 
+    public BitmapsRenderer withPointerShadow(boolean addShadows) {
+        rendererBackend.setPointerShadow(addShadows);
+        return this;
+    }
+
     public BitmapsRenderer filterCursors(String... names) {
         return filterCursors(Arrays.asList(names));
     }
@@ -133,7 +119,7 @@ public class BitmapsRenderer {
     }
 
     public BitmapsRenderer buildCursors(boolean create) {
-        this.createCursors = create;
+        rendererBackend.setCreateCursors(create);
         return this;
     }
 
@@ -145,21 +131,16 @@ public class BitmapsRenderer {
         return Objects.requireNonNullElse(config.resolutions, resolutions);
     }
 
-    private Map<Path, SVGSizing> svgSizingPool = new HashMap<>();
-
     public void render(ThemeConfig... config)
-            throws IOException, TranscoderException {
-        svgSizingPool.clear();
+            throws IOException {
+        rendererBackend.reset();
         try {
             for (var entry : groupByDir(config).entrySet()) {
                 renderDir(entry.getKey(), entry.getValue());
             }
         } finally {
-            if (createCursors) return;
-
-            for (SVGSizing sizing : svgSizingPool.values()) {
-                sizing.saveHotspots();
-            }
+            if (!rendererBackend.createCursors)
+                rendererBackend.saveHotspots();
         }
     }
 
@@ -173,20 +154,13 @@ public class BitmapsRenderer {
     }
 
     private void renderDir(String svgDir, Collection<ThemeConfig> config)
-            throws IOException, TranscoderException {
-        deferredFrames.clear();
+            throws IOException {
         try (Stream<Path> svgStream = listSVGFiles(svgDir, config)) {
             for (Path svg : (Iterable<Path>) svgStream::iterator) {
                 renderSVG(svg, config);
             }
         }
-        if (createCursors) {
-            for (var entry : deferredFrames.entrySet()) {
-                String cursorName = entry.getKey().getFileName().toString();
-                saveCursor(entry.getKey().getParent(), cursorName,
-                        Animation.lookUp(cursorName), entry.getValue());
-            }
-        }
+        rendererBackend.saveDeferred();
     }
 
     private Stream<Path> listSVGFiles(String dir, Collection<ThemeConfig> configs)
@@ -221,17 +195,11 @@ public class BitmapsRenderer {
     }
 
     private void renderSVG(Path svgFile, Collection<ThemeConfig> renderConfig)
-            throws IOException, TranscoderException {
+            throws IOException {
         String cursorName = cursorName(svgFile);
         System.out.append(cursorName).append(": ");
 
-        ColorTheme colorTheme = imageTranscoder
-                //.withDynamicContext(Animation.lookUp(cursorName) != null)
-                .loadDocument(fileInput(svgFile))
-                .fromDocument(svg -> ColorTheme.forDocument(svg));
-
-        SVGCursorMetadata cursorMetadata = imageTranscoder
-                .fromDocument(svg -> SVGCursorMetadata.read(svg));
+        rendererBackend.loadFile(cursorName, svgFile);
 
         boolean first = true;
         for (ThemeConfig config : renderConfig) {
@@ -242,9 +210,8 @@ public class BitmapsRenderer {
             else System.out.print(";\n\t");
             System.out.print(Path.of(config.out).getFileName());
 
-            imageTranscoder.updateDocument(
-                    svg -> colorTheme.apply(config.colors()));
-            renderSVG(config, cursorName, cursorMetadata);
+            rendererBackend.applyColors(config.colors());
+            renderSVG(config, cursorName);
         }
         System.out.println('.');
     }
@@ -256,17 +223,19 @@ public class BitmapsRenderer {
         return !filter.contains(frameNumSuffix.reset(cursorName).replaceFirst(""));
     }
 
-    private void renderSVG(ThemeConfig config, String cursorName, SVGCursorMetadata cursorMetadata)
-            throws IOException, TranscoderException {
+    private void renderSVG(ThemeConfig config, String cursorName) //, SVGCursorMetadata cursorMetadata)
+            throws IOException {
         Path outBase = baseDir.resolve(config.out);
         Animation animation = Animation
                 .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
 
-        Integer frameNum = staticFrame;
+        Integer frameNum = null;
         if (animation != null
                 && frameNumSuffix.reset(cursorName).find()) {
             frameNum = Integer.valueOf(frameNumSuffix.group(1));
         }
+
+        rendererBackend.setAnimation(animation, frameNum);
 
         boolean first = true;
         for (SizeScheme scheme : sizes(config)) {
@@ -276,32 +245,14 @@ public class BitmapsRenderer {
                 System.out.append(' ').append(scheme.name);
             }
 
-            Path outDir;
-            if (scheme == SizeScheme.SOURCE) {
-                outDir = outBase;
-            } else {
+            Path outDir = outBase;
+            if (scheme != SizeScheme.SOURCE) {
                 outDir = outBase.resolveSibling(
                         outBase.getFileName() + "-" + scheme.name);
             }
+            rendererBackend.setOutDir(outDir);
 
-            int viewBoxSize = (int) Math.round(256 * scheme.canvasSize);
-            SVGSizing svgSizing = svgSizingPool.computeIfAbsent(outDir, dir ->
-                    new SVGSizing(viewBoxSize, dir.resolve("cursor-hotspots.json")));
-
-            NavigableMap<Integer, Cursor> frames = immediateFrames;
-            // These should be cleared already during saveCursor()
-            (currentFrames = frames).clear();
-            if (animation != null) {
-                Path animDir = outDir.resolve(animation.lowerName);
-                if (!createCursors) {
-                    // Place individual frame bitmaps in a subdirectory.
-                    outDir = animDir;
-                } else if (frameNum != staticFrame) {
-                    // Collect static animation frames to save after full file traversal.
-                    frames = deferredFrames.computeIfAbsent(animDir, k -> new TreeMap<>());
-                }
-            }
-            Files.createDirectories(outDir);
+            rendererBackend.setCanvasSize(scheme.canvasSize);
 
             for (int res : resolutions(config)) {
                 if (animation != null
@@ -310,118 +261,13 @@ public class BitmapsRenderer {
                         && resolutions(config).length > 1)
                     continue;
 
-                Point hs = imageTranscoder.fromDocument(svg -> {
-                    try {
-                        return svgSizing.apply(cursorName,
-                                cursorMetadata, res > 0 ? res : 256);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                });
-
-                String fileName;
                 if (res > 0) {
                     System.out.append(' ').print(res);
-                    fileName = cursorName + "-" + (res < 100 ? "0" + res : res);
-                    imageTranscoder.withImageWidth(res)
-                                   .withImageHeight(res)
-                                   .resetView();
-                } else {
-                    fileName = cursorName;
                 }
-
-                if (animation == null || frameNum != staticFrame) {
-                    // Static cursor or static animation frame
-                    renderStatic(outDir, fileName, frameNum, hs);
-                } else {
-                    assert (animation != null && frameNum == staticFrame);
-                    String resStr = (res < 100 ? "0" : "") + res;
-                    String nameFormat = cursorName + "-%0" + animation.numDigits + "d"
-                                        + (res > 0 ? "-" + resStr : "") + ".png";
-                    renderAnimation(animation.duration,
-                            animation.frameRate, outDir, nameFormat, hs);
-                }
+                rendererBackend.renderTargetSize(res);
             }
 
-            if (createCursors && frameNum == staticFrame) {
-                saveCursor(outDir, cursorName, animation, frames);
-            }
-        }
-    }
-
-    private NavigableMap<Integer, Cursor> currentFrames;
-
-    private void renderStatic(Path outDir, String filePrefix, Integer frameNum, Point hotspot) throws TranscoderException {
-        TranscoderOutput output = createCursors
-                                  ? new RenderedTranscoderOutput()
-                                  : fileOutput(outDir.resolve(filePrefix + ".png"));
-
-        //imageTranscoder.updateContext(ctx -> ctx.getUpdateManager().forceRepaint());
-        imageTranscoder.transcodeTo(output);
-
-        if (createCursors) {
-            currentFrames.computeIfAbsent(frameNum, k -> new Cursor())
-                    .addImage(((RenderedTranscoderOutput) output).getImage(), hotspot);
-        }
-    }
-
-    private void renderAnimation(float duration,
-                                 float frameRate,
-                                 Path outDir,
-                                 String nameFormat,
-                                 Point hotspot)
-            throws IOException,
-                   TranscoderException
-    {
-        float currentTime = 0f;
-        for (int frame = 1;
-                currentTime < duration;
-                currentTime = frame++ / frameRate) {
-            float snapshotTime = currentTime;
-
-            TranscoderOutput
-            output = createCursors
-                     ? new RenderedTranscoderOutput()
-                     : fileOutput(outDir.resolve(String
-                             .format(Locale.ROOT, nameFormat, frame)));
-
-            imageTranscoder.transcodeDynamic(output,
-                    ctx -> ctx.getAnimationEngine().setCurrentTime(snapshotTime));
-
-            if (createCursors) {
-                currentFrames.computeIfAbsent(frame, k -> new Cursor())
-                        .addImage(((RenderedTranscoderOutput) output).getImage(), hotspot);
-            }
-        }
-    }
-
-    private final Map<Path, NavigableMap<Integer, Cursor>>
-            deferredFrames = new HashMap<>();
-    private final NavigableMap<Integer, Cursor> immediateFrames = new TreeMap<>();
-    private static final Integer staticFrame = 0;
-
-    private void saveCursor(Path outDir,
-                            String cursorName,
-                            Animation animation,
-                            NavigableMap<Integer, Cursor> frames)
-            throws IOException {
-        String winName = CursorNames.winName(cursorName);
-        if (winName == null) {
-            winName = cursorName;
-            for (int n = 2; CursorNames.nameWinName(winName) != null; n++) {
-                winName = cursorName + "_" + n++;
-            }
-        }
-
-        if (animation == null) {
-            frames.remove(staticFrame).write(outDir.resolve(winName + ".cur"));
-        } else {
-            AnimatedCursor ani = new AnimatedCursor(animation.jiffies());
-            for (var entry = frames.pollFirstEntry();
-                    entry != null; entry = frames.pollFirstEntry()) {
-                ani.addFrame(entry.getValue());
-            }
-            ani.write(outDir.resolve(winName + ".ani"));
+            rendererBackend.saveCurrent();
         }
     }
 
@@ -453,10 +299,11 @@ public class BitmapsRenderer {
             BitmapsRenderer.forBaseDir(configFile.getParent())
                     .withSizes(cmdArgs.sizes)
                     .withResolutions(cmdArgs.resolutions)
+                    .withPointerShadow(cmdArgs.pointerShadow)
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.createCursors)
                     .render(renderConfig);
-        } catch (IOException | TranscoderException e) {
+        } catch (IOException e) {
             exitMessage(3, "Error: ", e);
         } finally {
             Duration elapsedTime = Duration
@@ -503,6 +350,7 @@ public class BitmapsRenderer {
         final Set<SizeScheme> sizes = new LinkedHashSet<>(2);
         final Set<String> cursorFilter = new LinkedHashSet<>();
         boolean createCursors;
+        boolean pointerShadow;
 
         CommandArgs(String... args) {
             Runnable standardSizes = () -> {
@@ -523,6 +371,7 @@ public class BitmapsRenderer {
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> createCursors = true)
                     .acceptFlag("--standard-sizes", standardSizes)
+                    .acceptFlag("--pointer-shadow", () -> pointerShadow = true)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
@@ -533,6 +382,7 @@ public class BitmapsRenderer {
 
         public static void printHelp(PrintStream out) {
             out.println("USAGE: render [<base-path>]"
+                    + " [--pointer-shadow]"
                     + " [--standard-sizes] [--windows-cursors]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]...");

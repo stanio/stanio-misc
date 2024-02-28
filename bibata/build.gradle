@@ -30,7 +30,7 @@ jar {
 shadowJar {
     archiveBaseName = 'bibata'
     archiveClassifier = ''
-    exclude 'io/github/stanio/bibata/BitmapsRenderer*'
+    exclude 'io/github/stanio/bibata/BatikRendererBackend*'
     exclude 'org/apache/batik/**/*'
     minimize {
         exclude dependency('com.google.code.gson:gson')
