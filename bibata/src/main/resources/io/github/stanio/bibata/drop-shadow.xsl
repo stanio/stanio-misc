@@ -9,6 +9,7 @@
   <xsl:param name="shadow-dx" select="12" />
   <xsl:param name="shadow-dy" select="6" />
   <xsl:param name="shadow-opacity" select="0.5" />
+  <xsl:param name="shadow-color">#000000</xsl:param>
 
   <xsl:template match="/svg:svg">
     <xsl:copy>
@@ -41,7 +42,7 @@
     <!-- https://drafts.fxtf.org/filter-effects/#feDropShadowElement -->
     <feGaussianBlur in="SourceAlpha" stdDeviation="{$shadow-blur}" />
     <feOffset dx="{$shadow-dx}" dy="{$shadow-dy}" result="offsetblur" />
-    <feFlood flood-color="black" flood-opacity="{$shadow-opacity}" />
+    <feFlood flood-color="{$shadow-color}" flood-opacity="{$shadow-opacity}" />
     <feComposite in2="offsetblur" operator="in" />
     <feMerge>
       <feMergeNode />

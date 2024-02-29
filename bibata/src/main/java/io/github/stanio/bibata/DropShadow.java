@@ -11,28 +11,32 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.function.Function;
 
 public class DropShadow {
 
-    private static final DropShadow SVG = new DropShadow(true, 3, 12, 6, 0.5f);
-    private static final DropShadow BMP = new DropShadow(false, 6, 18, -9, 0.7f);
+    private static final DropShadow SVG = new DropShadow(true, 3, 12, 6, 0.5f, 0xFF000000);
+    private static final DropShadow BMP = new DropShadow(false, 6, 18, 9, 0.7f, 0xFF000000);
 
-    public final boolean svg;
+    private final boolean svg;
     public final float blur;
     public final float dx;
     public final float dy;
     public final float opacity;
+    public final int color;
 
     DropShadow(boolean svg,
                float blur,
                float dx,
                float dy,
-               float opacity) {
+               float opacity,
+               int color) {
         this.svg = svg;
         this.blur = blur;
         this.dx = dx;
         this.dy = dy;
         this.opacity = opacity;
+        this.color = color;
     }
 
     public static DropShadow instance() {
@@ -48,23 +52,38 @@ public class DropShadow {
     }
 
     public static DropShadow instance(boolean svg) {
-        DropShadow defaultValues = svg ? SVG : BMP;
-        return new DropShadow(svg,
-                getFloat("bibata.shadow.blur", defaultValues.blur),
-                getFloat("bibata.shadow.dx", defaultValues.dx),
-                getFloat("bibata.shadow.dy", defaultValues.dy),
-                getFloat("bibata.shadow.opacity", defaultValues.opacity));
+        return svg ? SVG : BMP;
     }
 
-    private static float getFloat(String name, float defaultValue) {
-        String str = System.getProperty(name, "");
-        try {
-            return str.isBlank() ? defaultValue
-                                 : Float.parseFloat(str);
-        } catch (NumberFormatException e) {
-            System.err.append(name).append(": ").println(e);
-            return defaultValue;
-        }
+    public static DropShadow decode(String paramStr) {
+        return decode(paramStr, instance());
+    }
+
+    static DropShadow decode(String paramStr, DropShadow defaultValue) {
+        if (paramStr.isBlank()) return defaultValue;
+
+        String[] args = paramStr.split(",", 5);
+        return new DropShadow(defaultValue.svg,
+                parseValue(args, 0, defaultValue.blur, Float::valueOf),
+                parseValue(args, 1, defaultValue.dx, Float::valueOf),
+                parseValue(args, 2, defaultValue.dy, Float::valueOf),
+                parseValue(args, 3, defaultValue.opacity, Float::valueOf),
+                parseValue(args, 4, defaultValue.color, Integer::decode));
+    }
+
+    private static <T> T parseValue(String[] args, int index, T defaultValue,
+                                    Function<String, T> valueMapper) {
+        return (index < args.length)
+                ? valueMapper.apply(args[index].strip())
+                : defaultValue;
+    }
+
+    public boolean isSVG() {
+        return svg;
+    }
+
+    public String color() {
+        return String.format(Locale.ROOT, "#%06X", color & 0xFFFFFF);
     }
 
     public static String xslt() {
@@ -87,6 +106,13 @@ public class DropShadow {
             // fall back to file system
         }
         return Path.of(location).toUri().toString();
+    }
+
+    @Override
+    public String toString() {
+        return "DropShadow(svg: " + svg
+                + ", blur: " + blur + ", dx: " + dx + ", dy: " + dy
+                + ", opacity=" + opacity + ", color=" + color() + ")";
     }
 
 }

@@ -25,8 +25,8 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
     private JSVGImageTranscoder imageTranscoder = new JSVGImageTranscoder();
 
     @Override
-    public void setPointerShadow(boolean pointerShadow) {
-        imageTranscoder.addDropShadow(pointerShadow);
+    public void setPointerShadow(DropShadow shadow) {
+        imageTranscoder.setDropShadow(shadow);
     }
 
     @Override

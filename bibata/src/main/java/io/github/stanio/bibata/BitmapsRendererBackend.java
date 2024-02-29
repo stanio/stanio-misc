@@ -79,8 +79,8 @@ abstract class BitmapsRendererBackend {
         this.createCursors = createCursors;
     }
 
-    public void setPointerShadow(boolean pointerShadow) {
-        if (pointerShadow)
+    public void setPointerShadow(DropShadow shadow) {
+        if (shadow != null)
             System.err.append(getClass().getName())
                       .println(" doesn't support --pointer-shadow");
     }

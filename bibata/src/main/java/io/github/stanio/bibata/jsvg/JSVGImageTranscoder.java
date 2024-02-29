@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.Optional;
 
 import javax.xml.XMLConstants;
 import javax.xml.stream.XMLStreamException;
@@ -51,17 +52,15 @@ import io.github.stanio.bibata.DropShadow;
  */
 public class JSVGImageTranscoder {
 
-    private static final DropShadow SHADOW = DropShadow.instance();
-
     private Document document;
 
-    private boolean addDropShadow;
+    private Optional<DropShadow> dropShadow;
     private Transformer sourceTransformer;
     private StaxSVGLoader svgLoader;
     private ImageWriter pngWriter;
 
-    public void addDropShadow(boolean addDropShadow) {
-        this.addDropShadow = addDropShadow;
+    public void setDropShadow(DropShadow shadow) {
+        this.dropShadow = Optional.ofNullable(shadow);
         sourceTransformer = null;
     }
 
@@ -93,7 +92,7 @@ public class JSVGImageTranscoder {
                 System.err.append("FEATURE_SECURE_PROCESSING not supported: ").println(e);
             }
 
-            if (addDropShadow && SHADOW.svg) {
+            if (dropShadow.map(DropShadow::isSVG).orElse(false)) {
                 URL transformSheet = JSVGImageTranscoder.class
                         .getResource("/io/github/stanio/bibata/drop-shadow.xsl");
                 if (transformSheet == null) {
@@ -101,10 +100,12 @@ public class JSVGImageTranscoder {
                             + "not found: io/github/stanio/bibata/drop-shadow.xsl");
                 }
                 sourceTransformer = tf.newTransformer(new StreamSource(DropShadow.xslt()));
-                sourceTransformer.setParameter("shadow-blur", SHADOW.blur);
-                sourceTransformer.setParameter("shadow-dx", SHADOW.dx);
-                sourceTransformer.setParameter("shadow-dy", SHADOW.dy);
-                sourceTransformer.setParameter("shadow-opacity", SHADOW.opacity);
+                DropShadow shadow = dropShadow.get();
+                sourceTransformer.setParameter("shadow-blur", shadow.blur);
+                sourceTransformer.setParameter("shadow-dx", shadow.dx);
+                sourceTransformer.setParameter("shadow-dy", shadow.dy);
+                sourceTransformer.setParameter("shadow-opacity", shadow.opacity);
+                sourceTransformer.setParameter("shadow-color", shadow.color());
             } else {
                 sourceTransformer = tf.newTransformer();
             }
@@ -171,7 +172,7 @@ public class JSVGImageTranscoder {
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
             svg.render(null, g);
 
-            if (addDropShadow && !SHADOW.svg) {
+            if (dropShadow.map(shadow -> !shadow.isSVG()).orElse(false)) {
                 g.dispose();
 
                 float vsize;
@@ -183,12 +184,14 @@ public class JSVGImageTranscoder {
                     vsize = 256;
                 }
 
+                DropShadow shadow = dropShadow.get();
                 float scale = image.getWidth() / vsize;
-                return new ShadowFilter(SHADOW.blur * scale,
-                                        SHADOW.dx * scale,
-                                        SHADOW.dy * scale,
-                                        SHADOW.opacity)
-                        .filter(image, null);
+                ShadowFilter filter = new ShadowFilter(shadow.blur * scale,
+                                                       shadow.dx * scale,
+                                                       -shadow.dy * scale,
+                                                       shadow.opacity);
+                filter.setShadowColor(shadow.color);
+                return filter.filter(image, null);
             }
             return image;
         } finally {

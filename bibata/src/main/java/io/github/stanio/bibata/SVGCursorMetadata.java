@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -86,8 +87,6 @@ public class SVGCursorMetadata {
                                        Pattern.CASE_INSENSITIVE | Pattern.COMMENTS);
     }
 
-    private static final DropShadow SHADOW = DropShadow.instance(true);
-
     private static final ThreadLocal<XMLReader> localReader = new ThreadLocal<>();
     private static final ThreadLocal<Transformer>
             identityTransformer = ThreadLocal.withInitial(() -> newTransformer(null));
@@ -100,7 +99,7 @@ public class SVGCursorMetadata {
     private Point2D hotspot;
     private Point2D rootAnchor;
     private Map<ElementPath, Point2D> childAnchors;
-    private boolean addDropShadow;
+    private Optional<DropShadow> dropShadow;
 
     private SVGCursorMetadata(Path file, Document svg) {
         sourceFile = file;
@@ -219,8 +218,8 @@ public class SVGCursorMetadata {
         return Collections.unmodifiableMap(childAnchors);
     }
 
-    void addDropShadow(boolean add) {
-        this.addDropShadow = add;
+    void setDropShadow(DropShadow shadow) {
+        this.dropShadow = Optional.ofNullable(shadow);
     }
 
     /**
@@ -355,9 +354,19 @@ public class SVGCursorMetadata {
     }
 
     private Transformer getTransformer(boolean forUpdate) {
-        return forUpdate && addDropShadow
-                ? shadowTransformer.get()
-                : identityTransformer.get();
+        Transformer transformer;
+        if (forUpdate && dropShadow.isPresent()) {
+            transformer = shadowTransformer.get();
+            DropShadow shadow = dropShadow.get();
+            transformer.setParameter("shadow-blur", shadow.blur);
+            transformer.setParameter("shadow-dx", shadow.dx);
+            transformer.setParameter("shadow-dy", shadow.dy);
+            transformer.setParameter("shadow-opacity", shadow.opacity);
+            transformer.setParameter("shadow-color", shadow.color());
+        } else {
+            transformer = identityTransformer.get();
+        }
+        return transformer;
     }
 
     private static Transformer newTransformer(Source sheet) {
@@ -372,10 +381,6 @@ public class SVGCursorMetadata {
         }
         transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
         transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-        transformer.setParameter("shadow-blur", SHADOW.blur);
-        transformer.setParameter("shadow-dx", SHADOW.dx);
-        transformer.setParameter("shadow-dy", SHADOW.dy);
-        transformer.setParameter("shadow-opacity", SHADOW.opacity);
         return transformer;
     }
 

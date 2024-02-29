@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 
@@ -67,7 +68,7 @@ public class SVGSizing {
     private int viewBoxSize;
     private Path hotspotsFile;
     private Map<String, Map<Integer, String>> adjustedHotspots;
-    private boolean pointerShadow;
+    private DropShadow pointerShadow;
 
     SVGSizing(int viewBoxSize) {
         this(viewBoxSize, Path.of("cursor-hotspots-" + viewBoxSize + ".json"));
@@ -78,7 +79,7 @@ public class SVGSizing {
         this.hotspotsFile = hotspotsFile;
     }
 
-    SVGSizing withPointerShadow(boolean shadow) {
+    SVGSizing withPointerShadow(DropShadow shadow) {
         this.pointerShadow = shadow;
         return this;
     }
@@ -125,7 +126,7 @@ public class SVGSizing {
 
     private void updateSVG(Path svg, int targetSize) throws IOException {
         SVGCursorMetadata metadata = SVGCursorMetadata.read(svg);
-        metadata.addDropShadow(pointerShadow);
+        metadata.setDropShadow(pointerShadow);
         String cursorName = svg.getFileName().toString().replaceFirst("\\.svg$", "");
         apply(cursorName, metadata, targetSize);
     }
@@ -169,7 +170,7 @@ public class SVGSizing {
             int targetSize;
             int viewBoxSize;
             Path path;
-            boolean pointerShadow;
+            DropShadow pointerShadow;
 
             CommandArgs(String[] args) {
                 List<String> argList = new ArrayList<>(Arrays.asList(args));
@@ -177,7 +178,9 @@ public class SVGSizing {
                     exitWithHelp(0);
                 }
 
-                pointerShadow = argList.remove("--pointer-shadow");
+                findOptionalArg(argList, "--pointer-shadow")
+                        .ifPresent(argValue -> pointerShadow =
+                                DropShadow.decode(argValue, DropShadow.instance(true)));
 
                 if (argList.size() != 3) {
                     exitWithHelp(1);
@@ -190,6 +193,20 @@ public class SVGSizing {
                 } catch (NumberFormatException | InvalidPathException e) {
                     exitWithHelp(2, "Error: ", e);
                 }
+            }
+
+            private Optional<String> findOptionalArg(List<String> args, String option) {
+                for (int i = 0, len = args.size(); i < len; i++) {
+                    String item = args.get(i);
+                    if (item.startsWith(option)) {
+                        args.remove(i);
+                        String value = item.substring(option.length());
+                        return Optional.of(value.startsWith("=")
+                                           ? value.substring(1)
+                                           : value);
+                    }
+                }
+                return Optional.empty();
             }
         }
 

@@ -103,8 +103,8 @@ public class BitmapsRenderer {
         return this;
     }
 
-    public BitmapsRenderer withPointerShadow(boolean addShadows) {
-        rendererBackend.setPointerShadow(addShadows);
+    public BitmapsRenderer withPointerShadow(DropShadow shadow) {
+        rendererBackend.setPointerShadow(shadow);
         return this;
     }
 
@@ -351,7 +351,7 @@ public class BitmapsRenderer {
         final Set<SizeScheme> sizes = new LinkedHashSet<>(2);
         final Set<String> cursorFilter = new LinkedHashSet<>();
         boolean createCursors;
-        boolean pointerShadow;
+        DropShadow pointerShadow;
 
         CommandArgs(String... args) {
             Runnable standardSizes = () -> {
@@ -372,7 +372,7 @@ public class BitmapsRenderer {
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> createCursors = true)
                     .acceptFlag("--standard-sizes", standardSizes)
-                    .acceptFlag("--pointer-shadow", () -> pointerShadow = true)
+                    .acceptOptionalArg("--pointer-shadow", val -> pointerShadow = DropShadow.decode(val))
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
