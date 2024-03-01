@@ -7,7 +7,6 @@ package io.github.stanio.bibata.jsvg;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -93,14 +92,8 @@ public class JSVGImageTranscoder {
             }
 
             if (dropShadow.map(DropShadow::isSVG).orElse(false)) {
-                URL transformSheet = JSVGImageTranscoder.class
-                        .getResource("/io/github/stanio/bibata/drop-shadow.xsl");
-                if (transformSheet == null) {
-                    throw new IllegalStateException("Resource "
-                            + "not found: io/github/stanio/bibata/drop-shadow.xsl");
-                }
-                sourceTransformer = tf.newTransformer(new StreamSource(DropShadow.xslt()));
                 DropShadow shadow = dropShadow.get();
+                sourceTransformer = tf.newTransformer(new StreamSource(DropShadow.xslt()));
                 sourceTransformer.setParameter("shadow-blur", shadow.blur);
                 sourceTransformer.setParameter("shadow-dx", shadow.dx);
                 sourceTransformer.setParameter("shadow-dy", shadow.dy);
@@ -120,7 +113,9 @@ public class JSVGImageTranscoder {
         try {
             DOMResult result = new DOMResult();
             sourceTransformer().transform(new StreamSource(file.toFile()), result);
-            return document = (Document) Objects.requireNonNull(result.getNode());
+            document = (Document) Objects.requireNonNull(result.getNode());
+            document.setDocumentURI(file.toUri().toString());
+            return document;
         } catch (TransformerConfigurationException e) {
             throw new IllegalStateException(e);
         } catch (TransformerException e) {
