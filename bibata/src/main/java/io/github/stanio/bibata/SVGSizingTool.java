@@ -9,8 +9,6 @@ import static io.github.stanio.bibata.Command.exitMessage;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Writer;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -26,11 +24,7 @@ import java.util.stream.Stream;
 
 import org.xml.sax.SAXException;
 
-import java.awt.Dimension;
 import java.awt.Point;
-import java.awt.geom.Dimension2D;
-import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
@@ -222,60 +216,6 @@ public class SVGSizingTool {
 
     static void exitWithHelp(int status, Object... message) {
         exitMessage(status, SVGSizingTool::printHelp, message);
-    }
-
-    /**
-     * {@return the offset to the nearest point matching the target pixel grid}
-     *
-     * Note, the coordinates need to be negated to be used as a view-box origin.
-     */
-    public static Point2D alignToGrid(Point2D anchor,
-                                      Dimension targetSize,
-                                      Dimension2D viewBox) {
-        return alignToGrid(anchor, targetSize, new Rectangle2D
-                .Double(0, 0, viewBox.getWidth(), viewBox.getHeight()));
-    }
-
-    /**
-     * {@return the offset to the nearest point matching the target pixel grid}
-     *
-     * Note, the coordinates need to be negated to be used as a view-box origin.
-     */
-    public static Point2D alignToGrid(Point2D anchor,
-                                      Dimension targetSize,
-                                      Rectangle2D viewBox) {
-        double scaleX = targetSize.width / viewBox.getWidth();
-        double scaleY = targetSize.height / viewBox.getHeight();
-
-        double alignX = anchor.getX() - viewBox.getX();
-        double alignY = anchor.getY() - viewBox.getY();
-        alignX = (int) Math.round(alignX * scaleX);
-        alignY = (int) Math.round(alignY * scaleY);
-        alignX /= scaleX;
-        alignY /= scaleY;
-
-        return new Point2D.Double(
-                limitFractional(alignX - anchor.getX() + viewBox.getX()).doubleValue(),
-                limitFractional(alignY - anchor.getY() + viewBox.getY()).doubleValue());
-    }
-
-    public static Rectangle2D adjustViewBoxOrigin(Rectangle2D viewBox, Point2D offset) {
-        // Subtract the offset from the view-box origin to have the objects
-        // translate to the given offset.
-        viewBox.setRect(viewBox.getX() - offset.getX(),
-                        viewBox.getY() - offset.getY(),
-                        viewBox.getWidth(),
-                        viewBox.getHeight());
-        return viewBox;
-    }
-
-    static BigDecimal limitFractional(double value) {
-        BigDecimal dec = BigDecimal.valueOf(value);
-        if (dec.scale() > 9) {
-            dec = dec.setScale(9, RoundingMode.HALF_EVEN);
-        }
-        return dec.scale() > 0 ? dec.stripTrailingZeros()
-                               : dec;
     }
 
 }
