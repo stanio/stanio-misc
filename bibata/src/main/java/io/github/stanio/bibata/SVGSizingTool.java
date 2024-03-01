@@ -63,23 +63,23 @@ import com.google.gson.JsonParseException;
  *
  * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
-public class SVGSizing {
+public class SVGSizingTool {
 
     private int viewBoxSize;
     private Path hotspotsFile;
     private Map<String, Map<Integer, String>> adjustedHotspots;
     private DropShadow pointerShadow;
 
-    SVGSizing(int viewBoxSize) {
+    SVGSizingTool(int viewBoxSize) {
         this(viewBoxSize, Path.of("cursor-hotspots-" + viewBoxSize + ".json"));
     }
 
-    SVGSizing(int viewBoxSize, Path hotspotsFile) {
+    SVGSizingTool(int viewBoxSize, Path hotspotsFile) {
         this.viewBoxSize = viewBoxSize;
         this.hotspotsFile = hotspotsFile;
     }
 
-    SVGSizing withPointerShadow(DropShadow shadow) {
+    SVGSizingTool withPointerShadow(DropShadow shadow) {
         this.pointerShadow = shadow;
         return this;
     }
@@ -125,15 +125,15 @@ public class SVGSizing {
     }
 
     private void updateSVG(Path svg, int targetSize) throws IOException {
-        SVGCursorMetadata metadata = SVGCursorMetadata.read(svg);
-        metadata.setDropShadow(pointerShadow);
+        SVGSizing sizing = SVGSizing.forFile(svg);
+        sizing.setDropShadow(pointerShadow);
         String cursorName = svg.getFileName().toString().replaceFirst("\\.svg$", "");
-        apply(cursorName, metadata, targetSize);
+        applySizing(cursorName, sizing, targetSize);
     }
 
-    public Point apply(String cursorName, SVGCursorMetadata metadata, int targetSize)
+    public Point applySizing(String cursorName, SVGSizing sizing, int targetSize)
             throws IOException {
-        Point hotspot = metadata.applySizing(targetSize, viewBoxSize);
+        Point hotspot = sizing.apply(targetSize, viewBoxSize);
 
         if (cursorName.startsWith("wait-")) {
             cursorName = "wait";
@@ -212,7 +212,7 @@ public class SVGSizing {
 
         CommandArgs cmdArgs = new CommandArgs(args);
         try {
-            new SVGSizing(cmdArgs.viewBoxSize)
+            new SVGSizingTool(cmdArgs.viewBoxSize)
                     .withPointerShadow(cmdArgs.pointerShadow)
                     .update(cmdArgs.path, cmdArgs.targetSize);
         } catch (IOException | JsonParseException | SAXException e) {
@@ -221,7 +221,7 @@ public class SVGSizing {
     }
 
     static void exitWithHelp(int status, Object... message) {
-        exitMessage(status, SVGSizing::printHelp, message);
+        exitMessage(status, SVGSizingTool::printHelp, message);
     }
 
     /**

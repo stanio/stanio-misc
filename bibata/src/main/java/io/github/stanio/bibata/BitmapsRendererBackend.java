@@ -50,12 +50,12 @@ abstract class BitmapsRendererBackend {
     protected NavigableMap<Integer, Cursor> currentFrames;
 
     protected ColorTheme colorTheme;
-    protected SVGCursorMetadata cursorMetadata;
     protected SVGSizing svgSizing;
+    protected SVGSizingTool sizingTool;
 
     private final Map<Path, NavigableMap<Integer, Cursor>> deferredFrames = new HashMap<>();
     private final NavigableMap<Integer, Cursor> immediateFrames = new TreeMap<>();
-    private final Map<Path, SVGSizing> svgSizingPool = new HashMap<>();
+    private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
 
     private boolean outputSet;
 
@@ -97,8 +97,8 @@ abstract class BitmapsRendererBackend {
         frameNum = staticFrame;
         currentFrames = null;
         colorTheme = null;
-        cursorMetadata = null;
         svgSizing = null;
+        sizingTool = null;
         outputSet = false;
     }
 
@@ -121,8 +121,8 @@ abstract class BitmapsRendererBackend {
 
     public void setCanvasSize(double factor) {
         int viewBoxSize = (int) Math.round(sourceSize * factor);
-        svgSizing = svgSizingPool.computeIfAbsent(outDir, dir ->
-                new SVGSizing(viewBoxSize, dir.resolve("cursor-hotspots.json")));
+        sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
+                new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json")));
     }
 
     private void setUpOutput() throws IOException {
@@ -168,7 +168,7 @@ abstract class BitmapsRendererBackend {
         try {
             // REVISIT: Implement "reset sizing" to remove previous alignments,
             // and/or provide flag whether to apply alignments.
-            return svgSizing.apply(cursorName, cursorMetadata,
+            return sizingTool.applySizing(cursorName, svgSizing,
                                    targetSize > 0 ? targetSize : sourceSize);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -229,14 +229,14 @@ abstract class BitmapsRendererBackend {
     }
 
     public void saveHotspots() throws IOException {
-        for (SVGSizing sizing : svgSizingPool.values()) {
-            sizing.saveHotspots();
+        for (SVGSizingTool hotspots : hotspotsPool.values()) {
+            hotspots.saveHotspots();
         }
     }
 
     public void reset() {
         resetFile();
-        svgSizingPool.clear();
+        hotspotsPool.clear();
         deferredFrames.clear();
         immediateFrames.clear();
     }

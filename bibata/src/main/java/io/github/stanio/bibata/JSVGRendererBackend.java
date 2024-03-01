@@ -35,7 +35,7 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
 
         Document svg = imageTranscoder.document();
         colorTheme = ColorTheme.forDocument(svg);
-        cursorMetadata = SVGCursorMetadata.read(svg);
+        svgSizing = SVGSizing.forDOM(svg);
     }
 
     @Override

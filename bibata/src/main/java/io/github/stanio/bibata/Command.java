@@ -27,7 +27,7 @@ public final class Command {
         String cmd = args[0];
         String[] cmdArgs = Arrays.copyOfRange(args, 1, args.length);
         if ("svgsize".equals(cmd)) {
-            SVGSizing.main(cmdArgs);
+            SVGSizingTool.main(cmdArgs);
         } else if ("wincur".equals(cmd)) {
             CursorCompiler.main(cmdArgs);
         } else if ("render".equals(cmd)) {

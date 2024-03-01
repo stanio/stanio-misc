@@ -42,8 +42,8 @@ class BatikRendererBackend extends BitmapsRendererBackend {
 
         colorTheme = imageTranscoder
                 .fromDocument(svg -> ColorTheme.forDocument(svg));
-        cursorMetadata = imageTranscoder
-                .fromDocument(svg -> SVGCursorMetadata.read(svg));
+        svgSizing = imageTranscoder
+                .fromDocument(svg -> SVGSizing.forDOM(svg));
     }
 
     @Override

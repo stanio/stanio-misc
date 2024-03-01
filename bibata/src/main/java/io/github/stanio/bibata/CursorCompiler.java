@@ -66,7 +66,7 @@ import io.github.stanio.bibata.CursorNames.Animation;
  * <var>&lt;cursor-name></var>-<var>&lt;N></var>-64.png
  * <var>&lt;cursor-name></var>-<var>&lt;N></var>-96.png</pre>
  * <p>
- * Requires {@code cursor-hotspots.json} as generated from {@link SVGSizing},
+ * Requires {@code cursor-hotspots.json} as generated from {@link SVGSizingTool},
  * in the specified <var>&lt;bitmaps-dir></var>.</p>
  */
 public class CursorCompiler {
