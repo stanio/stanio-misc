@@ -38,6 +38,7 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
@@ -55,27 +56,20 @@ import java.awt.geom.Rectangle2D;
  */
 public class SVGCursorMetadata {
 
-    public static final Pattern ANCHOR_POINT;
-    static {
-        final String coordinate = "[-+]? (?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?";
-        ANCHOR_POINT = Pattern.compile("^\\s* m \\s* (" + coordinate
-                                       + ") \\s*(?:,\\s*)? (" + coordinate + ")",
-                                       Pattern.CASE_INSENSITIVE | Pattern.COMMENTS);
-    }
-
     private static final ThreadLocal<XMLReader> localReader = new ThreadLocal<>();
     private static final ThreadLocal<Transformer>
             identityTransformer = ThreadLocal.withInitial(() -> newTransformer(null));
 
-    Rectangle2D sourceViewBox;
-    Point2D hotspot;
-    Point2D rootAnchor;
-    Map<ElementPath, Point2D> childAnchors;
+    final Rectangle2D sourceViewBox;
+    final Point2D hotspot;
+    final Point2D rootAnchor;
+    final Map<ElementPath, Point2D> childAnchors;
 
-    private SVGCursorMetadata() {
-        hotspot = new Point(128, 128);
-        rootAnchor = new Point();
-        childAnchors = new HashMap<>(1);
+    private SVGCursorMetadata(ParseHandler content) {
+        this.sourceViewBox = content.sourceViewBox;
+        this.hotspot = content.hotspot;
+        this.rootAnchor = content.rootAnchor;
+        this.childAnchors = content.childAnchors;
     }
 
     static XMLReader getXMLReader() {
@@ -125,9 +119,8 @@ public class SVGCursorMetadata {
      * Read metadata from given file.
      */
     public static SVGCursorMetadata read(Path file) throws IOException {
-        SVGCursorMetadata extractor = new SVGCursorMetadata();
         XMLReader xmlReader = getXMLReader();
-        ParseHandler handler = extractor.new ParseHandler();
+        ParseHandler handler = new ParseHandler();
         xmlReader.setContentHandler(handler);
         xmlReader.setEntityResolver(handler);
         xmlReader.setErrorHandler(handler);
@@ -140,22 +133,21 @@ public class SVGCursorMetadata {
             xmlReader.setEntityResolver(null);
             xmlReader.setErrorHandler(null);
         }
-        return extractor;
+        return new SVGCursorMetadata(handler);
     }
 
     /**
      * Read metadata from in-memory DOM.
      */
     public static SVGCursorMetadata read(Document svg) {
-        SVGCursorMetadata extractor = new SVGCursorMetadata();
-        Transformer identityTransformer = identiTransformer();
+        ParseHandler handler = new ParseHandler();
         try {
-            identityTransformer.transform(new DOMSource(svg),
-                    new SAXResult(extractor.new ParseHandler()));
+            identityTransformer().transform(new DOMSource(svg),
+                                            new SAXResult(handler));
         } catch (TransformerException e) {
             throw new IllegalStateException(e);
         }
-        return extractor;
+        return new SVGCursorMetadata(handler);
     }
 
     /**
@@ -186,7 +178,7 @@ public class SVGCursorMetadata {
         return Collections.unmodifiableMap(childAnchors);
     }
 
-    static Transformer identiTransformer() {
+    static Transformer identityTransformer() {
         return identityTransformer.get();
     }
 
@@ -215,7 +207,20 @@ public class SVGCursorMetadata {
     }
 
 
-    private class ParseHandler extends DefaultHandler {
+    private static class ParseHandler extends DefaultHandler {
+
+        private static final Pattern ANCHOR_POINT;
+        static {
+            final String coordinate = "[-+]? (?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?";
+            ANCHOR_POINT = Pattern.compile("^\\s* m \\s* (" + coordinate
+                                           + ") \\s*(?:,\\s*)? (" + coordinate + ")",
+                                           Pattern.CASE_INSENSITIVE | Pattern.COMMENTS);
+        }
+
+        Rectangle2D sourceViewBox = new Rectangle(256, 256);
+        Point2D hotspot = new Point(128, 128);
+        Point2D rootAnchor = new Point(); // REVISIT: or 128,128?
+        Map<ElementPath, Point2D> childAnchors = new HashMap<>(1);
 
         private ContentStack contentStack = new ContentStack();
 

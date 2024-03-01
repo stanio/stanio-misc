@@ -245,7 +245,7 @@ public class SVGSizing {
             transformer.setParameter("shadow-opacity", shadow.opacity);
             transformer.setParameter("shadow-color", shadow.color());
             return transformer;
-        }).orElseGet(SVGCursorMetadata::identiTransformer);
+        }).orElseGet(SVGCursorMetadata::identityTransformer);
     }
 
     private static Path resolveLinks(Path path) throws IOException {
