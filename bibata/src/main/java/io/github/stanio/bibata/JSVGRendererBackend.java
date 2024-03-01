@@ -11,9 +11,12 @@ import org.w3c.dom.Document;
 
 import java.awt.Point;
 
+import io.github.stanio.windows.Cursor;
+
 import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.bibata.jsvg.JSVGImageTranscoder;
-import io.github.stanio.windows.Cursor;
+import io.github.stanio.bibata.svg.DropShadow;
+import io.github.stanio.bibata.svg.SVGSizing;
 
 /**
  * Implements rendering using the JSVG (Java SVG renderer) library.

@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.bibata;
+package io.github.stanio.bibata.svg;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -59,7 +59,7 @@ public class DropShadow {
         return decode(paramStr, instance());
     }
 
-    static DropShadow decode(String paramStr, DropShadow defaultValue) {
+    public static DropShadow decode(String paramStr, DropShadow defaultValue) {
         if (paramStr.isBlank()) return defaultValue;
 
         String[] args = paramStr.split(",", 5);

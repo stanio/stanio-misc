@@ -45,6 +45,7 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.ThemeConfig.SizeScheme;
+import io.github.stanio.bibata.svg.DropShadow;
 
 /**
  * Command-line utility for rendering Bibata cursor bitmap images.  Alternative

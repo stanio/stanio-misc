@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.bibata;
+package io.github.stanio.bibata.svg;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

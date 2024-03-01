@@ -19,8 +19,10 @@ import org.apache.batik.transcoder.TranscoderOutput;
 
 import io.github.stanio.batik.DynamicImageTranscoder;
 import io.github.stanio.batik.DynamicImageTranscoder.RenderedTranscoderOutput;
-import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.windows.Cursor;
+
+import io.github.stanio.bibata.ThemeConfig.ColorTheme;
+import io.github.stanio.bibata.svg.SVGSizing;
 
 /**
  * Implements rendering using the Batik SVG Toolkit.

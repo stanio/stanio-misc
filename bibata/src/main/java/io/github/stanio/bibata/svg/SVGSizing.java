@@ -2,10 +2,10 @@
  * SPDX-FileCopyrightText: 2023 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.bibata;
+package io.github.stanio.bibata.svg;
 
-import static io.github.stanio.bibata.SVGCursorMetadata.getXMLReader;
-import static io.github.stanio.bibata.SVGCursorMetadata.unsetHandlers;
+import static io.github.stanio.bibata.svg.SVGCursorMetadata.getXMLReader;
+import static io.github.stanio.bibata.svg.SVGCursorMetadata.unsetHandlers;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -96,7 +96,7 @@ public class SVGSizing {
      *
      * @param   shadow  the drop shadow parameters
      */
-    void setDropShadow(DropShadow shadow) {
+    public void setDropShadow(DropShadow shadow) {
         this.dropShadow = Optional.ofNullable(shadow);
     }
 

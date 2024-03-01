@@ -16,10 +16,13 @@ import java.util.TreeMap;
 
 import java.awt.Point;
 
-import io.github.stanio.bibata.CursorNames.Animation;
-import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.windows.AnimatedCursor;
 import io.github.stanio.windows.Cursor;
+
+import io.github.stanio.bibata.CursorNames.Animation;
+import io.github.stanio.bibata.ThemeConfig.ColorTheme;
+import io.github.stanio.bibata.svg.DropShadow;
+import io.github.stanio.bibata.svg.SVGSizing;
 
 /**
  * Defines abstract base for rendering back-ends of {@code BitmapsRenderer}.

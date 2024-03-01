@@ -2,7 +2,7 @@
  * Copyright (C) 2023 by Stanio <stanio AT yahoo DOT com>
  * Released under BSD Zero Clause License: https://spdx.org/licenses/0BSD
  */
-package io.github.stanio.bibata;
+package io.github.stanio.bibata.svg;
 
 import java.io.IOException;
 import java.io.StringReader;

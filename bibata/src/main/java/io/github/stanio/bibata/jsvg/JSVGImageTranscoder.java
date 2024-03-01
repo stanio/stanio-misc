@@ -43,7 +43,7 @@ import com.github.weisj.jsvg.parser.SynchronousResourceLoader;
 
 import com.jhlabs.image.ShadowFilter;
 
-import io.github.stanio.bibata.DropShadow;
+import io.github.stanio.bibata.svg.DropShadow;
 
 /**
  * Mimics the (Batik) DynamicImageTranscoder API, partially.

@@ -2,7 +2,7 @@
  * Copyright (C) 2024 by Stanio <stanio AT yahoo DOT com>
  * Released under BSD Zero Clause License: https://spdx.org/licenses/0BSD
  */
-package io.github.stanio.bibata;
+package io.github.stanio.bibata.svg;
 
 import java.util.Objects;
 
@@ -23,11 +23,11 @@ public final class ElementPath {
         this(null, name, 1);
     }
 
-    private ElementPath(ElementPath parent, String name, int index) {
+    private ElementPath(ElementPath parent, String name, int pos) {
         this.parent = parent;
         this.name = name;
-        this.pos = index;
-        this.hash = Objects.hash(parent, name, index);
+        this.pos = pos;
+        this.hash = Objects.hash(parent, name, pos);
     }
 
     public ElementPath parent() {

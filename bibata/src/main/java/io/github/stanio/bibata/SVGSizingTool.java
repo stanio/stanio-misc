@@ -29,6 +29,9 @@ import java.awt.Point;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 
+import io.github.stanio.bibata.svg.DropShadow;
+import io.github.stanio.bibata.svg.SVGSizing;
+
 /**
  * Command-line utility for adjusting SVG sources' {@code width}, {@code height},
  * and {@code viewBox}.  Prepares the SVG sources for {@code yarn render}.
