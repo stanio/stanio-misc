@@ -39,15 +39,6 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected Point applySizing(int targetSize) {
-        // REVISIT: SVGCursorMetadata.applySizing(Document, ...) may update
-        // width and height attributes, as well.
-        imageTranscoder.withImageWidth(targetSize)
-                       .withImageHeight(targetSize);
-        return super.applySizing(targetSize);
-    }
-
-    @Override
     protected void renderStatic(String fileName, Point hotspot)
             throws IOException {
         if (createCursors) {

@@ -57,15 +57,14 @@ class BatikRendererBackend extends BitmapsRendererBackend {
             return imageTranscoder
                     .fromDocument(svg -> super.applySizing(targetSize));
         } finally {
-            if (targetSize > 0)
-                setTargetSize(targetSize);
+            resetView();
         }
     }
 
-    private void setTargetSize(int size) {
+    private void resetView() {
         try {
-            imageTranscoder.withImageWidth(size)
-                           .withImageHeight(size)
+            imageTranscoder.withImageWidth(-1)
+                           .withImageHeight(-1)
                            .resetView();
         } catch (TranscoderException e) {
             throw new IllegalStateException(e);

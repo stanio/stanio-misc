@@ -244,6 +244,8 @@ public class SVGCursorMetadata {
      * @see     SVGSizing#adjustViewBoxOrigin(Rectangle2D, Point2D)
      */
     public Point applySizing(int targetSize, int viewBoxSize) throws  IOException {
+        /* REVISIT: Move this functionality to SVGSizing, and then move the SVGSizing
+         * part that collects and saves the adjusted hotspots to a SVGSizingTool. */
         return (sourceSVG == null)
                 ? applySizing(sourceFile, targetSize, viewBoxSize)
                 : applySizing(sourceSVG, targetSize, viewBoxSize);
@@ -285,6 +287,8 @@ public class SVGCursorMetadata {
         return updateOffsets(targetSize, viewBoxSize,
                              (viewBoxOrigin, childOffsets) -> {
             Element svgRoot = svg.getDocumentElement();
+            svgRoot.setAttribute("width", String.valueOf(targetSize));
+            svgRoot.setAttribute("height", String.valueOf(targetSize));
             svgRoot.setAttribute("viewBox",
                     String.format(Locale.ROOT, "%s %s %d %d",
                             viewBoxOrigin.getX(), viewBoxOrigin.getY(),

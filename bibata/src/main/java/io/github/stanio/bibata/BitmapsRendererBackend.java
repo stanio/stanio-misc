@@ -166,6 +166,8 @@ abstract class BitmapsRendererBackend {
 
     protected Point applySizing(int targetSize) {
         try {
+            // REVISIT: Implement "reset sizing" to remove previous alignments,
+            // and/or provide flag whether to apply alignments.
             return svgSizing.apply(cursorName, cursorMetadata,
                                    targetSize > 0 ? targetSize : sourceSize);
         } catch (IOException e) {
