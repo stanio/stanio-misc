@@ -19,7 +19,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import javax.xml.XMLConstants;
@@ -27,7 +26,6 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
@@ -55,17 +53,11 @@ import io.github.stanio.windows.Cursor;
 
 public class SVGSizing {
 
-    private static final ThreadLocal<Transformer>
-            shadowTransformer = ThreadLocal.withInitial(() -> {
-        return SVGCursorMetadata
-                .newTransformer(new StreamSource(DropShadow.xslt()));
-    });
-
     private final Path sourceFile;
     private final Document sourceDOM;
     private final SVGCursorMetadata metadata;
 
-    private Optional<DropShadow> dropShadow = Optional.empty();
+    private final SVGTransformer svgTransformer = new SVGTransformer();
 
     private SVGSizing(Path sourceFile, SVGCursorMetadata metadata) {
         this.sourceFile = sourceFile;
@@ -97,7 +89,7 @@ public class SVGSizing {
      * @param   shadow  the drop shadow parameters
      */
     public void setDropShadow(DropShadow shadow) {
-        this.dropShadow = Optional.ofNullable(shadow);
+        svgTransformer.setPointerShadow(shadow);
     }
 
     /**
@@ -237,15 +229,7 @@ public class SVGSizing {
     }
 
     private Transformer getTransformer() {
-        return dropShadow.map(shadow -> {
-            Transformer transformer = shadowTransformer.get();
-            transformer.setParameter("shadow-blur", shadow.blur);
-            transformer.setParameter("shadow-dx", shadow.dx);
-            transformer.setParameter("shadow-dy", shadow.dy);
-            transformer.setParameter("shadow-opacity", shadow.opacity);
-            transformer.setParameter("shadow-color", shadow.color());
-            return transformer;
-        }).orElseGet(SVGCursorMetadata::identityTransformer);
+        return svgTransformer.sourceTransformer();
     }
 
     private static Path resolveLinks(Path path) throws IOException {

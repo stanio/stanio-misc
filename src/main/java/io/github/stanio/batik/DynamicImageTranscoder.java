@@ -259,6 +259,11 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
         return this;
     }
 
+    public DynamicImageTranscoder withDocument(Document document)
+            throws TranscoderException {
+        return loadDocument(new TranscoderInput(document));
+    }
+
     public DynamicImageTranscoder
             loadDocument(TranscoderInput input) throws TranscoderException {
         initOnly = true;

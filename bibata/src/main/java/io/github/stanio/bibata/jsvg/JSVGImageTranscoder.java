@@ -10,17 +10,8 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.Objects;
-import java.util.Optional;
 
-import javax.xml.XMLConstants;
 import javax.xml.stream.XMLStreamException;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMResult;
-import javax.xml.transform.stream.StreamSource;
 
 import org.w3c.dom.Document;
 
@@ -43,6 +34,7 @@ import com.github.weisj.jsvg.parser.SynchronousResourceLoader;
 import com.jhlabs.image.ShadowFilter;
 
 import io.github.stanio.bibata.svg.DropShadow;
+import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Mimics the (Batik) DynamicImageTranscoder API, partially.
@@ -53,18 +45,21 @@ public class JSVGImageTranscoder {
 
     private Document document;
 
-    private Optional<DropShadow> dropShadow;
-    private Transformer sourceTransformer;
+    private SVGTransformer svgTransformer = new SVGTransformer();
     private StaxSVGLoader svgLoader;
     private ImageWriter pngWriter;
 
     public void setDropShadow(DropShadow shadow) {
-        this.dropShadow = Optional.ofNullable(shadow);
-        sourceTransformer = null;
+        svgTransformer.setPointerShadow(shadow);
     }
 
     public Document document() {
         return document;
+    }
+
+    public JSVGImageTranscoder withDocument(Document document) {
+        this.document = document;
+        return this;
     }
 
     public JSVGImageTranscoder withImageWidth(int width) {
@@ -79,52 +74,8 @@ public class JSVGImageTranscoder {
         return this;
     }
 
-    private Transformer sourceTransformer() throws TransformerConfigurationException {
-        if (sourceTransformer != null)
-            return sourceTransformer;
-
-        try {
-            TransformerFactory tf = TransformerFactory.newInstance();
-            try {
-                tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            } catch (TransformerConfigurationException e) {
-                System.err.append("FEATURE_SECURE_PROCESSING not supported: ").println(e);
-            }
-
-            if (dropShadow.map(DropShadow::isSVG).orElse(false)) {
-                DropShadow shadow = dropShadow.get();
-                sourceTransformer = tf.newTransformer(new StreamSource(DropShadow.xslt()));
-                sourceTransformer.setParameter("shadow-blur", shadow.blur);
-                sourceTransformer.setParameter("shadow-dx", shadow.dx);
-                sourceTransformer.setParameter("shadow-dy", shadow.dy);
-                sourceTransformer.setParameter("shadow-opacity", shadow.opacity);
-                sourceTransformer.setParameter("shadow-color", shadow.color());
-            } else {
-                sourceTransformer = tf.newTransformer();
-            }
-            return sourceTransformer;
-
-        } catch (TransformerConfigurationException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
     public Document loadDocument(Path file) throws IOException {
-        try {
-            DOMResult result = new DOMResult();
-            sourceTransformer().transform(new StreamSource(file.toFile()), result);
-            document = (Document) Objects.requireNonNull(result.getNode());
-            document.setDocumentURI(file.toUri().toString());
-            return document;
-        } catch (TransformerConfigurationException e) {
-            throw new IllegalStateException(e);
-        } catch (TransformerException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof IOException) {
-                throw (IOException) cause;
-            }
-            throw new IOException(e);
-        }
+        return document = svgTransformer.loadDocument(file);
     }
 
     private SVGDocument getSVG() {
@@ -169,7 +120,8 @@ public class JSVGImageTranscoder {
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
             svg.render(null, g);
 
-            if (dropShadow.map(shadow -> !shadow.isSVG()).orElse(false)) {
+            if (svgTransformer.dropShadow()
+                    .map(shadow -> !shadow.isSVG()).orElse(false)) {
                 g.dispose();
 
                 float vsize;
@@ -181,7 +133,7 @@ public class JSVGImageTranscoder {
                     vsize = 256;
                 }
 
-                DropShadow shadow = dropShadow.get();
+                DropShadow shadow = svgTransformer.dropShadow().get();
                 float scale = image.getWidth() / vsize;
                 ShadowFilter filter = new ShadowFilter(shadow.blur * scale,
                                                        shadow.dx * scale,

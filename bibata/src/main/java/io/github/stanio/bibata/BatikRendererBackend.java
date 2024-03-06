@@ -4,7 +4,6 @@
  */
 package io.github.stanio.bibata;
 
-import static io.github.stanio.batik.DynamicImageTranscoder.fileInput;
 import static io.github.stanio.batik.DynamicImageTranscoder.fileOutput;
 
 import java.io.IOException;
@@ -22,7 +21,9 @@ import io.github.stanio.batik.DynamicImageTranscoder.RenderedTranscoderOutput;
 import io.github.stanio.windows.Cursor;
 
 import io.github.stanio.bibata.ThemeConfig.ColorTheme;
+import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGSizing;
+import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Implements rendering using the Batik SVG Toolkit.
@@ -32,12 +33,19 @@ import io.github.stanio.bibata.svg.SVGSizing;
  */
 class BatikRendererBackend extends BitmapsRendererBackend {
 
+    private SVGTransformer svgTransformer = new SVGTransformer();
     private DynamicImageTranscoder imageTranscoder = new DynamicImageTranscoder();
+
+    @Override
+    public void setPointerShadow(DropShadow shadow) {
+        svgTransformer.setPointerShadow(shadow);
+    }
 
     @Override
     protected void loadFile(Path svgFile) throws IOException {
         try {
-            imageTranscoder.loadDocument(fileInput(svgFile));
+            //imageTranscoder.loadDocument(fileInput(svgFile));
+            imageTranscoder.withDocument(svgTransformer.loadDocument(svgFile));
         } catch (TranscoderException e) {
             throw findIOCause(e);
         }

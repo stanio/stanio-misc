@@ -4,6 +4,8 @@
  */
 package io.github.stanio.bibata.svg;
 
+import static io.github.stanio.bibata.svg.SVGTransformer.newTransformer;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
@@ -16,12 +18,9 @@ import java.util.regex.Pattern;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
-import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
 
@@ -58,7 +57,7 @@ public class SVGCursorMetadata {
 
     private static final ThreadLocal<XMLReader> localReader = new ThreadLocal<>();
     private static final ThreadLocal<Transformer>
-            identityTransformer = ThreadLocal.withInitial(() -> newTransformer(null));
+            identityTransformer = ThreadLocal.withInitial(() -> newTransformer((Source) null));
 
     final Rectangle2D sourceViewBox;
     final Point2D hotspot;
@@ -142,8 +141,8 @@ public class SVGCursorMetadata {
     public static SVGCursorMetadata read(Document svg) {
         ParseHandler handler = new ParseHandler();
         try {
-            identityTransformer().transform(new DOMSource(svg),
-                                            new SAXResult(handler));
+            identityTransformer.get().transform(new DOMSource(svg),
+                                                new SAXResult(handler));
         } catch (TransformerException e) {
             throw new IllegalStateException(e);
         }
@@ -176,25 +175,6 @@ public class SVGCursorMetadata {
      */
     public Map<ElementPath, Point2D> childAnchors() {
         return Collections.unmodifiableMap(childAnchors);
-    }
-
-    static Transformer identityTransformer() {
-        return identityTransformer.get();
-    }
-
-    static Transformer newTransformer(Source sheet) {
-        Transformer transformer;
-        try {
-            TransformerFactory tf = TransformerFactory.newInstance();
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            transformer = (sheet == null) ? tf.newTransformer()
-                                          : tf.newTransformer(sheet);
-        } catch (TransformerConfigurationException e) {
-            throw new IllegalStateException(e);
-        }
-        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-        return transformer;
     }
 
     @Override
