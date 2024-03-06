@@ -500,8 +500,13 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
         ImageRendererFactory factory = new ConcreteImageRendererFactory();
         ImageRenderer renderer = factory.createDynamicImageRenderer();
         renderer.setDoubleBuffered(false);
-        renderer.getRenderingHints().put(RenderingHints.KEY_STROKE_CONTROL,
-                                         RenderingHints.VALUE_STROKE_PURE);
+        RenderingHints renderingHints = renderer.getRenderingHints();
+        renderingHints.put(RenderingHints.KEY_RENDERING,
+                           RenderingHints.VALUE_RENDER_QUALITY);
+        renderingHints.put(RenderingHints.KEY_STROKE_CONTROL,
+                           RenderingHints.VALUE_STROKE_PURE);
+        renderingHints.put(RenderingHints.KEY_FRACTIONALMETRICS,
+                           RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         //savedRoot = root;
         return renderer;
     }
