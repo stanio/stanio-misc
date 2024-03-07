@@ -5,6 +5,8 @@
 package io.github.stanio.x11;
 
 import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorConvertOp;
@@ -93,6 +95,41 @@ final class IntPixels {
             ColorSpace.getInstance(ColorSpace.CS_sRGB);
     private static final ColorSpace CS_LINEAR_RGB =
             ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB);
+
+    static Rectangle contentBounds(int[] image, int scanline, Point hotspot) {
+        final int height = image.length / scanline;
+
+        int minX = hotspot.x, minY = hotspot.y;
+        int maxX = minX, maxY = minY;
+        for (int y = 0, off = 0; y < height; y++) {
+            for (int x = 0; x < scanline; x++, off++) {
+                int pixel = image[off];
+                if ((pixel & 0xFF000000) != 0) {
+                    minX = Math.min(x, minX);
+                    minY = Math.min(y, minY);
+                    maxX = Math.max(x, maxX);
+                    maxY = Math.max(y, maxY);
+                }
+            }
+        }
+        return new Rectangle(minX, minY,
+                maxX - minX + 1, maxY - minY + 1);
+    }
+
+    static int[] cropTo(int[] image, int scanline, Rectangle region) {
+        if (region.x == 0 && region.y == 0
+                && region.width == scanline
+                && region.height == image.length / scanline)
+            return image;
+
+        int off = 0;
+        for (int y = region.y, endy = y + region.height; y < endy; y++) {
+            System.arraycopy(image, region.x + y * scanline,
+                             image, off, region.width);
+            off += region.width;
+        }
+        return image; //Arrays.copyOf(image, off);
+    }
 
     private IntPixels() {/* no instances */}
 
