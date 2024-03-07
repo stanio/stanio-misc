@@ -208,7 +208,7 @@ public class BitmapsRenderer {
 
             if (first) first = false;
             else System.out.print(";\n\t");
-            System.out.print(Path.of(config.out).getFileName());
+            System.out.print(config.name());
 
             rendererBackend.applyColors(config.colors());
             renderSVG(config, cursorName);
@@ -329,7 +329,7 @@ public class BitmapsRenderer {
             return configMap.entrySet().stream()
                     .filter(entry -> themesFilter.isEmpty()
                             || themesFilter.contains(entry.getKey()))
-                    .map(Map.Entry::getValue)
+                    .map(entry -> entry.getValue().withName(entry.getKey()))
                     .toArray(ThemeConfig[]::new);
         }
     }

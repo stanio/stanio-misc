@@ -4,6 +4,7 @@
  */
 package io.github.stanio.bibata;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,6 +48,7 @@ public class ThemeConfig {
     }
 
 
+    String name;
     private String dir;
     String out;
     private LinkedHashSet<String> cursors;
@@ -59,6 +61,16 @@ public class ThemeConfig {
         config.dir = Objects.requireNonNull(dir, "null dir");
         config.out = Objects.requireNonNull(out, "null out");
         return config;
+    }
+
+    ThemeConfig withName(String name) {
+        this.name = name;
+        return this;
+    }
+
+    String name() {
+        return (name != null) ? name
+                              : Path.of(out).getFileName().toString();
     }
 
     String dir() {
