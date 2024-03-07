@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Optional;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -48,6 +49,10 @@ public class JSVGImageTranscoder {
     private SVGTransformer svgTransformer = new SVGTransformer();
     private StaxSVGLoader svgLoader;
     private ImageWriter pngWriter;
+
+    public Optional<DropShadow> dropShadow() {
+        return svgTransformer.dropShadow();
+    }
 
     public void setDropShadow(DropShadow shadow) {
         svgTransformer.setPointerShadow(shadow);

@@ -246,9 +246,13 @@ public class BitmapsRenderer {
             }
 
             Path outDir = outBase;
+            if (rendererBackend.hasPointerShadow()) {
+                outDir = outDir.resolveSibling(
+                        outDir.getFileName() + "-Shadow");
+            }
             if (scheme != SizeScheme.SOURCE) {
-                outDir = outBase.resolveSibling(
-                        outBase.getFileName() + "-" + scheme.name);
+                outDir = outDir.resolveSibling(
+                        outDir.getFileName() + "-" + scheme.name);
             }
             rendererBackend.setOutDir(outDir);
 

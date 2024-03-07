@@ -42,6 +42,11 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
+    public boolean hasPointerShadow() {
+        return svgTransformer.dropShadow().isPresent();
+    }
+
+    @Override
     protected void loadFile(Path svgFile) throws IOException {
         try {
             //imageTranscoder.loadDocument(fileInput(svgFile));

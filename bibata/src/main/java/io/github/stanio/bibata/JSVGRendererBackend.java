@@ -27,6 +27,11 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
+    public boolean hasPointerShadow() {
+        return imageTranscoder.dropShadow().isPresent();
+    }
+
+    @Override
     protected void loadFile(Path svgFile) throws IOException {
         imageTranscoder.loadDocument(svgFile);
         initWithDocument(imageTranscoder.document());

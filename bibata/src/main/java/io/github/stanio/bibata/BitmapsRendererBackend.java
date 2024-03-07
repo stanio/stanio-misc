@@ -86,6 +86,10 @@ abstract class BitmapsRendererBackend {
             implWarn("doesn't support --pointer-shadow");
     }
 
+    public boolean hasPointerShadow() {
+        return false;
+    }
+
     public void loadFile(String cursorName, Path svgFile) throws IOException {
         resetFile();
         this.cursorName = cursorName;
