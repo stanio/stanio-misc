@@ -7,16 +7,10 @@ package io.github.stanio.bibata;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import org.w3c.dom.Document;
+import java.awt.image.BufferedImage;
 
-import java.awt.Point;
-
-import io.github.stanio.windows.Cursor;
-
-import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.bibata.jsvg.JSVGImageTranscoder;
 import io.github.stanio.bibata.svg.DropShadow;
-import io.github.stanio.bibata.svg.SVGSizing;
 
 /**
  * Implements rendering using the JSVG (Java SVG renderer) library.
@@ -35,21 +29,17 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
     @Override
     protected void loadFile(Path svgFile) throws IOException {
         imageTranscoder.loadDocument(svgFile);
-
-        Document svg = imageTranscoder.document();
-        colorTheme = ColorTheme.forDocument(svg);
-        svgSizing = SVGSizing.forDocument(svg);
+        initWithDocument(imageTranscoder.document());
     }
 
     @Override
-    protected void renderStatic(String fileName, Point hotspot)
-            throws IOException {
-        if (createCursors) {
-            currentFrames.computeIfAbsent(frameNum, k -> new Cursor())
-                    .addImage(imageTranscoder.transcode(), hotspot);
-        } else {
-            imageTranscoder.transcodeTo(outDir.resolve(fileName + ".png"));
-        }
+    protected BufferedImage renderStatic() {
+        return imageTranscoder.transcode();
+    }
+
+    @Override
+    protected void writeStatic(Path targetFile) throws IOException {
+        imageTranscoder.transcodeTo(targetFile);
     }
 
 }

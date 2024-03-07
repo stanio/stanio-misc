@@ -10,19 +10,19 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 import java.awt.Point;
+import java.awt.image.BufferedImage;
 
 import org.apache.batik.transcoder.TranscoderException;
 import org.apache.batik.transcoder.TranscoderOutput;
 
 import io.github.stanio.batik.DynamicImageTranscoder;
 import io.github.stanio.batik.DynamicImageTranscoder.RenderedTranscoderOutput;
-import io.github.stanio.windows.Cursor;
 
-import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.bibata.svg.DropShadow;
-import io.github.stanio.bibata.svg.SVGSizing;
 import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
@@ -50,10 +50,10 @@ class BatikRendererBackend extends BitmapsRendererBackend {
             throw findIOCause(e);
         }
 
-        colorTheme = imageTranscoder
-                .fromDocument(svg -> ColorTheme.forDocument(svg));
-        svgSizing = imageTranscoder
-                .fromDocument(svg -> SVGSizing.forDocument(svg));
+        imageTranscoder.fromDocument(svg -> {
+            initWithDocument(svg);
+            return null;
+        });
     }
 
     @Override
@@ -82,26 +82,49 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void renderStatic(String fileName, Point hotspot)
-            throws IOException {
-        TranscoderOutput output = createCursors
-                                  ? new RenderedTranscoderOutput()
-                                  : fileOutput(outDir.resolve(fileName + ".png"));
-
+    protected BufferedImage renderStatic() {
         try {
+            RenderedTranscoderOutput output = new RenderedTranscoderOutput();
             imageTranscoder.transcodeTo(output);
+            return output.getImage();
         } catch (TranscoderException e) {
-            throw findIOCause(e);
-        }
-
-        if (createCursors) {
-            currentFrames.computeIfAbsent(frameNum, k -> new Cursor())
-                    .addImage(((RenderedTranscoderOutput) output).getImage(), hotspot);
+            throw new IllegalStateException(e);
         }
     }
 
     @Override
-    protected void renderAnimation(String nameFormat, Point hotspot)
+    protected void writeStatic(Path targetFile) throws IOException {
+        try {
+            imageTranscoder.transcodeTo(fileOutput(targetFile));
+        } catch (TranscoderException e) {
+            throw findIOCause(e);
+        }
+    }
+
+    @Override
+    protected void renderAnimation(AnimationFrameCallback callback) {
+        try {
+            renderAnimation(frameNo -> new RenderedTranscoderOutput(),
+                    (frameNo, output) -> callback.accept(frameNo, output.getImage()));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    protected void writeAnimation(Path targetBase, String nameFormat)
+            throws IOException {
+        Function<Integer, TranscoderOutput> fileProvider = frameNo -> {
+            String fileName = String.format(Locale.ROOT, nameFormat, frameNo);
+            return fileOutput(targetBase.resolve(fileName));
+        };
+        renderAnimation(fileProvider,
+                (frameNo, output) -> {/* written to file already */});
+    }
+
+    private <T extends TranscoderOutput>
+    void renderAnimation(Function<Integer, T> outputInitializer,
+                         BiConsumer<Integer, T> outputConsumer)
             throws IOException {
         final float duration = animation.duration;
         final float frameRate = animation.frameRate;
@@ -111,11 +134,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
                 currentTime = frameNo++ / frameRate) {
             float snapshotTime = currentTime;
 
-            TranscoderOutput
-            output = createCursors
-                     ? new RenderedTranscoderOutput()
-                     : fileOutput(outDir.resolve(String
-                             .format(Locale.ROOT, nameFormat, frameNo)));
+            T output = outputInitializer.apply(frameNum);
 
             try {
                 imageTranscoder.transcodeDynamic(output,
@@ -124,10 +143,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
                 throw findIOCause(e);
             }
 
-            if (createCursors) {
-                currentFrames.computeIfAbsent(frameNo, k -> new Cursor())
-                        .addImage(((RenderedTranscoderOutput) output).getImage(), hotspot);
-            }
+            outputConsumer.accept(frameNum, output);
         }
     }
 

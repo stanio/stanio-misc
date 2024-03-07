@@ -14,7 +14,10 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
+import org.w3c.dom.Document;
+
 import java.awt.Point;
+import java.awt.image.BufferedImage;
 
 import io.github.stanio.windows.AnimatedCursor;
 import io.github.stanio.windows.Cursor;
@@ -50,11 +53,11 @@ abstract class BitmapsRendererBackend {
 
     protected Path outDir;
 
-    protected NavigableMap<Integer, Cursor> currentFrames;
+    private NavigableMap<Integer, Cursor> currentFrames;
 
-    protected ColorTheme colorTheme;
-    protected SVGSizing svgSizing;
-    protected SVGSizingTool sizingTool;
+    private ColorTheme colorTheme;
+    private SVGSizing svgSizing;
+    private SVGSizingTool sizingTool;
 
     private final Map<Path, NavigableMap<Integer, Cursor>> deferredFrames = new HashMap<>();
     private final NavigableMap<Integer, Cursor> immediateFrames = new TreeMap<>();
@@ -84,14 +87,14 @@ abstract class BitmapsRendererBackend {
 
     public void setPointerShadow(DropShadow shadow) {
         if (shadow != null)
-            System.err.append(getClass().getName())
-                      .println(" doesn't support --pointer-shadow");
+            implWarn("doesn't support --pointer-shadow");
     }
 
     public void loadFile(String cursorName, Path svgFile) throws IOException {
         resetFile();
         this.cursorName = cursorName;
         loadFile(svgFile);
+        // REVISIT: Verify non-null colorTheme and svgSizing
     }
 
     private void resetFile() {
@@ -106,6 +109,11 @@ abstract class BitmapsRendererBackend {
     }
 
     protected abstract void loadFile(Path svgFile) throws IOException;
+
+    protected void initWithDocument(Document svg) {
+        colorTheme = ColorTheme.forDocument(svg);
+        svgSizing = SVGSizing.forDocument(svg);
+    }
 
     public void applyColors(Map<String, String> colorMap) {
         colorTheme.apply(colorMap);
@@ -160,10 +168,23 @@ abstract class BitmapsRendererBackend {
 
         if (animation == null || frameNum != staticFrame) {
             // Static cursor or static animation frame
-            renderStatic(cursorName + sizeSuffix, hotspot);
+            if (createCursors) {
+                BufferedImage image = renderStatic();
+                currentFrames.computeIfAbsent(frameNum, k -> new Cursor())
+                        .addImage(image, hotspot);
+            } else {
+                Path targetFile = outDir.resolve(cursorName + sizeSuffix + ".png");
+                writeStatic(targetFile);
+            }
         } else {
-            renderAnimation(cursorName + "-%0"
-                    + animation.numDigits + "d" + sizeSuffix + ".png", hotspot);
+            if (createCursors) {
+                renderAnimation((frameNo, image) ->
+                        currentFrames.computeIfAbsent(frameNo, k -> new Cursor())
+                                     .addImage(image, hotspot));
+            } else {
+                writeAnimation(outDir, cursorName + "-%0"
+                        + animation.numDigits + "d" + sizeSuffix + ".png");
+            }
         }
     }
 
@@ -178,13 +199,29 @@ abstract class BitmapsRendererBackend {
         }
     }
 
-    protected abstract void renderStatic(String fileName, Point hotspot)
+    protected abstract void writeStatic(Path targetFile)
             throws IOException;
 
-    protected void renderAnimation(String nameFormat, Point hotspot)
+    protected abstract BufferedImage renderStatic();
+
+    protected void writeAnimation(Path targetBase, String nameFormat)
             throws IOException {
-        System.err.append(getClass().getName()).println(" doesn't handle SVG animations");
-        renderStatic(String.format(Locale.ROOT, nameFormat, frameNum), hotspot);
+        implWarn("doesn't handle SVG animations");
+        writeStatic(targetBase.resolve(String.format(Locale.ROOT, nameFormat, frameNum)));
+    }
+
+    @FunctionalInterface
+    protected static interface AnimationFrameCallback {
+        void accept(int frameNo, BufferedImage image);
+    }
+
+    protected void renderAnimation(AnimationFrameCallback callback) {
+        implWarn("doesn't handle SVG animations");
+        callback.accept(frameNum, renderStatic());
+    }
+
+    private void implWarn(String msg) {
+        System.err.append(getClass().getName()).append(' ').println(msg);
     }
 
     public void saveCurrent() throws IOException {
