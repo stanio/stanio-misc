@@ -19,6 +19,8 @@ class CursorNames {
 
         WAIT(18);
 
+        private static float rateGain = 1.25f;
+
         final float duration;
         final float frameRate;
         final int numDigits;
@@ -37,7 +39,11 @@ class CursorNames {
         }
 
         public int jiffies() {
-            return (int) (60 / frameRate + 0.5);
+            return Math.round(60 / (frameRate * rateGain));
+        }
+
+        public int delayMillis() {
+            return (int) (1000 / (frameRate * rateGain));
         }
 
         public static Animation lookUp(String name) {
@@ -70,6 +76,10 @@ class CursorNames {
         return null;
     }
 
+    public static String x11Name(String name) {
+        return x11Names.getOrDefault(name, name);
+    }
+
     private static Map<String, String>
             winNames = Map.ofEntries(entry("bd_double_arrow", "Dgn1"),
                                      entry("circle", "Unavailable"),
@@ -97,5 +107,9 @@ class CursorNames {
                                      entry("sb_up_arrow", "Alternate_3"),
                                      entry("cross", "Cross_2"),
                                      entry("crossed_circle", "Unavailable_2"));
+
+    private static Map<String, String>
+            x11Names = Map.ofEntries(entry("zoom_in", "zoom-in"),
+                                     entry("zoom_out", "zoom-out"));
 
 }

@@ -60,6 +60,8 @@ import io.github.stanio.bibata.svg.DropShadow;
  */
 public class BitmapsRenderer {
 
+    public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS }
+
     private final Path baseDir;
 
     // Default/implied config
@@ -118,8 +120,8 @@ public class BitmapsRenderer {
         return this;
     }
 
-    public BitmapsRenderer buildCursors(boolean create) {
-        rendererBackend.setCreateCursors(create);
+    public BitmapsRenderer buildCursors(OutputType type) {
+        rendererBackend.setOutputType(type);
         return this;
     }
 
@@ -139,7 +141,7 @@ public class BitmapsRenderer {
                 renderDir(entry.getKey(), entry.getValue());
             }
         } finally {
-            if (!rendererBackend.createCursors)
+            if (rendererBackend.outputType == OutputType.BITMAPS)
                 rendererBackend.saveHotspots();
         }
     }
@@ -305,7 +307,7 @@ public class BitmapsRenderer {
                     .withResolutions(cmdArgs.resolutions)
                     .withPointerShadow(cmdArgs.pointerShadow)
                     .filterCursors(cmdArgs.cursorFilter)
-                    .buildCursors(cmdArgs.createCursors)
+                    .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
         } catch (IOException e) {
             exitMessage(3, "Error: ", e);
@@ -355,7 +357,7 @@ public class BitmapsRenderer {
         final Set<Integer> resolutions = new LinkedHashSet<>(2);
         final Set<SizeScheme> sizes = new LinkedHashSet<>(2);
         final Set<String> cursorFilter = new LinkedHashSet<>();
-        boolean createCursors;
+        OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
 
         CommandArgs(String... args) {
@@ -375,7 +377,8 @@ public class BitmapsRenderer {
                             splitOnComma(Integer::valueOf))
                     .acceptOption("-t", themeFilter::add, String::strip)
                     .acceptOption("-f", cursorFilter::add, String::strip)
-                    .acceptFlag("--windows-cursors", () -> createCursors = true)
+                    .acceptFlag("--windows-cursors", () -> outputType = OutputType.WINDOWS_CURSORS)
+                    .acceptFlag("--linux-cursors", () -> outputType = OutputType.LINUX_CURSORS)
                     .acceptFlag("--standard-sizes", standardSizes)
                     .acceptOptionalArg("--pointer-shadow", val -> pointerShadow = DropShadow.decode(val))
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
@@ -388,7 +391,7 @@ public class BitmapsRenderer {
 
         public static void printHelp(PrintStream out) {
             out.println("USAGE: render [<base-path>]"
-                    + " [--pointer-shadow]"
+                    + " [--pointer-shadow] [--linux-cursors]"
                     + " [--standard-sizes] [--windows-cursors]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]...");

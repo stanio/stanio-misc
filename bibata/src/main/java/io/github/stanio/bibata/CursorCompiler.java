@@ -74,7 +74,7 @@ public class CursorCompiler {
     private static final Pattern WS = Pattern.compile("\\s+");
 
     static final int maxAnimSize = Integer.getInteger("bibata.maxAnimSize", 64);
-    static final int minAnimSize = Integer.getInteger("bibata.minAnimSize", 32);
+    static final int minAnimSize = Integer.getInteger("bibata.minAnimSize", 0);
 
     private Path outputDir;
 

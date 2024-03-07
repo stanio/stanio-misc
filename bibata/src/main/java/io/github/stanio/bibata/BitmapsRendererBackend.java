@@ -18,7 +18,9 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 
 import io.github.stanio.windows.AnimatedCursor;
+import io.github.stanio.x11.XCursor;
 
+import io.github.stanio.bibata.BitmapsRenderer.OutputType;
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.bibata.svg.DropShadow;
@@ -42,7 +44,7 @@ abstract class BitmapsRendererBackend {
     /** XXX: Try to eliminate dependency on this one. */
     protected static final int sourceSize = 256;
 
-    protected boolean createCursors;
+    protected OutputType outputType;
 
     protected String cursorName;
     protected Animation animation;
@@ -54,10 +56,14 @@ abstract class BitmapsRendererBackend {
     private SVGSizing svgSizing;
     private SVGSizingTool sizingTool;
 
+    private float drawingFactor;
+
     private final Map<Path, AnimatedCursor> deferredFrames = new HashMap<>();
+    private final Map<Path, XCursor> deferredXFrames = new HashMap<>();
     private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
 
     private AnimatedCursor currentFrames;
+    private XCursor currentXFrames;
 
     private boolean outputSet;
 
@@ -77,8 +83,8 @@ abstract class BitmapsRendererBackend {
         return new JSVGRendererBackend();
     }
 
-    public void setCreateCursors(boolean createCursors) {
-        this.createCursors = createCursors;
+    public void setOutputType(OutputType type) {
+        this.outputType = type;
     }
 
     public void setPointerShadow(DropShadow shadow) {
@@ -102,6 +108,7 @@ abstract class BitmapsRendererBackend {
         animation = null;
         frameNum = staticFrame;
         currentFrames = null;
+        currentXFrames = null;
         colorTheme = null;
         svgSizing = null;
         sizingTool = null;
@@ -134,6 +141,7 @@ abstract class BitmapsRendererBackend {
         int viewBoxSize = (int) Math.round(sourceSize * factor);
         sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
                 new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json")));
+        drawingFactor = (float) (1 / factor);
     }
 
     private void setUpOutput() throws IOException {
@@ -141,21 +149,36 @@ abstract class BitmapsRendererBackend {
 
         if (animation == null) {
             currentFrames = new AnimatedCursor(0); // container, dummy animation
+            currentXFrames = new XCursor(drawingFactor);
         } else {
             Path animDir = outDir.resolve(animation.lowerName);
-            if (!createCursors) {
+            switch (outputType) {
+            case BITMAPS:
                 // Place individual frame bitmaps in a subdirectory.
                 outDir = animDir;
-            } else if (frameNum != staticFrame) {
-                // Collect static animation frames to save after full directory traversal.
-                currentFrames = deferredFrames.computeIfAbsent(animDir,
-                        k -> new AnimatedCursor(animation.jiffies()));
-            } else {
-                currentFrames = new AnimatedCursor(animation.jiffies());
+                break;
+            case WINDOWS_CURSORS:
+                currentFrames = (frameNum == staticFrame)
+                                ? new AnimatedCursor(animation.jiffies())
+                                : deferredFrames.computeIfAbsent(animDir,
+                                        k -> new AnimatedCursor(animation.jiffies()));
+                break;
+            case LINUX_CURSORS:
+                currentXFrames = (frameNum == staticFrame)
+                                 ? new XCursor(drawingFactor)
+                                 : deferredXFrames.computeIfAbsent(animDir,
+                                         k -> new XCursor(drawingFactor));
+                break;
+            default:
+                throw unexpectedOutputType();
             }
         }
         Files.createDirectories(outDir);
         outputSet = true;
+    }
+
+    private IllegalStateException unexpectedOutputType() {
+        return new IllegalStateException("Unexpected output type: " + outputType);
     }
 
     public void renderTargetSize(int size) throws IOException {
@@ -170,19 +193,37 @@ abstract class BitmapsRendererBackend {
 
         if (animation == null || frameNum != staticFrame) {
             // Static cursor or animation frame from static image
-            if (createCursors) {
-                currentFrames.prepareFrame(frameNum)
-                        .addImage(renderStatic(), hotspot);
-            } else {
+            switch (outputType) {
+            case BITMAPS:
                 writeStatic(outDir.resolve(cursorName + sizeSuffix + ".png"));
+                break;
+            case WINDOWS_CURSORS:
+                currentFrames.prepareFrame(frameNum)
+                             .addImage(renderStatic(), hotspot);
+                break;
+            case LINUX_CURSORS:
+                int delay = (animation == null) ? 0 : animation.delayMillis();
+                currentXFrames.addFrame(frameNum, renderStatic(), hotspot, delay);
+                break;
+            default:
+                throw unexpectedOutputType();
             }
         } else {
-            if (createCursors) {
-                renderAnimation((frameNo, image) -> currentFrames
-                        .prepareFrame(frameNo).addImage(image, hotspot));
-            } else {
+            switch (outputType) {
+            case BITMAPS:
                 writeAnimation(outDir, cursorName + "-%0"
                         + animation.numDigits + "d" + sizeSuffix + ".png");
+                break;
+            case WINDOWS_CURSORS:
+                renderAnimation((frameNo, image) -> currentFrames
+                        .prepareFrame(frameNo).addImage(image, hotspot));
+                break;
+            case LINUX_CURSORS:
+                renderAnimation((frameNo, image) -> currentXFrames
+                        .addFrame(frameNo, image, hotspot, animation.delayMillis()));
+                break;
+            default:
+                throw unexpectedOutputType();
             }
         }
     }
@@ -225,10 +266,16 @@ abstract class BitmapsRendererBackend {
 
     public void saveCurrent() throws IOException {
         // Static cursor or complete animation
-        if (frameNum == staticFrame && !currentFrames.isEmpty()) {
-            saveCursor(outDir, cursorName, animation, currentFrames);
+        if (frameNum == staticFrame) {
+            if (!currentFrames.isEmpty())
+                saveCursor(outDir, cursorName, animation, currentFrames);
+
+            if (!currentXFrames.isEmpty())
+                currentXFrames.writeTo(outDir
+                        .resolve(CursorNames.x11Name(cursorName)));
         }
         currentFrames = null;
+        currentXFrames = null;
     }
 
     final void saveCursor(Path outDir,
@@ -260,6 +307,16 @@ abstract class BitmapsRendererBackend {
             String cursorName = entry.getKey().getFileName().toString();
             saveCursor(entry.getKey().getParent(), cursorName,
                     Animation.lookUp(cursorName), entry.getValue());
+        }
+
+        var xiterator = deferredXFrames.entrySet().iterator();
+        while (xiterator.hasNext()) {
+            var entry = xiterator.next();
+            Path baseDir = entry.getKey().getParent();
+            String fileName = entry.getKey().getFileName().toString();
+            entry.getValue().writeTo(baseDir
+                    .resolve(CursorNames.x11Name(fileName)));
+            xiterator.remove();
         }
     }
 
