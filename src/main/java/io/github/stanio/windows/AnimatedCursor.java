@@ -12,8 +12,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
@@ -69,6 +72,7 @@ public class AnimatedCursor {
 
     private int displayRate;
     private List<Frame> frames = new ArrayList<>();
+    private SortedMap<Integer, Cursor> deferredFrames = new TreeMap<>();
 
     /**
      * Constructs an empty {@code AnimatedCursor} builder.
@@ -80,8 +84,24 @@ public class AnimatedCursor {
         this.displayRate = jiffies;
     }
 
+    public boolean isEmpty() {
+        return frames.isEmpty() && deferredFrames.isEmpty();
+    }
+
     public int numFrames() {
-        return frames.size();
+        return frames.size() + deferredFrames.size();
+    }
+
+    public Cursor prepareFrame(Integer frameNum) {
+        return deferredFrames.computeIfAbsent(frameNum, k -> new Cursor());
+    }
+
+    private void addDeferred() {
+        Iterator<Cursor> iterator = deferredFrames.values().iterator();
+        while (iterator.hasNext()) {
+            addFrame(iterator.next());
+            iterator.remove();
+        }
     }
 
     /**
@@ -150,6 +170,8 @@ public class AnimatedCursor {
     }
 
     private void write(LittleEndianOutput leOut) throws IOException {
+        addDeferred();
+
         int framesSize = allFramesSize();
 
         leOut.write(RIFF);

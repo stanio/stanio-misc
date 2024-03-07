@@ -11,8 +11,6 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
 
 import org.w3c.dom.Document;
 
@@ -20,7 +18,6 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 
 import io.github.stanio.windows.AnimatedCursor;
-import io.github.stanio.windows.Cursor;
 
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.ThemeConfig.ColorTheme;
@@ -53,15 +50,14 @@ abstract class BitmapsRendererBackend {
 
     protected Path outDir;
 
-    private NavigableMap<Integer, Cursor> currentFrames;
-
     private ColorTheme colorTheme;
     private SVGSizing svgSizing;
     private SVGSizingTool sizingTool;
 
-    private final Map<Path, NavigableMap<Integer, Cursor>> deferredFrames = new HashMap<>();
-    private final NavigableMap<Integer, Cursor> immediateFrames = new TreeMap<>();
+    private final Map<Path, AnimatedCursor> deferredFrames = new HashMap<>();
     private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
+
+    private AnimatedCursor currentFrames;
 
     private boolean outputSet;
 
@@ -139,17 +135,19 @@ abstract class BitmapsRendererBackend {
     private void setUpOutput() throws IOException {
         if (outputSet) return;
 
-        // These should be cleared already during saveCursor()
-        (currentFrames = immediateFrames).clear();
-        if (animation != null) {
+        if (animation == null) {
+            currentFrames = new AnimatedCursor(0); // container, dummy animation
+        } else {
             Path animDir = outDir.resolve(animation.lowerName);
             if (!createCursors) {
                 // Place individual frame bitmaps in a subdirectory.
                 outDir = animDir;
             } else if (frameNum != staticFrame) {
                 // Collect static animation frames to save after full directory traversal.
-                currentFrames = deferredFrames
-                        .computeIfAbsent(animDir, k -> new TreeMap<>());
+                currentFrames = deferredFrames.computeIfAbsent(animDir,
+                        k -> new AnimatedCursor(animation.jiffies()));
+            } else {
+                currentFrames = new AnimatedCursor(animation.jiffies());
             }
         }
         Files.createDirectories(outDir);
@@ -167,20 +165,17 @@ abstract class BitmapsRendererBackend {
         }
 
         if (animation == null || frameNum != staticFrame) {
-            // Static cursor or static animation frame
+            // Static cursor or animation frame from static image
             if (createCursors) {
-                BufferedImage image = renderStatic();
-                currentFrames.computeIfAbsent(frameNum, k -> new Cursor())
-                        .addImage(image, hotspot);
+                currentFrames.prepareFrame(frameNum)
+                        .addImage(renderStatic(), hotspot);
             } else {
-                Path targetFile = outDir.resolve(cursorName + sizeSuffix + ".png");
-                writeStatic(targetFile);
+                writeStatic(outDir.resolve(cursorName + sizeSuffix + ".png"));
             }
         } else {
             if (createCursors) {
-                renderAnimation((frameNo, image) ->
-                        currentFrames.computeIfAbsent(frameNo, k -> new Cursor())
-                                     .addImage(image, hotspot));
+                renderAnimation((frameNo, image) -> currentFrames
+                        .prepareFrame(frameNo).addImage(image, hotspot));
             } else {
                 writeAnimation(outDir, cursorName + "-%0"
                         + animation.numDigits + "d" + sizeSuffix + ".png");
@@ -225,16 +220,17 @@ abstract class BitmapsRendererBackend {
     }
 
     public void saveCurrent() throws IOException {
-        var frames = immediateFrames;
-        if (!frames.isEmpty()) {
-            saveCursor(outDir, cursorName, animation, frames);
+        // Static cursor or complete animation
+        if (frameNum == staticFrame && !currentFrames.isEmpty()) {
+            saveCursor(outDir, cursorName, animation, currentFrames);
         }
+        currentFrames = null;
     }
 
     final void saveCursor(Path outDir,
                           String cursorName,
                           Animation animation,
-                          NavigableMap<Integer, Cursor> frames)
+                          AnimatedCursor frames)
             throws IOException {
         String winName = CursorNames.winName(cursorName);
         if (winName == null) {
@@ -245,14 +241,9 @@ abstract class BitmapsRendererBackend {
         }
 
         if (animation == null) {
-            frames.remove(staticFrame).write(outDir.resolve(winName + ".cur"));
+            frames.prepareFrame(staticFrame).write(outDir.resolve(winName + ".cur"));
         } else {
-            AnimatedCursor ani = new AnimatedCursor(animation.jiffies());
-            for (var entry = frames.pollFirstEntry();
-                    entry != null; entry = frames.pollFirstEntry()) {
-                ani.addFrame(entry.getValue());
-            }
-            ani.write(outDir.resolve(winName + ".ani"));
+            frames.write(outDir.resolve(winName + ".ani"));
         }
     }
 
@@ -278,7 +269,6 @@ abstract class BitmapsRendererBackend {
         resetFile();
         hotspotsPool.clear();
         deferredFrames.clear();
-        immediateFrames.clear();
     }
 
 }
