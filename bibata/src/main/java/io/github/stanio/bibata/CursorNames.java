@@ -15,9 +15,9 @@ class CursorNames {
 
     enum Animation {
 
-        LEFT_PTR_WATCH(18),
+        LEFT_PTR_WATCH(12),
 
-        WAIT(18);
+        WAIT(12);
 
         private static float rateGain = 1.25f;
 
