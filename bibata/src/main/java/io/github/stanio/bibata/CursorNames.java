@@ -10,10 +10,10 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-class CursorNames {
+public class CursorNames {
 
 
-    enum Animation {
+    public enum Animation {
 
         LEFT_PTR_WATCH(12),
 
@@ -21,10 +21,10 @@ class CursorNames {
 
         private static float rateGain = 1.25f;
 
-        final float duration;
-        final float frameRate;
-        final int numDigits;
-        final String lowerName;
+        public final float duration;
+        public final float frameRate;
+        public final int numDigits;
+        public final String lowerName;
 
         private Animation(float frameRate) {
             this(3, frameRate);

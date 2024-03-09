@@ -20,6 +20,22 @@ tasks.withType(JavaCompile) {
     options.release = 11
 }
 
+task colorWheel(type: JavaExec) {
+    description = 'Generates/updates animated cursor frame static images'
+    group = 'config'
+
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.stanio.bibata.config.ColorWheel'
+}
+
+task cursorHotspots(type: JavaExec) {
+    description = 'Inserts/updates cursor hotspots from build(.toml).json into the SVG sources'
+    group = 'config'
+
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.stanio.bibata.config.CursorHotspots'
+}
+
 jar {
     manifest {
         attributes('Main-Class': application.mainClass)
