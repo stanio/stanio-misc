@@ -9,6 +9,7 @@ import static java.util.Map.entry;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class CursorNames {
 
@@ -78,7 +79,11 @@ public class CursorNames {
     }
 
     public static String x11Name(String name) {
-        return x11Names.getOrDefault(name, name);
+        String xname = x11Names.getOrDefault(name, "");
+        if (xname.isEmpty()) {
+            return x11Excluded.contains(name) ? null : name;
+        }
+        return xname;
     }
 
     private static Map<String, String>
@@ -108,6 +113,8 @@ public class CursorNames {
                                      entry("sb_up_arrow", "Alternate_3"),
                                      entry("cross", "Cross_2"),
                                      entry("crossed_circle", "Unavailable_2"));
+
+    private static Set<String> x11Excluded = Set.of("person", "pin");
 
     private static Map<String, String>
             x11Names = Map.ofEntries(entry("zoom_in", "zoom-in"),

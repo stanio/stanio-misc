@@ -270,9 +270,11 @@ abstract class BitmapsRendererBackend {
             if (!currentFrames.isEmpty())
                 saveCursor(outDir, cursorName, animation, currentFrames);
 
-            if (!currentXFrames.isEmpty())
-                currentXFrames.writeTo(outDir
-                        .resolve(CursorNames.x11Name(cursorName)));
+            String x11Name;
+            if (!currentXFrames.isEmpty()
+                    && (x11Name = CursorNames.x11Name(cursorName)) != null) {
+                currentXFrames.writeTo(outDir.resolve(x11Name));
+            }
         }
         currentFrames = null;
         currentXFrames = null;
@@ -314,8 +316,10 @@ abstract class BitmapsRendererBackend {
             var entry = xiterator.next();
             Path baseDir = entry.getKey().getParent();
             String fileName = entry.getKey().getFileName().toString();
-            entry.getValue().writeTo(baseDir
-                    .resolve(CursorNames.x11Name(fileName)));
+            String x11Name = CursorNames.x11Name(fileName);
+            if (x11Name != null) {
+                entry.getValue().writeTo(baseDir.resolve(x11Name));
+            }
             xiterator.remove();
         }
     }
