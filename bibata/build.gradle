@@ -46,17 +46,11 @@ jar {
 shadowJar {
     archiveBaseName = 'bibata'
     archiveClassifier = ''
-    exclude 'io/github/stanio/bibata/BatikRendererBackend*'
-    exclude 'org/apache/batik/**/*'
     minimize {
         exclude dependency('com.google.code.gson:gson')
         exclude dependency('com.github.weisj:jsvg')
         exclude dependency('com.fasterxml.woodstox:woodstox-core')
-    }
-    dependencies {
         exclude dependency('org.apache.xmlgraphics:.*')
-        exclude dependency('xml-apis:xml-apis-ext')
-        exclude dependency('commons-.*:commons-.*')
     }
 }
 
