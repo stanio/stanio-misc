@@ -112,8 +112,8 @@ public class Cursor {
 
         static final int SIZE = 16;
 
-        final byte width;
-        final byte height;
+        final int width;
+        final int height;
         final short hotspotX;
         final short hotspotY;
         final int dataSize;
@@ -126,13 +126,9 @@ public class Cursor {
             if (width < 0 || height < 0) {
                 throw new IllegalArgumentException("width and height"
                         + " must be positive: " + width + " x " + height);
-            } else if (width > 255 || height > 255) {
-                this.width = 0;
-                this.height = 0;
-            } else {
-                this.width = (byte) width;
-                this.height = (byte) height;
             }
+            this.width = width;
+            this.height = height;
             this.hotspotX = hotspotX;
             this.hotspotY = hotspotY;
             this.dataSize = dataSize;
@@ -348,8 +344,8 @@ public class Cursor {
         int dataOffset = writeHeader(leOut) + imageCount() * Image.SIZE;
         for (Image entry : entries) {
             // ICONDIRENTRY
-            leOut.write(entry.width);
-            leOut.write(entry.height);
+            leOut.write(entry.width > 255 ? 0 : (byte) entry.width);
+            leOut.write(entry.height > 255 ? 0 : (byte) entry.height);
             leOut.write(NUL); // numColors palette
             leOut.write(NUL); // reserved
             leOut.writeWord(entry.hotspotX);
