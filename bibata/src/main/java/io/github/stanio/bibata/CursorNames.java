@@ -19,7 +19,8 @@ public class CursorNames {
 
         WAIT(12);
 
-        private static float rateGain = 1.25f;
+        private static float rateGain = Float
+                .parseFloat(System.getProperty("bibata.animRateGain", "1.25"));
 
         public final float duration;
         public final float frameRate;
