@@ -51,6 +51,7 @@ public class ThemeConfig {
     String name;
     private String dir;
     String out;
+    String defaultSubdir;
     private LinkedHashSet<String> cursors;
     LinkedHashSet<SizeScheme> sizes;
     int[] resolutions;
@@ -75,6 +76,20 @@ public class ThemeConfig {
 
     String dir() {
         return Objects.requireNonNull(dir, "null dir");
+    }
+
+    Path resolveOutputDir(Path baseDir, List<String> variant) {
+        Path outDir = baseDir.resolve(out);
+        if (variant.isEmpty()) {
+            return (defaultSubdir != null)
+                    ? outDir.resolve(defaultSubdir)
+                    : outDir;
+        }
+        String variantString = String.join("-", variant);
+        return (defaultSubdir != null)
+                ? outDir.resolve(variantString)
+                : outDir.resolveSibling(outDir.getFileName()
+                                        + "-" + variantString);
     }
 
     Set<String> cursors() {

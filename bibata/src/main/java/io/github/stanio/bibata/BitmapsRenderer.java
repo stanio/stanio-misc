@@ -227,7 +227,6 @@ public class BitmapsRenderer {
 
     private void renderSVG(ThemeConfig config, String cursorName) //, SVGCursorMetadata cursorMetadata)
             throws IOException {
-        Path outBase = baseDir.resolve(config.out);
         Animation animation = Animation
                 .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
 
@@ -247,14 +246,18 @@ public class BitmapsRenderer {
                 System.out.append(' ').append(scheme.name);
             }
 
-            Path outDir = outBase;
+            List<String> variant = new ArrayList<>();
             if (rendererBackend.hasPointerShadow()) {
-                outDir = outDir.resolveSibling(
-                        outDir.getFileName() + "-Shadow");
+                variant.add("Shadow");
             }
-            if (scheme != SizeScheme.SOURCE) {
-                outDir = outDir.resolveSibling(
-                        outDir.getFileName() + "-" + scheme.name);
+            if (scheme != SizeScheme.SOURCE
+                    && scheme != SizeScheme.R) {
+                variant.add(scheme.name);
+            }
+
+            Path outDir = config.resolveOutputDir(baseDir, variant);
+            if (rendererBackend.outputType == OutputType.LINUX_CURSORS) {
+                outDir = outDir.resolve("cursors");
             }
             rendererBackend.setOutDir(outDir);
 
