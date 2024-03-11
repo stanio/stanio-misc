@@ -1,0 +1,4 @@
+[Icon Theme]
+Name=${name}
+Comment=${comment}
+Inherits="hicolor"

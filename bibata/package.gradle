@@ -1,0 +1,137 @@
+ext {
+    theme = [
+        shapes : [
+            Modern : 'rounded edge',
+            Original : 'sharp edge'
+        ],
+        colors : [
+            Amber : 'Yellowish',
+            Classic : 'Black',
+            Ice : 'White',
+            DarkRed : 'Rich red',
+            DodgerBlue : 'Slightly light blue',
+            Pink : 'Queen pink',
+            Turquoise : 'Sky blue with green tint'
+        ]
+    ]
+}
+
+def themeComment(Map args) {
+   def comment = "${theme.colors[args.color]} and ${theme.shapes[args.shape]}"
+   if (args.leftHand) comment += ', left-handed'
+   if (args.outline) comment += ', thin-outline'
+   if (args.shadow) comment += ' with pointer shadow'
+   //if (args.sizing) comment += " (${ sizing.toLowerCase() })"
+   return comment + ' Bibata cursors.'
+}
+
+def themeName(Map args) {
+   def name = "Bibata ${args.shape} ${args.color}"
+   def tags = [ args.leftHand ? 'left-handed' : null,
+                args.outline ? 'thin' : null,
+                args.shadow ? 'w/ shadow' : null,
+                args.sizing ? args.sizing.toLowerCase() : null ] - null
+   return tags.empty ? name
+                     : name + " (${ String.join(', ', tags)
+                                          .replace(', w/', ' w/') })"
+}
+
+task windowsInstallScripts {
+    description = 'install.inf, uninstall.cmd'
+    group = 'package'
+
+    doLast {
+        [/*'Regular'*/ null, 'Large', 'Extra-Large'].each { schemeSize ->
+            ['Classic', 'Ice'].each { color ->
+                ['Modern', 'Original'].each { shape ->
+                    def args = [ shape: shape,
+                                 color: color,
+                                 leftHand: null,
+                                 outline: null,
+                                 shadow: null,
+                                 sizing: schemeSize ]
+
+                    writeWindowsInstallScripts(args)
+                    writeWindowsInstallScripts(args << [outline: 'Thin'])
+                    if (schemeSize == 'Extra-Large') return // no Extra-Large with Shadow
+
+                    writeWindowsInstallScripts(args << [shadow: 'Shadow'])
+                    writeWindowsInstallScripts(args << [outline: null])
+                }
+            }
+        }
+    }
+}
+
+def writeWindowsInstallScripts(Map args) {
+    def properties = [
+        name: themeName(args),
+        comment: themeComment(args),
+        version: "v${cursorsVersion}",
+        curDir: winCurDir(args).replace('/', '\\')
+    ]
+
+    copy {
+        into "${buildDir}/windows-scripts/${properties.curDir}"
+        from('src/package') {
+            include 'install.inf'
+            include 'uninstall.cmd'
+        }
+        expand(properties) {
+            escapeBackslash = true
+        }
+    }
+}
+
+def winCurDir(Map args) {
+    def curDir = "Bibata-${args.shape}-${args.color}${
+                  args.leftHand ? "-$args.leftHand" : '' }"
+    def tags = [ args.outline, args.shadow, args.sizing] - null
+    if (tags.empty) tags << 'Regular'
+    return curDir + '/' + String.join('-', tags)
+}
+
+task linuxThemeFiles {
+    description = 'index.theme, cursor.theme'
+    group = 'package'
+
+    doLast {
+        ['Classic', 'Ice'].each { color ->
+            ['Modern', 'Original'].each { shape ->
+                def args = [ shape: shape,
+                             color: color,
+                             leftHand: null,
+                             outline: null,
+                             shadow: null,
+                             sizing: null ]
+
+                writeLinuxThemeFiles(args)
+                writeLinuxThemeFiles(args << [outline: 'Thin'])
+                writeLinuxThemeFiles(args << [shadow: 'Shadow'])
+                writeLinuxThemeFiles(args << [outline: null])
+            }
+        }
+    }
+}
+
+def writeLinuxThemeFiles(Map args) {
+    def tags = [ args.shape, args.color,
+                 args.leftHand, args.outline, args.shadow ] - null
+    def properties = [
+        name: themeName(args),
+        comment: themeComment(args),
+        version: cursorsVersion,
+        curDir: 'Bibata-' + String.join('-', tags)
+    ]
+
+    copy {
+        into "${buildDir}/linux-themes/${properties.curDir}"
+        from('src/package') {
+            include 'index.theme'
+            include 'cursor.theme'
+        }
+        expand(properties) {
+            escapeBackslash = true
+        }
+    }
+}

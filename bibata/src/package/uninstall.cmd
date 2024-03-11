@@ -10,7 +10,7 @@
 ::         https://github.com/ful1e5/apple_cursor/issues/79
 :: ===========================================================
 
-REG DELETE "HKCU\Control Panel\Cursors\Schemes" /v "@SCHEME_NAME@" /f
+REG DELETE "HKCU\Control Panel\Cursors\Schemes" /v "${name}" /f
 
 :: ===============================================================================
 :: This enables a popup message box to indicate a user for the operation complete.
