@@ -49,7 +49,7 @@ abstract class BitmapsRendererBackend {
 
     protected String cursorName;
     protected Animation animation;
-    protected Integer frameNum;
+    private   Integer frameNum;
 
     protected Path outDir;
 

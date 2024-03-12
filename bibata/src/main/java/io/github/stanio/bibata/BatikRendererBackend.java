@@ -139,7 +139,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
                 currentTime = frameNo++ / frameRate) {
             float snapshotTime = currentTime;
 
-            T output = outputInitializer.apply(frameNum);
+            T output = outputInitializer.apply(frameNo);
 
             try {
                 imageTranscoder.transcodeDynamic(output,
@@ -148,7 +148,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
                 throw findIOCause(e);
             }
 
-            outputConsumer.accept(frameNum, output);
+            outputConsumer.accept(frameNo, output);
         }
     }
 
