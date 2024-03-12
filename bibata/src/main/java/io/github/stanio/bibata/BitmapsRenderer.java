@@ -315,6 +315,8 @@ public class BitmapsRenderer {
         } catch (IOException e) {
             exitMessage(3, "Error: ", e);
         } catch (Throwable e) {
+            System.err.println();
+            e.printStackTrace(System.err);
             exitMessage(4, "Internal Error: ", e);
         } finally {
             Duration elapsedTime = Duration

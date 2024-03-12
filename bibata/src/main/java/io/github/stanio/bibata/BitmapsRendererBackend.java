@@ -205,6 +205,8 @@ abstract class BitmapsRendererBackend {
                 throw unexpectedOutputType();
             }
         } else {
+            assert (animation != null);
+
             switch (outputType) {
             case BITMAPS:
                 writeAnimation(outDir, cursorName + "-%0"
@@ -263,11 +265,11 @@ abstract class BitmapsRendererBackend {
     public void saveCurrent() throws IOException {
         // Static cursor or complete animation
         if (frameNum == staticFrame) {
-            if (!currentFrames.isEmpty())
+            if (currentFrames != null && !currentFrames.isEmpty())
                 saveCursor(outDir, cursorName, animation, currentFrames);
 
             String x11Name;
-            if (!currentXFrames.isEmpty()
+            if (currentXFrames != null && !currentXFrames.isEmpty()
                     && (x11Name = CursorNames.x11Name(cursorName)) != null) {
                 currentXFrames.writeTo(outDir.resolve(x11Name));
             }
