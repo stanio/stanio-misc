@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.w3c.dom.Document;
 
@@ -35,9 +36,9 @@ import io.github.stanio.bibata.svg.SVGSizing;
  */
 abstract class BitmapsRendererBackend {
 
-    private static final Map<String, String>
-            BACKENDS = Map.of("batik", "io.github.stanio.bibata.BatikRendererBackend",
-                              "jsvg", "io.github.stanio.bibata.JSVGRendererBackend");
+    private static final Map<String, Supplier<BitmapsRendererBackend>>
+            BACKENDS = Map.of("batik", BatikRendererBackend::new,
+                              "jsvg", JSVGRendererBackend::new);
 
     public static final Integer staticFrame = 0;
 
@@ -69,14 +70,9 @@ abstract class BitmapsRendererBackend {
 
     public static BitmapsRendererBackend newInstance() {
         String key = System.getProperty("bibata.renderer", "").strip();
-        String klass = BACKENDS.get(key);
-        if (klass != null) {
-            try {
-                return (BitmapsRendererBackend) Class
-                        .forName(klass).getConstructor().newInstance();
-            } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException(e);
-            }
+        Supplier<BitmapsRendererBackend> ctor = BACKENDS.get(key);
+        if (ctor != null) {
+            return ctor.get();
         } else if (!key.isEmpty()) {
             System.err.append("Unknown bibata.renderer=").println(key);
         }
