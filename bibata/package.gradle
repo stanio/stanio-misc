@@ -32,8 +32,7 @@ def themeName(Map args) {
                 args.shadow ? 'w/ shadow' : null,
                 args.sizing ? args.sizing.toLowerCase() : null ] - null
    return tags.empty ? name
-                     : name + " (${ String.join(', ', tags)
-                                          .replace(', w/', ' w/') })"
+                     : name + " (${ tags.join(', ').replace(', w/', ' w/') })"
 }
 
 task windowsInstallScripts {
@@ -41,9 +40,16 @@ task windowsInstallScripts {
     group = 'package'
 
     doLast {
-        [/*'Regular'*/ null, 'Large', 'Extra-Large'].each { schemeSize ->
+        ['Modern', 'Original'].each { shape ->
             ['Classic', 'Ice'].each { color ->
-                ['Modern', 'Original'].each { shape ->
+                def themeIndex = 1
+                def setupInfo = [
+                    fileSets: [:],
+                    destinationDirs: [],
+                    schemesReg: [],
+                    strings: []
+                ]
+                [/*'Regular'*/ null, 'Large', 'Extra-Large'].each { schemeSize ->
                     def args = [ shape: shape,
                                  color: color,
                                  leftHand: null,
@@ -51,31 +57,40 @@ task windowsInstallScripts {
                                  shadow: null,
                                  sizing: schemeSize ]
 
-                    writeWindowsInstallScripts(args)
-                    writeWindowsInstallScripts(args << [outline: 'Thin'])
+                    addSetupInfo(args, themeIndex++, setupInfo)
+                    addSetupInfo(args << [outline: 'Thin'], themeIndex++, setupInfo)
                     if (schemeSize == 'Extra-Large') return // no Extra-Large with Shadow
 
-                    writeWindowsInstallScripts(args << [shadow: 'Shadow'])
-                    writeWindowsInstallScripts(args << [outline: null])
+                    addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
+                    addSetupInfo(args << [outline: null], themeIndex++, setupInfo)
                 }
+                writeWindowsInstallScripts(setupInfo)
             }
         }
     }
 }
 
-def writeWindowsInstallScripts(Map args) {
+def writeWindowsInstallScripts(Map setupInfo) {
     def properties = [
-        name: themeName(args),
-        comment: themeComment(args),
+        name: setupInfo.name,
+        comment: setupInfo.comment,
         version: "v${cursorsVersion}",
-        curDir: winCurDir(args).replace('/', '\\')
+        copyFiles: setupInfo.fileSets.keySet().join(','),
+        destinationDirs: setupInfo.destinationDirs.join('\n'),
+        schemesReg: setupInfo.schemesReg.join('\n'),
+        sourceFiles: setupInfo.fileSets.values().join('\n\n'),
+        strings: setupInfo.strings.join('\n')
     ]
 
     copy {
-        into "${buildDir}/windows-scripts/${properties.curDir}"
+        into "${buildDir}/windows-scripts"
         from('src/package') {
             include 'install.inf'
             include 'uninstall.cmd'
+        }
+        rename {
+            it.replace('install',
+                    "install-${ properties.name.replace(' ', '-') }")
         }
         expand(properties) {
             escapeBackslash = true
@@ -83,12 +98,57 @@ def writeWindowsInstallScripts(Map args) {
     }
 }
 
+def addSetupInfo(Map args, index, setupInfo) {
+    def name = themeName(args)
+    if (!setupInfo.name) {
+        setupInfo.name = name
+        setupInfo.comment = themeComment(args)
+    }
+
+    def curDir = winCurDir(args)
+    def srcDir = curDir.replace('Bibata\\', '')
+    def fileList = [ 'Pointer.cur',
+                     'Help.cur',
+                     'Work.ani',
+                     'Busy.ani',
+                     'Cross.cur',
+                     'Text.cur',
+                     'Handwriting.cur',
+                     'Unavailable.cur',
+                     'Vert.cur',
+                     'Horz.cur',
+                     'Dgn1.cur',
+                     'Dgn2.cur',
+                     'Move.cur',
+                     'Alternate.cur',
+                     'Link.cur',
+                     'Pin.cur',
+                     'Person.cur',
+                     'Pan.cur',
+                     'Grabbing.cur',
+                     'Zoom-in.cur',
+                     'Zoom-out.cur',
+                     'Alternate_2.cur',
+                     'Alternate_3.cur',
+                     'Cross_2.cur',
+                     'Unavailable_2.cur' ].collect {
+        "${srcDir}\\${it}"
+    }
+
+    def fileSetName = "Scheme.${index == 1 ? 'Cur' : index}"
+    def curDirVar = "CUR_DIR${index == 1 ? '' : index}"
+    def schemeNameVar = "SCHEME_NAME${index == 1 ? '' : index}"
+
+    setupInfo.fileSets[fileSetName] = "[${fileSetName}]\n${ fileList.join('\n') }"
+    setupInfo.destinationDirs << "${fileSetName} = 10,\"%BIBATA_DIR%\""
+    setupInfo.schemesReg << "HKCU,\"Control Panel\\Cursors\\Schemes\",\"%${schemeNameVar}%\",0x00020000,\"%BD%\\%${curDirVar}%\\%pointer%,%BD%\\%${curDirVar}%\\%help%,%BD%\\%${curDirVar}%\\%work%,%BD%\\%${curDirVar}%\\%busy%,%BD%\\%${curDirVar}%\\%cross%,%BD%\\%${curDirVar}%\\%text%,%BD%\\%${curDirVar}%\\%handwriting%,%BD%\\%${curDirVar}%\\%unavailable%,%BD%\\%${curDirVar}%\\%vert%,%BD%\\%${curDirVar}%\\%horz%,%BD%\\%${curDirVar}%\\%dgn1%,%BD%\\%${curDirVar}%\\%dgn2%,%BD%\\%${curDirVar}%\\%move%,%BD%\\%${curDirVar}%\\%alternate%,%BD%\\%${curDirVar}%\\%link%,%BD%\\%${curDirVar}%\\%pin%,%BD%\\%${curDirVar}%\\%person%\""
+    setupInfo.strings << "${curDirVar}            = \"Cursors\\${curDir}\"\n" +
+                         "${schemeNameVar}        = \"${name}\""
+}
+
 def winCurDir(Map args) {
-    def curDir = "Bibata-${args.shape}-${args.color}${
-                  args.leftHand ? "-$args.leftHand" : '' }"
-    def tags = [ args.outline, args.shadow, args.sizing] - null
-    if (tags.empty) tags << 'Regular'
-    return curDir + '/' + String.join('-', tags)
+    def tags = [ args.shape, args.color, args.leftHand, args.outline, args.shadow, args.sizing] - null
+    return "Bibata\\${ tags.join('-') }"
 }
 
 task linuxThemeFiles {
@@ -121,7 +181,7 @@ def writeLinuxThemeFiles(Map args) {
         name: themeName(args),
         comment: themeComment(args),
         version: cursorsVersion,
-        curDir: 'Bibata-' + String.join('-', tags)
+        curDir: 'Bibata-' + tags.join('-')
     ]
 
     copy {

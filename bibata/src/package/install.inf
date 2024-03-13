@@ -16,14 +16,14 @@
 Signature="\$Windows NT\$"
 
 [DefaultInstall]
-CopyFiles = Scheme.Cur
+CopyFiles = ${copyFiles}
 AddReg    = Scheme.Reg,Wreg
 
 [DestinationDirs]
-Scheme.Cur = 53,"%CUR_DIR%"
+${destinationDirs}
 
 [Scheme.Reg]
-HKCU,"Control Panel\Cursors\Schemes","%SCHEME_NAME%",0x00020000,"%BD%\%CUR_DIR%\%pointer%,%BD%\%CUR_DIR%\%help%,%BD%\%CUR_DIR%\%work%,%BD%\%CUR_DIR%\%busy%,%BD%\%CUR_DIR%\%cross%,%BD%\%CUR_DIR%\%text%,%BD%\%CUR_DIR%\%handwriting%,%BD%\%CUR_DIR%\%unavailable%,%BD%\%CUR_DIR%\%vert%,%BD%\%CUR_DIR%\%horz%,%BD%\%CUR_DIR%\%dgn1%,%BD%\%CUR_DIR%\%dgn2%,%BD%\%CUR_DIR%\%move%,%BD%\%CUR_DIR%\%alternate%,%BD%\%CUR_DIR%\%link%,%BD%\%CUR_DIR%\%pin%,%BD%\%CUR_DIR%\%person%"
+${schemesReg}
 
 [Wreg]
 HKCU,"Control Panel\Cursors",,0x00020000,"%SCHEME_NAME%"
@@ -46,39 +46,12 @@ HKCU,"Control Panel\Cursors",Pin,0x00020000,"%BD%\%CUR_DIR%\%pin%"
 HKCU,"Control Panel\Cursors",Person,0x00020000,"%BD%\%CUR_DIR%\%person%"
 HKLM,"SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce\Setup","Mouse Pointers",,"rundll32.exe shell32.dll,Control_RunDLL main.cpl @0,1"
 
-[Scheme.Cur]
-Pointer.cur
-Help.cur
-Work.ani
-Busy.ani
-Cross.cur
-Text.cur
-Handwriting.cur
-Unavailable.cur
-Vert.cur
-Horz.cur
-Dgn1.cur
-Dgn2.cur
-Move.cur
-Alternate.cur
-Link.cur
-Pin.cur
-Person.cur
-Pan.cur
-Grabbing.cur
-Zoom-in.cur
-Zoom-out.cur
-Alternate_2.cur
-Alternate_3.cur
-Cross_2.cur
-Unavailable_2.cur
-
-[Scheme.Txt]
+${sourceFiles}
 
 [Strings]
-BD                  = "%USERPROFILE%"
-CUR_DIR             = "AppData\Local\Cursors${'\\'}${curDir}"
-SCHEME_NAME         = "${name}"
+BD                  = "%SYSTEMROOT%"
+BIBATA_DIR          = "Cursors\Bibata"
+${strings}
 pointer             = "Pointer.cur"
 help                = "Help.cur"
 work                = "Work.ani"
@@ -96,7 +69,3 @@ alternate           = "Alternate.cur"
 link                = "Link.cur"
 pin                 = "Pin.cur"
 person              = "Person.cur"
-pan                 = "Pan.cur"
-grabbing            = "Grabbing.cur"
-zoom-in             = "Zoom-in.cur"
-zoom-out            = "Zoom-out.cur"
