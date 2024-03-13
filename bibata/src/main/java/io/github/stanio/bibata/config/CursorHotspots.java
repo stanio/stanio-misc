@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +21,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import javax.xml.XMLConstants;
@@ -236,6 +238,13 @@ public class CursorHotspots {
                 OnOffFilterStream filterOutput = new OnOffFilterStream(fileOut)) {
             XMLEventWriter xmlWriter = xmlWriter(filterOutput);
 
+            String xmlDecl = System.getProperty("bibata.xmlDecl", "");
+            if (!xmlDecl.isBlank()) {
+                filterOutput.write(xmlDecl.getBytes(StandardCharsets.UTF_8));
+                filterOutput.write(newLine);
+            }
+            filterOutput.disableOutput();
+
             boolean start = true;
             boolean root = true;
             boolean updated = false;
@@ -253,13 +262,11 @@ public class CursorHotspots {
                     root = false;
                     xmlWriter.add(event);
                 } else if (newHotspot) {
-                    xmlWriter.flush();
-                    filterOutput.write(newLine);
-                    writeHotspot(hotspot, filterOutput);
+                    writeHotspot(hotspot, xmlWriter, "\n  ");
+                    xmlWriter.add(event);
                     updated = true;
                 } else if (isCursorHotspot(event)) {
-                    xmlWriter.flush();
-                    writeHotspot(hotspot, filterOutput);
+                    writeHotspot(hotspot, xmlWriter, "");
                     EndElement.class.cast(iterator.next());
                     updated = true;
                 } else {
@@ -273,14 +280,47 @@ public class CursorHotspots {
         }
     }
 
-    private void writeHotspot(Hotspot hotspot, OutputStream output) throws IOException {
-        String xml = "<circle id=\"cursor-hotspot\" cx=\"" + hotspot.x() + "\" cy=\""
-                + hotspot.y() + "\" r=\"3\" fill=\"magenta\" opacity=\".6\" display=\"none\"/>";
-        output.write(xml.getBytes(StandardCharsets.UTF_8));
+    private void writeHotspot(Hotspot hotspot, XMLEventWriter output, String space)
+            throws XMLStreamException {
+        String xml = "<fragment xmlns='http://www.w3.org/2000/svg'>" + space
+                + "<circle id=\"cursor-hotspot\" cx=\"" + hotspot.x() + "\" cy=\""
+                + hotspot.y() + "\" r=\"3\" fill=\"magenta\" opacity=\".6\" display=\"none\"/>"
+                + "</fragment>";
+
+        List<XMLEvent> xmlFragment = new ArrayList<>();
+        try {
+            XMLEventReader xmlReader = xmlInputFactory()
+                    .createXMLEventReader(new StringReader(xml));
+
+            Function<XMLEvent, String> elemName = event -> {
+                if (event instanceof StartElement) {
+                    return event.asStartElement().getName().getLocalPart();
+                } else if (event instanceof EndElement) {
+                    return event.asEndElement().getName().getLocalPart();
+                }
+                return null;
+            };
+
+            while (xmlReader.hasNext()) {
+                XMLEvent event = xmlReader.nextEvent();
+                if (event.isStartDocument()
+                        || event.isEndDocument()
+                        || "fragment".equals(elemName.apply(event)))
+                    continue;
+
+                xmlFragment.add(event);
+            }
+        } catch (XMLStreamException e) {
+            throw new IllegalStateException(e);
+        }
+
+        for (XMLEvent event : xmlFragment) {
+            output.add(event);
+        }
     }
 
     public void insertHotspots() throws IOException {
-        try (Stream<Path> deepList = Files.walk(baseDir.resolve("svg"))) {
+        try (Stream<Path> deepList = Files.walk(baseDir)) {
             Iterable<Path> svgFiles = () -> deepList
                     .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
                                     && endsWithIgnoreCase(path.toString(), EXT_SVG))
@@ -322,7 +362,7 @@ public class CursorHotspots {
         List<String> cmdArgs = new ArrayList<>(Arrays.asList(args));
         boolean overwrite = cmdArgs.remove("--overwrite");
 
-        Path baseDir = Path.of(""); // current dir
+        Path baseDir = Path.of("svg"); // in the current dir
         if (cmdArgs.size() == 1) {
             baseDir = Path.of(cmdArgs.remove(0));
         }
@@ -348,7 +388,7 @@ public class CursorHotspots {
 
 class OnOffFilterStream extends FilterOutputStream {
 
-    private boolean outputEnabled;
+    private boolean outputEnabled = true;
 
     public OnOffFilterStream(OutputStream out) {
         super(out);
