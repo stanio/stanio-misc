@@ -116,19 +116,29 @@ final class IntPixels {
                 maxX - minX + 1, maxY - minY + 1);
     }
 
-    static int[] cropTo(int[] image, int scanline, Rectangle region) {
-        if (region.x == 0 && region.y == 0
-                && region.width == scanline
-                && region.height == image.length / scanline)
+    static int[] resizeCanvas(int[] image, int scanline, Rectangle region) {
+        int imageLength = image.length;
+        int regionWidth = region.width;
+        int regionX = region.x;
+        if (regionX == 0 && region.y == 0
+                && regionWidth == scanline
+                && region.height == imageLength / scanline)
             return image;
 
         int off = 0;
+        int[] resized = scanline < regionWidth
+                        ? new int[regionWidth * region.height]
+                        : image;
         for (int y = region.y, endy = y + region.height; y < endy; y++) {
-            System.arraycopy(image, region.x + y * scanline,
-                             image, off, region.width);
-            off += region.width;
+            int srcPos = regionX + y * scanline;
+            if (srcPos >= imageLength)
+                break;
+
+            System.arraycopy(image, srcPos,
+                             resized, off, regionWidth);
+            off += regionWidth;
         }
-        return image; //Arrays.copyOf(image, off);
+        return resized;
     }
 
     private IntPixels() {/* no instances */}

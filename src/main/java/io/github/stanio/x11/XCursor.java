@@ -203,13 +203,19 @@ public class XCursor {
                           int nominalSize, BufferedImage image,
                           Point hotspot, int delay) {
         int[] pixels = IntPixels.getRGB(image);
-        Rectangle bounds;
-        if (cropToContent && image.getColorModel().hasAlpha()) {
-            bounds = IntPixels.contentBounds(pixels, image.getWidth(), hotspot);
-            pixels = IntPixels.cropTo(pixels, image.getWidth(), bounds);
-        } else {
-            bounds = new Rectangle(image.getWidth(), image.getHeight());
+        Rectangle bounds = IntPixels.contentBounds(pixels, image.getWidth(), hotspot);
+        if (nominalSize > bounds.width) {
+            bounds.x = Math.max(0,
+                    bounds.x - (nominalSize - bounds.width) / 2);
+            bounds.width = nominalSize;
         }
+        if (!cropToContent && nominalSize > bounds.height) {
+            bounds.y = Math.max(0,
+                    bounds.y - (nominalSize - bounds.height) / 2);
+            bounds.height = nominalSize;
+        }
+        pixels = IntPixels.resizeCanvas(pixels, image.getWidth(), bounds);
+
         frames.computeIfAbsent(frameNum, k -> new ArrayList<>())
                 .add(new ImageChunk(nominalSize,
                                     bounds.width, bounds.height,
