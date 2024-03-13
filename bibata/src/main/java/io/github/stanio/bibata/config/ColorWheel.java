@@ -37,12 +37,19 @@ public class ColorWheel {
 
     private static final int DEFAULT_FRAME_COUNT = 36;
 
-    private int frameCount = DEFAULT_FRAME_COUNT;
+    private int targetFrameCount = -1;
+
+    private float targetFrameRate = -1f;
 
     private Transformer transformer;
 
     public ColorWheel withFrameCount(int frameCount) {
-        this.frameCount = frameCount;
+        this.targetFrameCount = frameCount;
+        return this;
+    }
+
+    public ColorWheel withFrameRate(float frameRate) {
+        this.targetFrameRate = frameRate;
         return this;
     }
 
@@ -76,7 +83,15 @@ public class ColorWheel {
         AnimationTransform context = new AnimationTransform(animation.duration);
         transformer.setParameter("colorWheel", context);
 
-        final float frameRate = frameCount / fullDuration;
+        final float frameRate;
+        if (targetFrameCount > 0) {
+            frameRate = targetFrameCount / fullDuration;
+        } else if (targetFrameRate > 0) {
+            frameRate = targetFrameRate;
+        } else {
+            frameRate = animation.frameRate;
+        }
+
         float currentTime = 0f;
         for (int frameNo = 1;
                 currentTime < fullDuration;
