@@ -6,8 +6,6 @@ package io.github.stanio.bibata.config;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -15,10 +13,8 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import javax.xml.transform.OutputKeys;
@@ -28,9 +24,6 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
-
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
 import io.github.stanio.bibata.CursorNames.Animation;
 
@@ -46,16 +39,7 @@ public class ColorWheel {
 
     private int frameCount = DEFAULT_FRAME_COUNT;
 
-    private float totalDuration;
-
     private Transformer transformer;
-
-    public static ColorWheel cast(Object obj) {
-        if (obj == null || obj instanceof String && obj.toString().isEmpty()) {
-            throw new IllegalStateException("colorWheel parameter is not set");
-        }
-        return (ColorWheel) obj;
-    }
 
     public ColorWheel withFrameCount(int frameCount) {
         this.frameCount = frameCount;
@@ -81,41 +65,21 @@ public class ColorWheel {
         return transformer;
     }
 
-    private static Map<String, String> map(NodeList attributeList) {
-        Map<String, String> map = new HashMap<>();
-        for (int i = 0, len = attributeList.getLength(); i < len; i++) {
-            Node item = attributeList.item(i);
-            map.put(item.getNodeName(), item.getNodeValue());
-        }
-        return map;
-    }
-
-    public String interpolateTransform(NodeList attribteList,
-                                       float snapshotTime) {
-        Map<String, String> attributes = map(attribteList);
-        final int to = 360; // assume from="0" to="360"
-        float repeatCount = Float.parseFloat(attributes.get("repeatCount"));
-        float angle = (repeatCount * to) * snapshotTime / totalDuration;
-        return "rotate(" + BigDecimal.valueOf(angle)
-                                     .setScale(2, RoundingMode.HALF_EVEN)
-                                     .stripTrailingZeros()
-                                     .toPlainString() + ")";
-    }
-
-    public void generateFrameImages(Path template, Animation animation)
+    public void generateFrames(Path template, Animation animation)
             throws IOException {
         System.out.println(template);
 
         final Path baseDir = template.toAbsolutePath().getParent();
 
         Transformer transformer = transformer();
-        totalDuration = animation.duration;
-        transformer.setParameter("colorWheel", this);
+        final float fullDuration = animation.duration;
+        AnimationTransform context = new AnimationTransform(animation.duration);
+        transformer.setParameter("colorWheel", context);
 
-        final float frameRate = frameCount / totalDuration;
+        final float frameRate = frameCount / fullDuration;
         float currentTime = 0f;
         for (int frameNo = 1;
-                currentTime < totalDuration;
+                currentTime < fullDuration;
                 currentTime = frameNo++ / frameRate) {
             if (frameNo == 1) System.out.append('\t');
             else              System.out.append(' ');
@@ -123,7 +87,7 @@ public class ColorWheel {
 
             Path frameFile = baseDir.resolve(String.format(Locale.ROOT,
                     "%s-%02d.svg", animation.lowerName, frameNo));
-            transformer.setParameter("snapshotTime", currentTime);
+            context.snapshotTime(currentTime);
 
             try (OutputStream fout = Files.newOutputStream(frameFile)) {
                 // REVISIT: Load the source once as a StAX event stream, buffering
@@ -143,7 +107,7 @@ public class ColorWheel {
         System.out.println();
     }
 
-    public void generateFrameImages(Path startDir) throws IOException {
+    public void generateFrames(Path startDir) throws IOException {
         try (Stream<Path> deepList = Files.walk(startDir)) {
             Iterable<Path> files = () -> deepList
                     .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
@@ -154,7 +118,7 @@ public class ColorWheel {
                 if (animation == null)
                     continue;
 
-                generateFrameImages(f, animation);
+                generateFrames(f, animation);
             }
         }
     }
@@ -218,7 +182,7 @@ public class ColorWheel {
 
         try {
             new ColorWheel().withFrameCount(frameCount)
-                            .generateFrameImages(baseDir);
+                            .generateFrames(baseDir);
         } catch (IOException e) {
             System.err.append("ERROR: ").println(e);
             //e.printStackTrace(System.err);
