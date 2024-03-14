@@ -176,7 +176,7 @@ public class XCursor {
     }
 
     public XCursor(float factor) {
-        this(factor, false);
+        this(factor, true);
     }
 
     public XCursor(float factor, boolean crop) {
