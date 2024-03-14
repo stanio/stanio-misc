@@ -169,19 +169,19 @@ public class XCursor {
     /** drawing size / canvas size */
     private final float scaleFactor;
 
-    private final boolean cropToContent;
+    private final boolean cropToNominalSize;
 
     public XCursor() {
         this(1f);
     }
 
     public XCursor(float factor) {
-        this(factor, true);
+        this(factor, false);
     }
 
     public XCursor(float factor, boolean crop) {
         this.scaleFactor = factor;
-        this.cropToContent = crop;
+        this.cropToNominalSize = crop;
     }
 
     public boolean isEmpty() {
@@ -208,10 +208,14 @@ public class XCursor {
             bounds.x = Math.max(0,
                     bounds.x - (nominalSize - bounds.width) / 2);
             bounds.width = nominalSize;
+        } else if (cropToNominalSize) {
+            bounds.width = nominalSize;
         }
-        if (!cropToContent && nominalSize > bounds.height) {
+        if (nominalSize > bounds.height) {
             bounds.y = Math.max(0,
                     bounds.y - (nominalSize - bounds.height) / 2);
+            bounds.height = nominalSize;
+        } else if (cropToNominalSize) {
             bounds.height = nominalSize;
         }
         pixels = IntPixels.resizeCanvas(pixels, image.getWidth(), bounds);
