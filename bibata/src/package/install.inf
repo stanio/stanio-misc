@@ -10,7 +10,7 @@
 
 
 ; ${name} ${version}
-; ${comment} https://www.bibata.live
+; ${comment}. https://www.bibata.live
 
 [Version]
 Signature="\$Windows NT\$"
