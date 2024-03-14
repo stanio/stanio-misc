@@ -169,19 +169,19 @@ public class XCursor {
     /** drawing size / canvas size */
     private final float scaleFactor;
 
-    private final boolean cropToNominalSize;
+    private final boolean cropToContent;
 
     public XCursor() {
         this(1f);
     }
 
     public XCursor(float factor) {
-        this(factor, true);
+        this(factor, false);
     }
 
     public XCursor(float factor, boolean crop) {
         this.scaleFactor = factor;
-        this.cropToNominalSize = crop;
+        this.cropToContent = crop;
     }
 
     public boolean isEmpty() {
@@ -204,20 +204,21 @@ public class XCursor {
                           Point hotspot, int delay) {
         int[] pixels = IntPixels.getRGB(image);
         Rectangle bounds = IntPixels.contentBounds(pixels, image.getWidth(), hotspot);
-        if (nominalSize > bounds.width) {
+        int bitmapSize = cropToContent
+                         ? Math.max(bounds.width, bounds.height)
+                         // REVISIT: Can we safely have a bigger than the nominal
+                         // size, while keeping it uniform / square?
+                         : nominalSize;
+        if (bitmapSize > bounds.width) {
             bounds.x = Math.max(0,
-                    bounds.x - (nominalSize - bounds.width) / 2);
-            bounds.width = nominalSize;
-        } else if (cropToNominalSize) {
-            bounds.width = nominalSize;
+                    bounds.x - (bitmapSize - bounds.width + 1) / 2);
         }
-        if (nominalSize > bounds.height) {
+        bounds.width = bitmapSize;
+        if (bitmapSize > bounds.height) {
             bounds.y = Math.max(0,
-                    bounds.y - (nominalSize - bounds.height) / 2);
-            bounds.height = nominalSize;
-        } else if (cropToNominalSize) {
-            bounds.height = nominalSize;
+                    bounds.y - (bitmapSize - bounds.height + 1) / 2);
         }
+        bounds.height = bitmapSize;
         pixels = IntPixels.resizeCanvas(pixels, image.getWidth(), bounds);
 
         frames.computeIfAbsent(frameNum, k -> new ArrayList<>())

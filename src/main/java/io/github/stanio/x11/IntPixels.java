@@ -129,13 +129,14 @@ final class IntPixels {
         int[] resized = scanline < regionWidth
                         ? new int[regionWidth * region.height]
                         : image;
+        final int copyWidth = Math.min(scanline - regionX, regionWidth);
         for (int y = region.y, endy = y + region.height; y < endy; y++) {
             int srcPos = regionX + y * scanline;
             if (srcPos >= imageLength)
                 break;
 
             System.arraycopy(image, srcPos,
-                             resized, off, regionWidth);
+                             resized, off, copyWidth);
             off += regionWidth;
         }
         return resized;
