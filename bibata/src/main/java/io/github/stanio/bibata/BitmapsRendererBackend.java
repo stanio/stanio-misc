@@ -57,8 +57,13 @@ abstract class BitmapsRendererBackend {
     private SVGSizing svgSizing;
     private SVGSizingTool sizingTool;
 
+    // REVISIT: targetCanvasFactor?
     private float drawingFactor;
 
+    // REVISIT: Have an abstract Cursor type, with implementations
+    // delegating to the different output types, providing unified
+    // access for the BitmapsRendererBackend needs.  This will
+    // eliminate the repetitions related to these two types.
     private final Map<Path, AnimatedCursor> deferredFrames = new HashMap<>();
     private final Map<Path, XCursor> deferredXFrames = new HashMap<>();
     private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
@@ -133,11 +138,11 @@ abstract class BitmapsRendererBackend {
         outputSet = false;
     }
 
-    public void setCanvasSize(double factor) {
+    public void setCanvasSize(double factor, boolean permanent) {
         int viewBoxSize = (int) Math.round(sourceSize * factor);
         sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
                 new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json")));
-        drawingFactor = (float) (1 / factor);
+        drawingFactor = permanent ? 1 : (float) (1 / factor);
     }
 
     private void setUpOutput() throws IOException {
@@ -145,7 +150,7 @@ abstract class BitmapsRendererBackend {
 
         if (animation == null) {
             currentFrames = new AnimatedCursor(0); // container, dummy animation
-            currentXFrames = new XCursor(drawingFactor);
+            currentXFrames = newXCursor();
         } else {
             Path animDir = outDir.resolve(animation.lowerName);
             switch (outputType) {
@@ -161,9 +166,9 @@ abstract class BitmapsRendererBackend {
                 break;
             case LINUX_CURSORS:
                 currentXFrames = (frameNum == staticFrame)
-                                 ? new XCursor(drawingFactor)
+                                 ? newXCursor()
                                  : deferredXFrames.computeIfAbsent(animDir,
-                                         k -> new XCursor(drawingFactor));
+                                         k -> newXCursor());
                 break;
             default:
                 throw unexpectedOutputType();
@@ -171,6 +176,10 @@ abstract class BitmapsRendererBackend {
         }
         Files.createDirectories(outDir);
         outputSet = true;
+    }
+
+    private XCursor newXCursor() {
+        return new XCursor(drawingFactor);
     }
 
     private IllegalStateException unexpectedOutputType() {

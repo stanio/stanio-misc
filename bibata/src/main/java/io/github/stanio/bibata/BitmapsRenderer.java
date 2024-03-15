@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -242,17 +241,16 @@ public class BitmapsRenderer {
         for (SizeScheme scheme : sizes(config)) {
             if (first) first = false;
             else System.out.append(",");
-            if (scheme != SizeScheme.SOURCE) {
-                System.out.append(' ').append(scheme.name);
+            if (scheme.name != null || scheme.permanent) {
+                System.out.print(" (" + scheme + ")");
             }
 
             List<String> variant = new ArrayList<>();
             if (rendererBackend.hasPointerShadow()) {
                 variant.add("Shadow");
             }
-            if (scheme != SizeScheme.SOURCE
-                    && scheme != SizeScheme.R) {
-                variant.add(scheme.name);
+            if (scheme.permanent) {
+                variant.add(scheme.toString());
             }
 
             Path outDir = config.resolveOutputDir(baseDir, variant);
@@ -261,7 +259,7 @@ public class BitmapsRenderer {
             }
             rendererBackend.setOutDir(outDir);
 
-            rendererBackend.setCanvasSize(scheme.canvasSize);
+            rendererBackend.setCanvasSize(scheme.canvasSize, scheme.permanent);
 
             for (int res : resolutions(config)) {
                 if (animation != null
@@ -373,11 +371,10 @@ public class BitmapsRenderer {
                 resolutions.addAll(List.of(32, 48, 64, 96, 128));
             };
 
-            Function<String, String> toUpper = str -> str.toUpperCase(Locale.ROOT);
-
             CommandLine cmd = CommandLine.ofUnixStyle()
                     .acceptOption("-s", sizes::addAll,
-                            splitOnComma(toUpper.andThen(SizeScheme::valueOf)))
+                            // REVISIT: Validate at most one "permanent" size
+                            splitOnComma(SizeScheme::valueOf))
                     .acceptOption("-r", resolutions::addAll,
                             splitOnComma(Integer::valueOf))
                     .acceptOption("-t", themeFilter::add, String::strip)
