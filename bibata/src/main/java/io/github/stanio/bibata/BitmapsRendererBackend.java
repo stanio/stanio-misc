@@ -18,9 +18,6 @@ import org.w3c.dom.Document;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 
-import io.github.stanio.windows.AnimatedCursor;
-import io.github.stanio.x11.XCursor;
-
 import io.github.stanio.bibata.BitmapsRenderer.OutputType;
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.ThemeConfig.ColorTheme;
@@ -60,16 +57,10 @@ abstract class BitmapsRendererBackend {
     // REVISIT: targetCanvasFactor?
     private float drawingFactor;
 
-    // REVISIT: Have an abstract Cursor type, with implementations
-    // delegating to the different output types, providing unified
-    // access for the BitmapsRendererBackend needs.  This will
-    // eliminate the repetitions related to these two types.
-    private final Map<Path, AnimatedCursor> deferredFrames = new HashMap<>();
-    private final Map<Path, XCursor> deferredXFrames = new HashMap<>();
+    private final Map<Path, CursorBuilder> deferredFrames = new HashMap<>();
     private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
 
-    private AnimatedCursor currentFrames;
-    private XCursor currentXFrames;
+    private CursorBuilder currentFrames;
 
     private boolean outputSet;
 
@@ -109,7 +100,6 @@ abstract class BitmapsRendererBackend {
         animation = null;
         frameNum = staticFrame;
         currentFrames = null;
-        currentXFrames = null;
         colorTheme = null;
         svgSizing = null;
         sizingTool = null;
@@ -149,8 +139,7 @@ abstract class BitmapsRendererBackend {
         if (outputSet) return;
 
         if (animation == null) {
-            currentFrames = new AnimatedCursor(0); // container, dummy animation
-            currentXFrames = newXCursor();
+            currentFrames = newCursorBuilder();
         } else {
             Path animDir = outDir.resolve(animation.lowerName);
             switch (outputType) {
@@ -158,32 +147,19 @@ abstract class BitmapsRendererBackend {
                 // Place individual frame bitmaps in a subdirectory.
                 outDir = animDir;
                 break;
-            case WINDOWS_CURSORS:
-                currentFrames = (frameNum == staticFrame)
-                                ? new AnimatedCursor(animation.jiffies())
-                                : deferredFrames.computeIfAbsent(animDir,
-                                        k -> new AnimatedCursor(animation.jiffies()));
-                break;
-            case LINUX_CURSORS:
-                currentXFrames = (frameNum == staticFrame)
-                                 ? newXCursor()
-                                 : deferredXFrames.computeIfAbsent(animDir,
-                                         k -> newXCursor());
-                break;
             default:
-                throw unexpectedOutputType();
+                currentFrames = (frameNum == staticFrame)
+                                 ? newCursorBuilder()
+                                 : deferredFrames.computeIfAbsent(animDir,
+                                         k -> newCursorBuilder());
             }
         }
         Files.createDirectories(outDir);
         outputSet = true;
     }
 
-    private XCursor newXCursor() {
-        return new XCursor(drawingFactor);
-    }
-
-    private IllegalStateException unexpectedOutputType() {
-        return new IllegalStateException("Unexpected output type: " + outputType);
+    private CursorBuilder newCursorBuilder() {
+        return CursorBuilder.newInstance(outputType, animation, drawingFactor);
     }
 
     public void renderTargetSize(int size) throws IOException {
@@ -202,16 +178,8 @@ abstract class BitmapsRendererBackend {
             case BITMAPS:
                 writeStatic(outDir.resolve(cursorName + sizeSuffix + ".png"));
                 break;
-            case WINDOWS_CURSORS:
-                currentFrames.prepareFrame(frameNum)
-                             .addImage(renderStatic(), hotspot);
-                break;
-            case LINUX_CURSORS:
-                int delay = (animation == null) ? 0 : animation.delayMillis();
-                currentXFrames.addFrame(frameNum, renderStatic(), hotspot, delay);
-                break;
             default:
-                throw unexpectedOutputType();
+                currentFrames.addFrame(frameNum, renderStatic(), hotspot);
             }
         } else {
             assert (animation != null);
@@ -221,16 +189,9 @@ abstract class BitmapsRendererBackend {
                 writeAnimation(outDir, cursorName + "-%0"
                         + animation.numDigits + "d" + sizeSuffix + ".png");
                 break;
-            case WINDOWS_CURSORS:
-                renderAnimation((frameNo, image) -> currentFrames
-                        .prepareFrame(frameNo).addImage(image, hotspot));
-                break;
-            case LINUX_CURSORS:
-                renderAnimation((frameNo, image) -> currentXFrames
-                        .addFrame(frameNo, image, hotspot, animation.delayMillis()));
-                break;
             default:
-                throw unexpectedOutputType();
+                renderAnimation((frameNo, image) -> currentFrames
+                        .addFrame(frameNo, image, hotspot));
             }
         }
     }
@@ -274,60 +235,17 @@ abstract class BitmapsRendererBackend {
     public void saveCurrent() throws IOException {
         // Static cursor or complete animation
         if (frameNum == staticFrame) {
-            if (currentFrames != null && !currentFrames.isEmpty())
-                saveCursor(outDir, cursorName, animation, currentFrames);
-
-            String x11Name;
-            if (currentXFrames != null && !currentXFrames.isEmpty()
-                    && (x11Name = CursorNames.x11Name(cursorName)) != null) {
-                currentXFrames.writeTo(outDir.resolve(x11Name));
-            }
+            currentFrames.writeTo(outDir.resolve(cursorName));
         }
         currentFrames = null;
-        currentXFrames = null;
-    }
-
-    final void saveCursor(Path outDir,
-                          String cursorName,
-                          Animation animation,
-                          AnimatedCursor frames)
-            throws IOException {
-        String winName = CursorNames.winName(cursorName);
-        if (winName == null) {
-            winName = cursorName;
-            for (int n = 2; CursorNames.nameWinName(winName) != null; n++) {
-                winName = cursorName + "_" + n++;
-            }
-        }
-
-        if (animation == null) {
-            frames.prepareFrame(staticFrame).write(outDir.resolve(winName + ".cur"));
-        } else {
-            frames.write(outDir.resolve(winName + ".ani"));
-        }
     }
 
     public void saveDeferred() throws IOException {
         var iterator = deferredFrames.entrySet().iterator();
         while (iterator.hasNext()) {
             var entry = iterator.next();
+            entry.getValue().writeTo(entry.getKey());
             iterator.remove();
-
-            String cursorName = entry.getKey().getFileName().toString();
-            saveCursor(entry.getKey().getParent(), cursorName,
-                    Animation.lookUp(cursorName), entry.getValue());
-        }
-
-        var xiterator = deferredXFrames.entrySet().iterator();
-        while (xiterator.hasNext()) {
-            var entry = xiterator.next();
-            Path baseDir = entry.getKey().getParent();
-            String fileName = entry.getKey().getFileName().toString();
-            String x11Name = CursorNames.x11Name(fileName);
-            if (x11Name != null) {
-                entry.getValue().writeTo(baseDir.resolve(x11Name));
-            }
-            xiterator.remove();
         }
     }
 
