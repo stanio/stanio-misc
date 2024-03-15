@@ -44,11 +44,11 @@ abstract class BitmapsRendererBackend {
 
     protected OutputType outputType;
 
-    protected String cursorName;
-    protected Animation animation;
-    private   Integer frameNum;
+    private String cursorName;
+    private Animation animation;
+    private Integer frameNum;
 
-    protected Path outDir;
+    private Path outDir;
 
     private ColorTheme colorTheme;
     private SVGSizing svgSizing;
@@ -186,11 +186,11 @@ abstract class BitmapsRendererBackend {
 
             switch (outputType) {
             case BITMAPS:
-                writeAnimation(outDir, cursorName + "-%0"
+                writeAnimation(animation, outDir, cursorName + "-%0"
                         + animation.numDigits + "d" + sizeSuffix + ".png");
                 break;
             default:
-                renderAnimation((frameNo, image) -> currentFrames
+                renderAnimation(animation, (frameNo, image) -> currentFrames
                         .addFrame(frameNo, image, hotspot));
             }
         }
@@ -212,7 +212,7 @@ abstract class BitmapsRendererBackend {
 
     protected abstract BufferedImage renderStatic();
 
-    protected void writeAnimation(Path targetBase, String nameFormat)
+    protected void writeAnimation(Animation animation, Path targetBase, String nameFormat)
             throws IOException {
         implWarn("doesn't handle SVG animations");
         writeStatic(targetBase.resolve(String.format(Locale.ROOT, nameFormat, frameNum)));
@@ -223,7 +223,7 @@ abstract class BitmapsRendererBackend {
         void accept(int frameNo, BufferedImage image);
     }
 
-    protected void renderAnimation(AnimationFrameCallback callback) {
+    protected void renderAnimation(Animation animation, AnimationFrameCallback callback) {
         implWarn("doesn't handle SVG animations");
         callback.accept(frameNum, renderStatic());
     }

@@ -22,6 +22,7 @@ import org.apache.batik.transcoder.TranscoderOutput;
 import io.github.stanio.batik.DynamicImageTranscoder;
 import io.github.stanio.batik.DynamicImageTranscoder.RenderedTranscoderOutput;
 
+import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGTransformer;
 
@@ -107,9 +108,9 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void renderAnimation(AnimationFrameCallback callback) {
+    protected void renderAnimation(Animation animation, AnimationFrameCallback callback) {
         try {
-            renderAnimation(frameNo -> new RenderedTranscoderOutput(),
+            renderAnimation(animation, frameNo -> new RenderedTranscoderOutput(),
                     (frameNo, output) -> callback.accept(frameNo, output.getImage()));
         } catch (IOException e) {
             throw new IllegalStateException(e);
@@ -117,18 +118,19 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void writeAnimation(Path targetBase, String nameFormat)
+    protected void writeAnimation(Animation animation, Path targetBase, String nameFormat)
             throws IOException {
         Function<Integer, TranscoderOutput> fileProvider = frameNo -> {
             String fileName = String.format(Locale.ROOT, nameFormat, frameNo);
             return fileOutput(targetBase.resolve(fileName));
         };
-        renderAnimation(fileProvider,
+        renderAnimation(animation, fileProvider,
                 (frameNo, output) -> {/* written to file already */});
     }
 
     private <T extends TranscoderOutput>
-    void renderAnimation(Function<Integer, T> outputInitializer,
+    void renderAnimation(Animation animation,
+                         Function<Integer, T> outputInitializer,
                          BiConsumer<Integer, T> outputConsumer)
             throws IOException {
         final float duration = animation.duration;
