@@ -1,5 +1,5 @@
 ext {
-    theme = [
+    themeDescription = [
         shapes : [
             Modern : 'rounded edge',
             Original : 'sharp edge'
@@ -17,52 +17,58 @@ ext {
 }
 
 def themeComment(Map args) {
-   def comment = "${theme.colors[args.color]} and ${theme.shapes[args.shape]}"
-   if (args.leftHand) comment += ', left-handed'
-   if (args.outline) comment += ', thin-outline'
-   if (args.shadow) comment += ' with pointer shadow'
-   //if (args.sizing) comment += " (${ sizing.toLowerCase() })"
-   return comment + ' Bibata cursors'
+    def comment = "${themeDescription.colors[args.color]} and ${themeDescription.shapes[args.shape]}"
+    if (args.leftHand) comment += ', left-handed'
+    if (args.outline) comment += ', thin-outline'
+    if (args.shadow) comment += ' with pointer shadow'
+    //if (args.sizing) comment += " (${ sizing.toLowerCase() })"
+    return comment + ' Bibata cursors'
 }
 
 def themeName(Map args) {
-   def name = "Bibata ${args.shape} ${args.color}"
-   def tags = [ args.leftHand ? 'left-handed' : null,
-                args.outline ? 'thin' : null,
-                args.shadow ? 'w/ shadow' : null,
-                args.sizing ? args.sizing.toLowerCase() : null ] - null
-   return tags.empty ? name
-                     : name + " (${ tags.join(', ').replace(', w/', ' w/') })"
+    def name = "Bibata ${args.shape} ${args.color}"
+    if (args.leftHand) name += " left-handed"
+    if (args.sizing == 'Extra-Large') name += ' [x-large]'
+    else if (args.sizing) name += " [${ args.sizing.toLowerCase() }]"
+    def tags = [ args.outline ? 'thin' : null,
+                 args.shadow ? 'shadow' : null ] - null - ''
+    return tags.empty ? name : name + " (${ tags.join(', ') })"
 }
 
 task windowsInstallScripts {
     description = 'install.inf, uninstall.cmd'
     group = 'package'
 
+    outputs.dir("${buildDir}/windows-scripts")
+    outputs.upToDateWhen { false }
+
     doLast {
-        ['Modern', 'Original'].each { shape ->
-            ['Classic', 'Ice'].each { color ->
+        themeShapes.split(',').each { shape ->
+            themeColors.split(',').each { color ->
                 def themeIndex = 1
                 def setupInfo = [
+                    name: themeName(shape: shape, color: color),
+                    comment: themeComment(shape: shape, color: color),
                     fileSets: [:],
                     destinationDirs: [],
                     schemesReg: [],
                     strings: []
                 ]
-                [/*'Regular'*/ null, 'Large', 'Extra-Large'].each { schemeSize ->
+                windowsSizes.split(',').each { schemeSize ->
                     def args = [ shape: shape,
                                  color: color,
                                  leftHand: null,
+                                 sizing: schemeSize,
                                  outline: null,
-                                 shadow: null,
-                                 sizing: schemeSize ]
+                                 shadow: null ]
 
                     addSetupInfo(args, themeIndex++, setupInfo)
-                    addSetupInfo(args << [outline: 'Thin'], themeIndex++, setupInfo)
-                    if (schemeSize == 'Extra-Large') return // no Extra-Large with Shadow
+                    if (args.sizing != 'Extra-Large')
+                        addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
 
-                    addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
-                    addSetupInfo(args << [outline: null], themeIndex++, setupInfo)
+                    addSetupInfo(args << [outline: 'Thin', shadow: null], themeIndex++, setupInfo)
+                    if (args.sizing != 'Extra-Large')
+                        addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
                 }
                 writeWindowsInstallScripts(setupInfo)
             }
@@ -86,7 +92,7 @@ def writeWindowsInstallScripts(Map setupInfo) {
         into "${buildDir}/windows-scripts"
         from('src/package') {
             include 'install.inf'
-            include 'uninstall.cmd'
+            //include 'uninstall.cmd'
         }
         rename {
             it.replace('install',
@@ -100,11 +106,6 @@ def writeWindowsInstallScripts(Map setupInfo) {
 
 def addSetupInfo(Map args, index, setupInfo) {
     def name = themeName(args)
-    if (!setupInfo.name) {
-        setupInfo.name = name
-        setupInfo.comment = themeComment(args)
-    }
-
     def curDir = winCurDir(args)
     def srcDir = curDir.replace('Bibata\\', '')
     def fileList = [ 'Pointer.cur',
@@ -147,7 +148,9 @@ def addSetupInfo(Map args, index, setupInfo) {
 }
 
 def winCurDir(Map args) {
-    def tags = [ args.shape, args.color, args.leftHand, args.outline, args.shadow, args.sizing] - null
+    def tags = [ args.shape, args.color, args.leftHand,
+                 args.sizing ? args.sizing : 'Normal',
+                 args.outline, args.shadow] - null - ''
     return "Bibata\\${ tags.join('-') }"
 }
 
@@ -155,15 +158,18 @@ task linuxThemeFiles {
     description = 'index.theme, cursor.theme'
     group = 'package'
 
+    outputs.dir("${buildDir}/linux-themes")
+    outputs.upToDateWhen { false }
+
     doLast {
-        ['Classic', 'Ice'].each { color ->
-            ['Modern', 'Original'].each { shape ->
+        themeShapes.split(',').each { shape ->
+            themeColors.split(',').each { color ->
                 def args = [ shape: shape,
                              color: color,
                              leftHand: null,
+                             sizing: null,
                              outline: null,
-                             shadow: null,
-                             sizing: null ]
+                             shadow: null ]
 
                 writeLinuxThemeFiles(args)
                 writeLinuxThemeFiles(args << [outline: 'Thin'])
@@ -179,8 +185,8 @@ task linuxThemeFiles {
  * https://wiki.archlinux.org/title/Xcursorgen
  */
 def writeLinuxThemeFiles(Map args) {
-    def tags = [ args.shape, args.color,
-                 args.leftHand, args.outline, args.shadow ] - null
+    def tags = [ args.shape, args.color, args.leftHand,
+                 args.outline, args.shadow ] - null - ''
     def properties = [
         name: themeName(args),
         comment: themeComment(args),

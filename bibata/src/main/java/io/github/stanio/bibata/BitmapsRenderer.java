@@ -246,11 +246,14 @@ public class BitmapsRenderer {
             }
 
             List<String> variant = new ArrayList<>();
-            if (rendererBackend.hasPointerShadow()) {
-                variant.add("Shadow");
-            }
             if (scheme.permanent) {
                 variant.add(scheme.toString());
+            }
+            if (config.out.contains("-Thin")) {
+                variant.add("Thin");
+            }
+            if (rendererBackend.hasPointerShadow()) {
+                variant.add("Shadow");
             }
 
             Path outDir = config.resolveOutputDir(baseDir, variant);
@@ -366,7 +369,7 @@ public class BitmapsRenderer {
         CommandArgs(String... args) {
             Runnable standardSizes = () -> {
                 sizes.clear();
-                sizes.addAll(List.of(SizeScheme.R, SizeScheme.L, SizeScheme.XL));
+                sizes.addAll(List.of(SizeScheme.N, SizeScheme.L, SizeScheme.XL));
                 resolutions.clear();
                 resolutions.addAll(List.of(32, 48, 64, 96, 128));
             };

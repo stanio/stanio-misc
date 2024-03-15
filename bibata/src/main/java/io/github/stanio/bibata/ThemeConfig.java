@@ -36,6 +36,7 @@ public class ThemeConfig {
     public static final class SizeScheme {
         static final SizeScheme SOURCE = new SizeScheme(null, 1.0);
         public static final SizeScheme R = new SizeScheme("Regular", 1.5);
+        public static final SizeScheme N = new SizeScheme("Normal", 1.5, true);
         public static final SizeScheme L = new SizeScheme("Large", 1.25, true);
         public static final SizeScheme XL = new SizeScheme("Extra-Large", 1.0, true);
 
@@ -61,7 +62,9 @@ public class ThemeConfig {
 
         public static SizeScheme valueOf(String str) {
             switch (str.toUpperCase(Locale.ROOT)) {
-            case "N": // Normal
+            case "N":
+                return N;
+
             case "R":
                 return R;
 
@@ -130,6 +133,11 @@ public class ThemeConfig {
     }
 
     Path resolveOutputDir(Path baseDir, List<String> variant) {
+        // Remove variant tokens already present, and
+        // re-add them in the specified order
+        String out = variant.stream().reduce(this.out,
+                (result, token) -> result.replace("-" + token, ""));
+
         Path outDir = baseDir.resolve(out);
         if (variant.isEmpty()) {
             return (defaultSubdir != null)
