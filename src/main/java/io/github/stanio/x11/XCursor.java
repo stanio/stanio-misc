@@ -164,6 +164,9 @@ public class XCursor {
 
     private static final Integer staticFrame = 0;
 
+    private static final
+    boolean defaultCropToContent = Boolean.getBoolean("xcur.cropToContent");
+
     private final SortedMap<Integer, List<ImageChunk>> frames = new TreeMap<>();
 
     /** drawing size / canvas size */
@@ -176,7 +179,7 @@ public class XCursor {
     }
 
     public XCursor(float factor) {
-        this(factor, false);
+        this(factor, defaultCropToContent);
     }
 
     public XCursor(float factor, boolean crop) {
