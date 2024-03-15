@@ -1,4 +1,5 @@
 [Icon Theme]
-Name=${name}
+Name=${curDir}
+Name[en]=${name}
 Comment=${comment}, v${version}
 Inherits="hicolor"
