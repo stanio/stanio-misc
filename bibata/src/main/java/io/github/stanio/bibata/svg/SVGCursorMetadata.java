@@ -12,17 +12,16 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
+import javax.xml.transform.stream.StreamSource;
 
 import org.w3c.dom.Document;
 
@@ -30,10 +29,7 @@ import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
-import org.xml.sax.SAXNotRecognizedException;
-import org.xml.sax.SAXNotSupportedException;
 import org.xml.sax.SAXParseException;
-import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
 import java.awt.Rectangle;
@@ -54,9 +50,8 @@ import java.awt.geom.Rectangle2D;
  */
 public class SVGCursorMetadata {
 
-    private static final ThreadLocal<XMLReader> localReader = new ThreadLocal<>();
     private static final ThreadLocal<Transformer>
-            identityTransformer = ThreadLocal.withInitial(() -> newTransformer((Source) null));
+            identityTransformer = ThreadLocal.withInitial(() -> newTransformer(Optional.empty()));
 
     final Rectangle2D sourceViewBox;
     final AnchorPoint hotspot;
@@ -70,77 +65,24 @@ public class SVGCursorMetadata {
         this.childAnchors = content.childAnchors;
     }
 
-    static XMLReader getXMLReader() {
-        XMLReader xmlReader = localReader.get();
-        if (xmlReader == null) {
-            SAXParserFactory spf = SAXParserFactory.newInstance();
-            spf.setNamespaceAware(true);
-            try {
-                spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                xmlReader = spf.newSAXParser().getXMLReader();
-            } catch (SAXException | ParserConfigurationException e) {
-                throw new RuntimeException(e);
-            }
-
-            try {
-                xmlReader.setFeature("http://xml.org/sax/features/"
-                                     + "namespace-prefixes", true);
-            } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
-                throw new IllegalStateException(e);
-            }
-            localReader.set(xmlReader);
-        } else {
-            unsetHandlers(xmlReader);
-        }
-        return xmlReader;
-    }
-
-    static void unsetHandlers(XMLReader xmlReader) {
-        xmlReader.setEntityResolver(null);
-        xmlReader.setContentHandler(null);
-        xmlReader.setErrorHandler(null);
-        // The transformer may set any of these and does set the lexical-handler.
-        // Unset them so they don't accidentally kick in when the xmlReader gets
-        // reused (w/o reseting them explicitly).
-        xmlReader.setDTDHandler(null);
-        try {
-            xmlReader.setProperty("http://xml.org/sax/properties/"
-                                  + "lexical-handler", null);
-            xmlReader.setProperty("http://xml.org/sax/properties/"
-                                  + "declaration-handler", null);
-        } catch (SAXException e) {
-            System.err.println(e);
-        }
-    }
-
     /**
      * Read metadata from given file.
      */
     public static SVGCursorMetadata read(Path file) throws IOException {
-        XMLReader xmlReader = getXMLReader();
-        ParseHandler handler = new ParseHandler();
-        xmlReader.setContentHandler(handler);
-        xmlReader.setEntityResolver(handler);
-        xmlReader.setErrorHandler(handler);
-        try {
-            xmlReader.parse(file.toUri().toString());
-        } catch (SAXException e) {
-            throw new IOException(e);
-        } finally {
-            xmlReader.setContentHandler(null);
-            xmlReader.setEntityResolver(null);
-            xmlReader.setErrorHandler(null);
-        }
-        return new SVGCursorMetadata(handler);
+        return read(new StreamSource(file.toFile()));
     }
 
     /**
      * Read metadata from in-memory DOM.
      */
     public static SVGCursorMetadata read(Document svg) {
+        return read(new DOMSource(svg));
+    }
+
+    public static SVGCursorMetadata read(Source source) {
         ParseHandler handler = new ParseHandler();
         try {
-            identityTransformer.get().transform(new DOMSource(svg),
+            identityTransformer.get().transform(source,
                                                 new SAXResult(handler));
         } catch (TransformerException e) {
             throw new IllegalStateException(e);

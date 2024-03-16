@@ -4,9 +4,6 @@
  */
 package io.github.stanio.bibata.svg;
 
-import static io.github.stanio.bibata.svg.SVGCursorMetadata.getXMLReader;
-import static io.github.stanio.bibata.svg.SVGCursorMetadata.unsetHandlers;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -22,8 +19,6 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import javax.xml.XMLConstants;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
 import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.xpath.XPath;
@@ -54,13 +49,16 @@ import io.github.stanio.windows.Cursor;
 public class SVGSizing {
 
     private final Path sourceFile;
+    private final SAXReplayBuffer sourceBuffer;
     private final Document sourceDOM;
     private final SVGCursorMetadata metadata;
 
     private final SVGTransformer svgTransformer = new SVGTransformer();
 
-    private SVGSizing(Path sourceFile, SVGCursorMetadata metadata) {
+    private SVGSizing(Path sourceFile,
+            SAXReplayBuffer sourceBuffer, SVGCursorMetadata metadata) {
         this.sourceFile = sourceFile;
+        this.sourceBuffer = sourceBuffer;
         this.sourceDOM = null;
         this.metadata = metadata;
     }
@@ -68,11 +66,14 @@ public class SVGSizing {
     private SVGSizing(Document sourceDOM, SVGCursorMetadata metadata) {
         this.sourceDOM = sourceDOM;
         this.sourceFile = null;
+        this.sourceBuffer = null;
         this.metadata = metadata;
     }
 
     public static SVGSizing forFile(Path file) throws IOException {
-        return new SVGSizing(file, SVGCursorMetadata.read(file));
+        SAXReplayBuffer buffer = SAXReplayBuffer.load(file);
+        return new SVGSizing(file, buffer,
+                SVGCursorMetadata.read(buffer.asSource()));
     }
 
     public static SVGSizing forDocument(Document svg) {
@@ -114,8 +115,6 @@ public class SVGSizing {
      * @see     #adjustViewBoxOrigin(Rectangle2D, Point2D)
      */
     public Point apply(int targetSize, int viewBoxSize) throws  IOException {
-        /* REVISIT: Move this functionality to SVGSizing, and then move the SVGSizing
-         * part that collects and saves the adjusted hotspots to a SVGSizingTool. */
         return (sourceDOM == null)
                 ? apply(sourceFile, targetSize, viewBoxSize)
                 : apply(sourceDOM, targetSize, viewBoxSize);
@@ -128,21 +127,18 @@ public class SVGSizing {
             Path tempFile = Files.createTempFile(resolvedSource.getParent(),
                     svgFile.getFileName() + "-", null);
 
-            UpdateFilter filter = UpdateFilter.withParent(getXMLReader(),
+            XMLReader parent = (sourceBuffer != null)
+                               ? sourceBuffer.asXMLReader()
+                               : SAXReplayBuffer.localXMLReader();
+            UpdateFilter filter = UpdateFilter.withParent(parent,
                     targetSize, viewBoxSize, viewBoxOrigin, childOffsets);
             try (OutputStream fileOut = Files.newOutputStream(tempFile)) {
                 InputSource input = new InputSource(svgFile.toUri().toString());
-                getTransformer().transform(new SAXSource(filter, input),
-                                           new StreamResult(fileOut));
+                svgTransformer.transform(new SAXSource(filter, input),
+                                         new StreamResult(fileOut));
                 fileOut.write('\n');
-            } catch (TransformerException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof IOException) {
-                    throw (IOException) cause;
-                }
-                throw new IOException(e);
             } finally {
-                unsetHandlers(filter.getParent());
+                SAXReplayBuffer.unsetHandlers(parent);
             }
             try {
                 Files.move(tempFile, resolvedSource, StandardCopyOption.ATOMIC_MOVE);
@@ -226,10 +222,6 @@ public class SVGSizing {
         }
         offsetsConsumer.apply(viewBoxOrigin, objectOffsets);
         return alignedHotspot;
-    }
-
-    private Transformer getTransformer() {
-        return svgTransformer.sourceTransformer();
     }
 
     private static Path resolveLinks(Path path) throws IOException {

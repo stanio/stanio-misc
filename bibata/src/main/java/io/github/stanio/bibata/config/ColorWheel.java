@@ -27,6 +27,7 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
 import io.github.stanio.bibata.CursorNames.Animation;
+import io.github.stanio.bibata.svg.SAXReplayBuffer;
 
 /**
  * Generates animation frame static images from templates with the original
@@ -44,7 +45,7 @@ public class ColorWheel {
 
     private Transformer transformer;
 
-    private Source animationSource;
+    private SAXReplayBuffer animationSource;
 
     public ColorWheel withFrameCount(int frameCount) {
         this.targetFrameCount = frameCount;
@@ -123,13 +124,11 @@ public class ColorWheel {
         System.out.println();
     }
 
-    private Source animationSource(Path template) {
+    private Source animationSource(Path template) throws IOException {
         if (animationSource == null) {
-            // REVISIT: Load the source once as a StAX event stream, buffering
-            // the events.  Use the event buffer to feed each transformation.
-            animationSource = new StreamSource(template.toFile());
+            animationSource = SAXReplayBuffer.load(template);
         }
-        return animationSource;
+        return animationSource.asSource();
     }
 
     public void generateFrames(Path startDir) throws IOException {

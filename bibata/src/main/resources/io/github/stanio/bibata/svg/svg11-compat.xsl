@@ -17,7 +17,7 @@
     </svg>
   </xsl:template>
 
-  <xsl:template match="@href[../*[namespace-uri()='http://www.w3.org/2000/svg']]">
+  <xsl:template match="@href[parent::*[namespace-uri()='http://www.w3.org/2000/svg'] and not(@xlink:href)]">
     <xsl:attribute name="href" namespace="http://www.w3.org/1999/xlink">
       <xsl:value-of select="." />
     </xsl:attribute>
@@ -34,7 +34,7 @@
       <xsl:attribute name="id">
         <xsl:value-of select="$id" />
       </xsl:attribute>
-      <xsl:apply-templates select="node()|@*[not(starts-with(name(), 'stroke') or name()='paint-order')]" />
+      <xsl:apply-templates select="node()|@*[not(starts-with(name(), 'stroke') or name() = 'paint-order')]" />
     </xsl:copy>
   </xsl:template>
 

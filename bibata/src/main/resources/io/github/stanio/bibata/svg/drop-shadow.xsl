@@ -7,11 +7,8 @@
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
-    xmlns:xlink="http://www.w3.org/1999/xlink"
     exclude-result-prefixes="xsl svg"
     xmlns="http://www.w3.org/2000/svg">
-
-  <xsl:import href="svg11-compat.xsl" />
 
   <xsl:param name="shadow-blur" select="3" />
   <xsl:param name="shadow-dx" select="12" />
@@ -20,13 +17,13 @@
   <xsl:param name="shadow-color">#000000</xsl:param>
 
   <xsl:template match="/svg:svg">
-    <svg xmlns:xlink="http://www.w3.org/1999/xlink">
+    <xsl:copy>
       <xsl:copy-of select="@*" />
 
       <xsl:choose>
         <xsl:when test="not(.//*[@filter='url(#drop-shadow)'])">
           <xsl:text>&#xA;</xsl:text>
-          <use xlink:href="#cursor-drawing" filter="url(#drop-shadow)" />
+          <use href="#cursor-drawing" filter="url(#drop-shadow)" />
           <xsl:text>&#xA;</xsl:text>
           <g id="cursor-drawing">
             <xsl:apply-templates />
@@ -47,7 +44,7 @@
         </defs>
         <xsl:text>&#xA;</xsl:text>
       </xsl:if>
-    </svg>
+    </xsl:copy>
   </xsl:template>
 
   <!-- Update existing -->
@@ -73,10 +70,10 @@
   </xsl:template>
 
   <!-- Identity copy -->
-  <!--xsl:template match="@*|node()">
+  <xsl:template match="@*|node()">
     <xsl:copy>
       <xsl:apply-templates select="@*|node()"/>
     </xsl:copy>
-  </xsl:template-->
+  </xsl:template>
 
 </xsl:stylesheet>
