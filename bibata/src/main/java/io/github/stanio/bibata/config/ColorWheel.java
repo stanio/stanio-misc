@@ -18,6 +18,7 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -42,6 +43,8 @@ public class ColorWheel {
     private float targetFrameRate = -1f;
 
     private Transformer transformer;
+
+    private Source animationSource;
 
     public ColorWheel withFrameCount(int frameCount) {
         this.targetFrameCount = frameCount;
@@ -105,9 +108,7 @@ public class ColorWheel {
             context.snapshotTime(currentTime);
 
             try (OutputStream fout = Files.newOutputStream(frameFile)) {
-                // REVISIT: Load the source once as a StAX event stream, buffering
-                // the events.  Use the event buffer to feed each transformation.
-                transformer.transform(new StreamSource(template.toFile()),
+                transformer.transform(animationSource(template),
                                       new StreamResult(fout));
                 fout.write(System.lineSeparator()
                                  .getBytes(StandardCharsets.US_ASCII));
@@ -122,6 +123,15 @@ public class ColorWheel {
         System.out.println();
     }
 
+    private Source animationSource(Path template) {
+        if (animationSource == null) {
+            // REVISIT: Load the source once as a StAX event stream, buffering
+            // the events.  Use the event buffer to feed each transformation.
+            animationSource = new StreamSource(template.toFile());
+        }
+        return animationSource;
+    }
+
     public void generateFrames(Path startDir) throws IOException {
         try (Stream<Path> deepList = Files.walk(startDir)) {
             Iterable<Path> files = () -> deepList
@@ -133,6 +143,7 @@ public class ColorWheel {
                 if (animation == null)
                     continue;
 
+                animationSource = null;
                 generateFrames(f, animation);
             }
         }
