@@ -10,22 +10,19 @@ import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.XMLEvent;
 
-import org.w3c.dom.Document;
-
 /**
  * @see  EventBufferWriter
  */
 class EventBufferReader implements XMLEventReader {
 
+    private Iterable<XMLEvent> source;
+
     private Iterator<XMLEvent> events;
     private XMLEvent nextEvent;
 
-    EventBufferReader(Iterator<XMLEvent> events) {
-        this.events = events;
-    }
-
-    public static EventBufferReader forDocument(Document document) {
-        return new EventBufferReader(EventBufferWriter.eventIterator(document));
+    EventBufferReader(Iterable<XMLEvent> source) {
+        this.source = source;
+        this.events = source.iterator();
     }
 
     @Override
@@ -85,5 +82,9 @@ class EventBufferReader implements XMLEventReader {
         // no-op
     }
 
-}
+    public void reset() {
+        nextEvent = null;
+        events = source.iterator();
+    }
 
+}
