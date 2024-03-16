@@ -202,16 +202,16 @@ public class SVGSizing {
 
             Rectangle2D viewBox = new Rectangle2D.Double(0, 0, viewBoxSize, viewBoxSize);
             adjustViewBoxOrigin(viewBox,
-                    alignToGrid(metadata.rootAnchor, targetDimension, viewBox));
+                    alignToGrid(metadata.rootAnchor.point(), targetDimension, viewBox));
             viewBoxOrigin = new Point2D.Double(viewBox.getX(), viewBox.getY());
 
             objectOffsets = new HashMap<>(metadata.childAnchors.size());
-            metadata.childAnchors.forEach((elementPath, anchorPoint) -> {
+            metadata.childAnchors.forEach((elementPath, anchor) -> {
                 objectOffsets.put(elementPath,
-                        alignToGrid(anchorPoint, targetDimension, viewBox));
+                        alignToGrid(anchor.point(), targetDimension, viewBox));
             });
 
-            Point2D hotspot = metadata.hotspot;
+            Point2D hotspot = metadata.hotspot.point();
             Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
             int x = (hotspot.getX() > 120

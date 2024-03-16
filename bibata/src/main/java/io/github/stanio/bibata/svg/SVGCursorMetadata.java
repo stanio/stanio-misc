@@ -36,7 +36,6 @@ import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
-import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -44,12 +43,12 @@ import java.awt.geom.Rectangle2D;
 /**
  * Encapsulates metadata I add to the Bibata Cursor SVG files.
  * <pre>
- * <code>&lt;circle id="cursor-hotspot" cx="#" cy="#" />
+ * <code>&lt;circle <strong>id="cursor-hotspot"</strong> cx="<var>#</var>" cy="<var>#</var>" />
  *
- * &lt;path id="align-anchor" d="m #,# ..." />
+ * &lt;path <strong>id="align-anchor"</strong> d="m <var>#,#</var> ..." />
  *
  * &lt;g>
- *   &lt;path class="align-anchor" d="m #,# ..." /></code></pre>
+ *   &lt;path <strong>class="align-anchor"</strong> d="m <var>#,#</var> ..." /></code></pre>
  *
  * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
@@ -60,9 +59,9 @@ public class SVGCursorMetadata {
             identityTransformer = ThreadLocal.withInitial(() -> newTransformer((Source) null));
 
     final Rectangle2D sourceViewBox;
-    final Point2D hotspot;
-    final Point2D rootAnchor;
-    final Map<ElementPath, Point2D> childAnchors;
+    final AnchorPoint hotspot;
+    final AnchorPoint rootAnchor;
+    final Map<ElementPath, AnchorPoint> childAnchors;
 
     private SVGCursorMetadata(ParseHandler content) {
         this.sourceViewBox = content.sourceViewBox;
@@ -160,20 +159,20 @@ public class SVGCursorMetadata {
      * {@code <circle id="cursor-hotspot" cx="#" cy="#" />}
      */
     public Point2D hotspot() {
-        return (Point2D) hotspot.clone();
+        return hotspot.point();
     }
 
     /**
      * {@code <path id="align-anchor" d="m #,# ..." />}
      */
     public Point2D rootAnchor() {
-        return (Point2D) rootAnchor.clone();
+        return rootAnchor.point();
     }
 
     /**
      * {@code <g> <path class="align-anchor" d="m #,# ..." />}
      */
-    public Map<ElementPath, Point2D> childAnchors() {
+    public Map<ElementPath, AnchorPoint> childAnchors() {
         return Collections.unmodifiableMap(childAnchors);
     }
 
@@ -190,6 +189,7 @@ public class SVGCursorMetadata {
     private static class ParseHandler extends DefaultHandler {
 
         private static final Pattern ANCHOR_POINT;
+        private static final Pattern BIAS = Pattern.compile("(?ix) (?:^|\\s) bias-(\\S*)");
         static {
             final String coordinate = "[-+]? (?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?";
             ANCHOR_POINT = Pattern.compile("^\\s* m \\s* (" + coordinate
@@ -198,11 +198,13 @@ public class SVGCursorMetadata {
         }
 
         Rectangle2D sourceViewBox = new Rectangle(256, 256);
-        Point2D hotspot = new Point(128, 128);
-        Point2D rootAnchor = new Point(); // REVISIT: or 128,128?
-        Map<ElementPath, Point2D> childAnchors = new HashMap<>(1);
+        AnchorPoint hotspot = new AnchorPoint(128, 128);
+        AnchorPoint rootAnchor = AnchorPoint.defaultValue(); // REVISIT: or 128,128?
+        Map<ElementPath, AnchorPoint> childAnchors = new HashMap<>(1);
 
-        private ContentStack contentStack = new ContentStack();
+        private final ContentStack contentStack = new ContentStack();
+        private final Matcher anchorMatcher = ANCHOR_POINT.matcher("");
+        private final Matcher biasMatcher = BIAS.matcher("");
 
         @Override
         public void startElement(String uri, String localName,
@@ -216,11 +218,11 @@ public class SVGCursorMetadata {
             } else if ("cursor-hotspot".equals(id) && qname.equals("circle")) {
                 setHotspot(attributes);
             } else if ("align-anchor".equals(id) && qname.equals("path")) {
-                setAnchor(attributes.getValue("d"));
+                setAnchor(attributes);
             } else if ("align-anchor".equals(attributes.getValue("class"))
                     && qname.equals("path")) {
                 childAnchors.put(contentStack.currentPath().parent(),
-                        parseAnchor(attributes.getValue("d")));
+                                 parseAnchor(attributes));
             }
         }
 
@@ -253,31 +255,39 @@ public class SVGCursorMetadata {
             String cx = attributes.getValue("cx");
             String cy = attributes.getValue("cy");
             try {
-                hotspot = new Point2D.Double(Double.parseDouble(cx),
-                                             Double.parseDouble(cy));
+                hotspot = AnchorPoint.valueOf(cx, cy,
+                        bias(attributes.getValue("class")));
             } catch (NumberFormatException e) {
                 System.err.append("<circle id=\"cursor-hotspot\">: ").println(e);
             }
         }
 
-        private void setAnchor(String path) {
-            rootAnchor = parseAnchor(path);
+        private void setAnchor(Attributes attributes) {
+            rootAnchor = parseAnchor(attributes);
         }
 
-        private Point2D parseAnchor(String path) {
+        private AnchorPoint parseAnchor(Attributes attributes) {
+            String path = attributes.getValue("d");
             if (path == null) {
                 System.err.println("<path id=\"align-anchor\"> has no 'd' attribute");
-                return new Point();
+                return AnchorPoint.defaultValue();
             }
 
-            Matcher m = ANCHOR_POINT.matcher(path);
+            Matcher m = anchorMatcher.reset(path);
             if (m.find()) {
-                return new Point2D.Double(Double.parseDouble(m.group(1)),
-                                          Double.parseDouble(m.group(2)));
+                return AnchorPoint.valueOf(m.group(1), m.group(2),
+                                           bias(attributes.getValue("class")));
             } else {
                 System.err.println("Could not parse anchor point: d=" + path);
-                return new Point();
+                return AnchorPoint.defaultValue();
             }
+        }
+
+        private String bias(String classNames) {
+            if (classNames == null) return "";
+
+            Matcher m = biasMatcher.reset(classNames);
+            return m.find() ? m.group(1) : "";
         }
 
         @Override
