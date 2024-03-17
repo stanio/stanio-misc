@@ -5,10 +5,13 @@
 package io.github.stanio.bibata.svg;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
@@ -23,10 +26,12 @@ import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXNotRecognizedException;
 import org.xml.sax.SAXNotSupportedException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLFilter;
 import org.xml.sax.XMLReader;
-import org.xml.sax.ext.Attributes2Impl;
 import org.xml.sax.ext.LexicalHandler;
-import org.xml.sax.ext.Locator2Impl;
+import org.xml.sax.helpers.AttributesImpl;
+import org.xml.sax.helpers.LocatorImpl;
 import org.xml.sax.helpers.XMLFilterImpl;
 
 /**
@@ -37,19 +42,11 @@ import org.xml.sax.helpers.XMLFilterImpl;
  * Source -> Transformation-A -> SAXResult(replayBuffer) ->
  * SAXSource(replayBuffer.asXMLReader) -> Transformation-B -> Result
  */
-public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
-
-    static final String FEATURE = "http://xml.org/sax/features/";
-    static final String PROPERTY = "http://xml.org/sax/properties/";
-    static final String LEXICAL_HANDLER = PROPERTY + "lexical-handler";
-
-    private static final Integer ZERO = 0;
+public class SAXReplayBuffer {
 
     private static final ThreadLocal<XMLReader> localXMLReader = new ThreadLocal<>();
 
     private final ArrayList<Object> buffer;
-
-    private boolean complete;
 
     public SAXReplayBuffer() {
         this(500);
@@ -63,12 +60,13 @@ public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
         SAXReplayBuffer buffer = new SAXReplayBuffer();
         XMLReader xmlReader = localXMLReader();
         try {
-            buffer.handlerOf(xmlReader);
-            xmlReader.parse(file.toUri().toString());
+            XMLFilter filter = buffer.asXMLFilter();
+            filter.setParent(xmlReader);
+            filter.parse(file.toUri().toString());
         } catch (SAXException e) {
             throw new IOException(e);
         } finally {
-            unsetHandlers(xmlReader);
+            BaseXMLFilter.reset(xmlReader);
         }
         return buffer;
     }
@@ -78,11 +76,13 @@ public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
     }
 
     public static SAXSource sourceFrom(SAXResult result) {
-        return ((SAXReplayBuffer) result.getHandler()).asSource();
+        BufferWriter writer = (BufferWriter) result.getHandler();
+        return writer.parentBuffer.asSource();
     }
 
     String systemId() {
-        return "tag:stanio.github.io,2024-03:" + getClass().getSimpleName() + "@"
+        // https://datatracker.ietf.org/doc/html/rfc4151
+        return "tag:stanio.github.io,2024-03:SAXReplayBuffer@"
                 + Integer.toHexString(System.identityHashCode(this));
     }
 
@@ -90,173 +90,34 @@ public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
         return new SAXSource(asXMLReader(), new InputSource(systemId()));
     }
 
-    public SAXReplayBuffer handlerOf(XMLReader xmlReader) {
-        xmlReader.setContentHandler(this);
-        try {
-            xmlReader.setProperty(LEXICAL_HANDLER, this);
-        } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
-            System.err.println(e);
-        }
-        return this;
+    public SAXSource asLoadingSource(Path file) {
+        ensureEmpty();
+        XMLFilter filter = asXMLFilter();
+        filter.setParent(localXMLReader());
+        return new SAXSource(filter, new InputSource(file.toUri().toString()));
     }
 
     public SAXResult asResult() {
-        SAXResult result = new SAXResult(this);
-        result.setLexicalHandler(this);
+        ensureEmpty();
+        BufferWriter filter = (BufferWriter) asXMLFilter();
+        SAXResult result = new SAXResult(filter);
+        result.setLexicalHandler(filter);
         return result;
     }
 
-    private void add(Object item) {
-        if (complete) {
-            throw new IllegalStateException("Doesn't accept events after completed");
-        }
-        buffer.add(item);
-    }
-
-    @Override
-    public void setDocumentLocator(Locator locator) {
-        add("setDocumentLocator");
-        //add(ONE);
-        add(new Locator2Impl(locator));
-    }
-
-    @Override
-    public void startDocument() throws SAXException {
-        add("startDocument");
-        //add(ZERO);
-    }
-
-    @Override
-    public void endDocument() throws SAXException {
-        add("endDocument");
-        //add(ZERO);
-        complete();
-    }
-
-    @Override
-    public void startPrefixMapping(String prefix, String uri) throws SAXException {
-        add("startPrefixMapping");
-        //add(TWO);
-        add(prefix);
-        add(uri);
-    }
-
-    @Override
-    public void endPrefixMapping(String prefix) throws SAXException {
-        add("endPrefixMapping");
-        //add(ONE);
-        add(prefix);
-    }
-
-    @Override
-    public void startElement(String uri, String localName,
-                             String qName, Attributes atts)
-            throws SAXException {
-        add("startElement");
-        //add(FOUR);
-        add(uri);
-        add(localName);
-        add(qName);
-        add(new Attributes2Impl(atts));
-    }
-
-    @Override
-    public void endElement(String uri, String localName, String qName)
-            throws SAXException {
-        add("endElement");
-        //add(THREE);
-        add(uri);
-        add(localName);
-        add(qName);
-    }
-
-    @Override
-    public void characters(char[] ch, int start, int length) throws SAXException {
-        add("characters");
-        //add(THREE);
-        add(Arrays.copyOfRange(ch, start, start + length));
-        add(ZERO);
-        add(length);
-    }
-
-    @Override
-    public void ignorableWhitespace(char[] ch, int start, int length)
-            throws SAXException {
-        add("ignorableWhitespace");
-        //add(THREE);
-        add(Arrays.copyOfRange(ch, start, start + length));
-        add(ZERO);
-        add(length);
-    }
-
-    @Override
-    public void processingInstruction(String target, String data) throws SAXException {
-        add("processingInstruction");
-        //add(TWO);
-        add(target);
-        add(data);
-    }
-
-    @Override
-    public void skippedEntity(String name) throws SAXException {
-        add("skippedEntity");
-        //add(ONE);
-        add(name);
-    }
-
-    @Override
-    public void startDTD(String name, String publicId, String systemId)
-            throws SAXException {
-        // not buffered
-    }
-
-    @Override
-    public void endDTD() throws SAXException {
-        // not buffered
-    }
-
-    @Override
-    public void startEntity(String name) throws SAXException {
-        // not buffered
-    }
-
-    @Override
-    public void endEntity(String name) throws SAXException {
-        // not buffered
-    }
-
-    @Override
-    public void startCDATA() throws SAXException {
-        add("startCDATA");
-        //add(ZERO);
-    }
-
-    @Override
-    public void endCDATA() throws SAXException {
-        add("endCDATA");
-        //add(ZERO);
-    }
-
-    @Override
-    public void comment(char[] ch, int start, int length) throws SAXException {
-        add("comment");
-        //add(THREE);
-        add(Arrays.copyOfRange(ch, start, start + length));
-        add(ZERO);
-        add(length);
+    public XMLFilter asXMLFilter() {
+        ensureEmpty();
+        return new BufferWriter(this);
     }
 
     public XMLReader asXMLReader() {
         return new BufferReader(buffer);
     }
 
-    void complete() {
-        complete = true;
-    }
-
-    void clear() {
-        buffer.clear();
-        complete = false;
+    private void ensureEmpty() {
+        if (!buffer.isEmpty()) {
+            throw new IllegalStateException("Already loaded");
+        }
     }
 
     static XMLReader localXMLReader() {
@@ -267,109 +128,188 @@ public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
                 spf.setNamespaceAware(true);
                 spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
                 xmlReader = spf.newSAXParser().getXMLReader();
-                xmlReader.setFeature("http://xml.org/sax/features/"
+                xmlReader.setFeature(BaseXMLFilter.FEATURE
                                      + "namespace-prefixes", true);
             } catch (SAXException | ParserConfigurationException e) {
                 throw new IllegalStateException(e);
             }
             localXMLReader.set(xmlReader);
         } else {
-            unsetHandlers(xmlReader);
+            BaseXMLFilter.reset(xmlReader);
         }
         return xmlReader;
     }
 
-    static void unsetHandlers(XMLReader xmlReader) {
-        xmlReader.setEntityResolver(null);
-        xmlReader.setContentHandler(null);
-        xmlReader.setErrorHandler(null);
-        // A transformer may set any of these and does set the lexical-handler.
-        // Unset them so they don't accidentally kick in when the xmlReader gets
-        // reused (w/o reseting them explicitly).
-        xmlReader.setDTDHandler(null);
-        try {
-            xmlReader.setProperty("http://xml.org/sax/properties/"
-                                  + "lexical-handler", null);
-            xmlReader.setProperty("http://xml.org/sax/properties/"
-                                  + "declaration-handler", null);
-        } catch (SAXException e) {
-            System.err.println(e);
+
+    private static class BufferWriter extends BaseXMLFilter {
+
+        private static final Integer ZERO = 0;
+
+        private final SAXReplayBuffer parentBuffer;
+        private final ArrayList<Object> buffer;
+
+        private Locator locator;
+
+        BufferWriter(SAXReplayBuffer replayBuffer) {
+            this.parentBuffer = replayBuffer;
+            this.buffer = replayBuffer.buffer;
         }
-    }
+
+        private void add(Object item) {
+            //checkComplete();
+            buffer.add(item);
+        }
+
+        @Override
+        public void setDocumentLocator(Locator locator) {
+            super.setDocumentLocator(locator);
+            this.locator = locator;
+        }
+
+        @Override
+        public void startDocument() throws SAXException {
+            if (!buffer.isEmpty())
+                throw new SAXException("Buffer already loaded");
+
+            if (locator != null) {
+                add("setDocumentLocator");
+                add(new LocatorImpl(locator));
+            }
+            super.startDocument();
+            add("startDocument");
+        }
+
+        @Override
+        public void endDocument() throws SAXException {
+            super.endDocument();
+            add("endDocument");
+            close();
+        }
+
+        @Override
+        public void startPrefixMapping(String prefix, String uri) throws SAXException {
+            super.startPrefixMapping(prefix, uri);
+            add("startPrefixMapping");
+            add(prefix);
+            add(uri);
+        }
+
+        @Override
+        public void endPrefixMapping(String prefix) throws SAXException {
+            super.endPrefixMapping(prefix);
+            add("endPrefixMapping");
+            add(prefix);
+        }
+
+        @Override
+        public void startElement(String uri, String localName,
+                                 String qName, Attributes atts)
+                throws SAXException {
+            super.startElement(uri, localName, qName, atts);
+            add("startElement");
+            add(uri);
+            add(localName);
+            add(qName);
+            add(new AttributesImpl(atts));
+        }
+
+        @Override
+        public void endElement(String uri, String localName, String qName)
+                throws SAXException {
+            super.endElement(uri, localName, qName);
+            add("endElement");
+            add(uri);
+            add(localName);
+            add(qName);
+        }
+
+        @Override
+        public void characters(char[] ch, int start, int length) throws SAXException {
+            super.characters(ch, start, length);
+            add("characters");
+            add(Arrays.copyOfRange(ch, start, start + length));
+            add(ZERO);
+            add(length);
+        }
+
+        @Override
+        public void ignorableWhitespace(char[] ch, int start, int length)
+                throws SAXException {
+            super.ignorableWhitespace(ch, start, length);
+            add("ignorableWhitespace");
+            add(Arrays.copyOfRange(ch, start, start + length));
+            add(ZERO);
+            add(length);
+        }
+
+        @Override
+        public void processingInstruction(String target, String data) throws SAXException {
+            super.processingInstruction(target, data);
+            add("processingInstruction");
+            add(target);
+            add(data);
+        }
+
+        @Override
+        public void startCDATA() throws SAXException {
+            super.startCDATA();
+            add("startCDATA");
+        }
+
+        @Override
+        public void endCDATA() throws SAXException {
+            super.endCDATA();
+            add("endCDATA");
+        }
+
+        @Override
+        public void comment(char[] ch, int start, int length) throws SAXException {
+            super.comment(ch, start, length);
+            add("comment");
+            add(Arrays.copyOfRange(ch, start, start + length));
+            add(ZERO);
+            add(length);
+        }
+
+    } // class BufferWriter
 
 
-    private static class BufferReader extends XMLFilterImpl {
+    private static class BufferReader extends BaseXMLFilter {
 
-        private final HashMap<String, Boolean> features = new HashMap<>();
-        private final HashMap<String, Object> properties = new HashMap<>();
+        private static final Logger log = Logger.getLogger(BufferReader.class.getName());
+
         private final ArrayList<Object> buffer;
         private int pos;
 
         BufferReader(ArrayList<Object> buffer) {
             this.buffer = buffer;
-            this.pos = 0;
-
-            features.put(FEATURE + "namespaces", true);
-            features.put(FEATURE + "namespace-prefixes", true);
-            features.put(FEATURE + "validation", false);
-            features.put(FEATURE + "xmlns-uris", true);
-        }
-
-        @Override
-        public boolean getFeature(String name)
-                throws SAXNotRecognizedException, SAXNotSupportedException {
-            return features.getOrDefault(name, Boolean.TRUE);
-        }
-
-        @Override
-        public void setFeature(String name, boolean value)
-                throws SAXNotRecognizedException, SAXNotSupportedException {
-            features.put(name, value);
-        }
-
-        @Override
-        public Object getProperty(String name)
-                throws SAXNotRecognizedException, SAXNotSupportedException {
-            return properties.get(name);
-        }
-
-        @Override
-        public void setProperty(String name, Object value)
-                throws SAXNotRecognizedException, SAXNotSupportedException {
-            properties.put(name, value);
-        }
-
-        LexicalHandler getLexicalHandler() {
-            Object handler;
-            try {
-                handler = getProperty(LEXICAL_HANDLER);
-            } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
-                handler = null;
-            }
-
-            if (handler == null) {
-                handler = getContentHandler(); // XXX: Non-standard
-            }
-            return (handler instanceof LexicalHandler)
-                    ? (LexicalHandler) handler
-                    : null;
         }
 
         @Override
         public void parse(InputSource input) throws IOException, SAXException {
+            replay();
+        }
+
+        private void replay() throws SAXException {
             if (buffer.isEmpty()) {
                 throw new SAXException("Empty buffer");
-            } else if (!hasNext()) {
-                throw new SAXException("Buffer replayed");
             }
 
-            LexicalHandler lexical = getLexicalHandler();
+            if (lexicalHandler == null) {
+                // XXX: Non-standard, possibly unwanted
+                ContentHandler contentHandler = super.getContentHandler();
+                if (contentHandler instanceof LexicalHandler) {
+                    lexicalHandler = (LexicalHandler) contentHandler;
+                }
+            }
+
+            pos = 0;
             do {
                 String method;
                 try {
                     method = next();
                 } catch (ClassCastException e) {
-                    System.err.println(getClass().getName() + " - Illegal state: " + debug());
+                    log.warning(() -> "Illegal state: " + debug());
                     throw e;
                 }
 
@@ -414,24 +354,16 @@ public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
                     processingInstruction(arg(), arg());
                     break;
 
-                case "skippedEntity":
-                    skippedEntity(arg());
-                    break;
-
                 case "startCDATA":
-                    if (lexical != null) lexical.startCDATA();
+                    startCDATA();
                     break;
 
                 case "endCDATA":
-                    if (lexical != null) lexical.endCDATA();
+                    endCDATA();
                     break;
 
                 case "comment":
-                    if (lexical != null) {
-                        lexical.comment(arg(), arg(), arg());
-                    } else {
-                        skip(3);
-                    }
+                    comment(arg(), arg(), arg());
                     break;
 
                 default:
@@ -453,10 +385,6 @@ public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
             return (T) buffer.get(pos++);
         }
 
-        private void skip(int n) {
-            pos += n;
-        }
-
         @Override
         public String toString() {
             return debug();
@@ -471,3 +399,144 @@ public class SAXReplayBuffer implements ContentHandler, LexicalHandler {
 
 
 } // class SAXReplayBuffer
+
+
+class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
+
+    static final String FEATURE = "http://xml.org/sax/features/";
+    static final String PROPERTY = "http://xml.org/sax/properties/";
+    static final String LEXICAL_HANDLER = PROPERTY + "lexical-handler";
+
+    static final Logger log = Logger.getLogger(BaseXMLFilter.class.getName());
+
+    LexicalHandler lexicalHandler;
+
+    @Override
+    public void setProperty(String name, Object value)
+            throws SAXNotRecognizedException, SAXNotSupportedException {
+        if (name.equals(LEXICAL_HANDLER)) {
+            lexicalHandler = (LexicalHandler) value;
+        } else {
+            super.setProperty(name, value);
+        }
+    }
+
+    @Override
+    public Object getProperty(String name)
+            throws SAXNotRecognizedException, SAXNotSupportedException {
+        return name.equals(LEXICAL_HANDLER) ? lexicalHandler
+                                            : super.getProperty(name);
+    }
+
+    @Override
+    public void parse(InputSource input) throws SAXException, IOException {
+        setUpParse(input);
+        super.parse(input);
+    }
+
+    void setUpParse(InputSource input) throws SAXException {
+        if (super.getParent() == null)
+            throw new NullPointerException("No parent for filter");
+
+        try {
+            //getParent().setProperty(LEXICAL_HANDLER, this);
+            super.setProperty(LEXICAL_HANDLER, this);
+        } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
+            error(new SAXParseException(e.toString(),
+                    input.getPublicId(), input.getSystemId(), -1, -1, e));
+        }
+    }
+
+    @Override
+    public InputSource resolveEntity(String publicId, String systemId)
+            throws SAXException, IOException {
+        InputSource entity = super.resolveEntity(publicId, systemId);
+        // REVISIT: Fail by default?
+        return (entity == null) ? emptyEntity() : entity;
+    }
+
+    private static InputSource emptyEntity() {
+        return new InputSource(new StringReader(""));
+    }
+
+    @Override
+    public void startDTD(String name, String publicId, String systemId)
+            throws SAXException {
+        if (lexicalHandler != null) {
+            lexicalHandler.startDTD(name, publicId, systemId);
+        }
+    }
+
+    @Override
+    public void endDTD() throws SAXException {
+        if (lexicalHandler != null) {
+            lexicalHandler.endDTD();
+        }
+    }
+
+    @Override
+    public void startEntity(String name) throws SAXException {
+        if (lexicalHandler != null) {
+            lexicalHandler.startEntity(name);
+        }
+    }
+
+    @Override
+    public void endEntity(String name) throws SAXException {
+        if (lexicalHandler != null) {
+            lexicalHandler.endEntity(name);
+        }
+    }
+
+    @Override
+    public void startCDATA() throws SAXException {
+        if (lexicalHandler != null) {
+            lexicalHandler.startCDATA();
+        }
+    }
+
+    @Override
+    public void endCDATA() throws SAXException {
+        if (lexicalHandler != null) {
+            lexicalHandler.endCDATA();
+        }
+    }
+
+    @Override
+    public void comment(char[] ch, int start, int length) throws SAXException {
+        if (lexicalHandler != null) {
+            lexicalHandler.comment(ch, start, length);
+        }
+    }
+
+    void close() {
+        XMLReader parent = super.getParent();
+        super.setParent(null);
+        super.setErrorHandler(null);
+        super.setEntityResolver(null);
+        super.setContentHandler(null);
+        super.setDTDHandler(null);
+        lexicalHandler = null;
+        super.setDocumentLocator(null);
+        if (parent != null) {
+            reset(parent);
+        }
+    }
+
+    static void reset(XMLReader xmlReader) {
+        xmlReader.setEntityResolver(null);
+        xmlReader.setContentHandler(null);
+        xmlReader.setErrorHandler(null);
+        // A transformer may set any of these and does set the lexical-handler.
+        // Unset them so they don't accidentally kick in when the xmlReader gets
+        // reused (w/o reseting them explicitly).
+        xmlReader.setDTDHandler(null);
+        try {
+            xmlReader.setProperty(LEXICAL_HANDLER, null);
+            //xmlReader.setProperty(PROPERTY + "declaration-handler", null);
+        } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
+            log.log(Level.FINE, "reset(XMLReader)", e);
+        }
+    }
+
+} // class BaseXMLFilter

@@ -71,9 +71,9 @@ public class SVGSizing {
     }
 
     public static SVGSizing forFile(Path file) throws IOException {
-        SAXReplayBuffer buffer = SAXReplayBuffer.load(file);
+        SAXReplayBuffer buffer = new SAXReplayBuffer();
         return new SVGSizing(file, buffer,
-                SVGCursorMetadata.read(buffer.asSource()));
+                SVGCursorMetadata.read(buffer.asLoadingSource(file)));
     }
 
     public static SVGSizing forDocument(Document svg) {
@@ -137,8 +137,6 @@ public class SVGSizing {
                 svgTransformer.transform(new SAXSource(filter, input),
                                          new StreamResult(fileOut));
                 fileOut.write('\n');
-            } finally {
-                SAXReplayBuffer.unsetHandlers(parent);
             }
             try {
                 Files.move(tempFile, resolvedSource, StandardCopyOption.ATOMIC_MOVE);

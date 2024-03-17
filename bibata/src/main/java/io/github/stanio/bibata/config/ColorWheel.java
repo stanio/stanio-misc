@@ -126,7 +126,8 @@ public class ColorWheel {
 
     private Source animationSource(Path template) throws IOException {
         if (animationSource == null) {
-            animationSource = SAXReplayBuffer.load(template);
+            animationSource = new SAXReplayBuffer();
+            return animationSource.asLoadingSource(template);
         }
         return animationSource.asSource();
     }
