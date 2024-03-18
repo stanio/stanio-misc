@@ -4,7 +4,7 @@
  */
 package io.github.stanio.bibata.jsvg;
 
-import static io.github.stanio.bibata.jsvg.EventBufferReader.notImplementedException;
+import static io.github.stanio.bibata.jsvg.XMLEventBufferReader.notImplementedException;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -15,13 +15,13 @@ import javax.xml.stream.XMLEventWriter;
 import javax.xml.stream.events.XMLEvent;
 
 /**
- * @see  EventBufferReader
+ * @see  XMLEventBufferReader
  */
-class EventBufferWriter implements XMLEventWriter {
+public class XMLEventBufferWriter implements XMLEventWriter {
 
     private Queue<XMLEvent> buffer;
 
-    EventBufferWriter() {
+    public XMLEventBufferWriter() {
         buffer = new ArrayDeque<>();
     }
 

@@ -11,16 +11,16 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.XMLEvent;
 
 /**
- * @see  EventBufferWriter
+ * @see  XMLEventBufferWriter
  */
-class EventBufferReader implements XMLEventReader {
+public class XMLEventBufferReader implements XMLEventReader {
 
     private Iterable<XMLEvent> source;
 
     private Iterator<XMLEvent> events;
     private XMLEvent nextEvent;
 
-    EventBufferReader(Iterable<XMLEvent> source) {
+    public XMLEventBufferReader(Iterable<XMLEvent> source) {
         this.source = source;
         this.events = source.iterator();
     }

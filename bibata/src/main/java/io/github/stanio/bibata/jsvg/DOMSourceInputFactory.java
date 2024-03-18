@@ -27,7 +27,7 @@ import com.github.weisj.jsvg.parser.StaxSVGLoader;
 /**
  * @see  DOMInput
  */
-class DOMSourceInputFactory extends InputFactoryAdapter {
+class DOMSourceInputFactory extends XMLInputFactoryAdapter {
 
     // Can be reused after close()
     private static final ByteArrayInputStream
@@ -66,12 +66,12 @@ class DOMSourceInputFactory extends InputFactoryAdapter {
             // if we want to allow for large document processing.  Alternatively,
             // EventBufferWriter.eventIterator() should produce events on demand,
             // that could also happen async with some read-ahead buffering.
-            return new EventBufferReader(xmlEventsFor(input.document()));
+            return new XMLEventBufferReader(xmlEventsFor(input.document()));
         }
     }
 
     private static Iterable<XMLEvent> xmlEventsFor(Document document) {
-        EventBufferWriter bufferWriter = new EventBufferWriter();
+        XMLEventBufferWriter bufferWriter = new XMLEventBufferWriter();
         try {
             localTransformer.get()
                     .transform(new DOMSource(document),

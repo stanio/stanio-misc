@@ -18,9 +18,9 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.util.XMLEventAllocator;
 import javax.xml.transform.Source;
 
-abstract class InputFactoryAdapter extends XMLInputFactory {
+public abstract class XMLInputFactoryAdapter extends XMLInputFactory {
 
-    protected InputFactoryAdapter() {
+    protected XMLInputFactoryAdapter() {
         // no-op
     }
 
@@ -172,4 +172,3 @@ abstract class InputFactoryAdapter extends XMLInputFactory {
     }
 
 }
-
