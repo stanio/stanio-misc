@@ -34,7 +34,7 @@ import io.github.stanio.bibata.svg.SVGTransformer;
  */
 class BatikRendererBackend extends BitmapsRendererBackend {
 
-    private SVGTransformer svgTransformer = new SVGTransformer();
+    private SVGTransformer svgTransformer = new SVGTransformer().withSVG11Compat(true);
     private DynamicImageTranscoder imageTranscoder = new DynamicImageTranscoder();
 
     @Override

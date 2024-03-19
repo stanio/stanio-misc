@@ -61,12 +61,13 @@ import org.w3c.dom.Document;
 public class SVGTransformer {
 
     private Optional<DropShadow> dropShadow;
-    private boolean svg11Compat = true;
+    private boolean svg11Compat;
 
     private Map<String, Transformer> transformers = new HashMap<>();
 
-    public void setSVG11Compat(boolean svg11Compat) {
+    public SVGTransformer withSVG11Compat(boolean svg11Compat) {
         this.svg11Compat = svg11Compat;
+        return this;
     }
 
     public Optional<DropShadow> dropShadow() {
