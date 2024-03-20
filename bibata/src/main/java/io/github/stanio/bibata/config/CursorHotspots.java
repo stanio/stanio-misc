@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -67,8 +68,8 @@ public class CursorHotspots {
     }
 
     static class Hotspot {
-        private static final BigDecimal DEFAULT_X = BigDecimal.valueOf(128);
-        private static final BigDecimal DEFAULT_Y = BigDecimal.valueOf(128);
+        private static final BigDecimal IMPLIED_X = BigDecimal.valueOf(128);
+        private static final BigDecimal IMPLIED_Y = BigDecimal.valueOf(128);
 
         Number x_hotspot;
         Number y_hotspot;
@@ -80,9 +81,9 @@ public class CursorHotspots {
             return hs;
         }
 
-        BigDecimal x() { return x_hotspot == null ? DEFAULT_X
+        BigDecimal x() { return x_hotspot == null ? IMPLIED_X
                                                   : decimal(x_hotspot); }
-        BigDecimal y() { return y_hotspot == null ? DEFAULT_Y
+        BigDecimal y() { return y_hotspot == null ? IMPLIED_Y
                                                   : decimal(y_hotspot); }
 
         private static BigDecimal decimal(Number number) {
@@ -149,6 +150,16 @@ public class CursorHotspots {
     private Map<String, Hotspot> loadHotspots(Path configFile) throws IOException {
         try (Reader json = Files.newBufferedReader(configFile)) {
             Config config = new Gson().fromJson(json, Config.class);
+            Hotspot implied = Objects.requireNonNullElseGet(
+                    config.cursors.remove("fallback_settings"), Hotspot::new);
+            config.cursors.forEach((k, hs) -> {
+                if (hs.x_hotspot == null) {
+                    hs.x_hotspot = implied.x();
+                }
+                if (hs.y_hotspot == null) {
+                    hs.y_hotspot = implied.y();
+                }
+            });
             return config.cursors;
         } catch (JsonParseException e) {
             throw ioException(e);
@@ -284,7 +295,7 @@ public class CursorHotspots {
             throws XMLStreamException {
         String xml = "<fragment xmlns='http://www.w3.org/2000/svg'>" + space
                 + "<circle id=\"cursor-hotspot\" cx=\"" + hotspot.x() + "\" cy=\""
-                + hotspot.y() + "\" r=\"3\" fill=\"magenta\" opacity=\".6\" display=\"none\"/>"
+                + hotspot.y() + "\" r=\"3\" fill=\"magenta\" opacity=\"0.6\" display=\"none\"/>"
                 + "</fragment>";
 
         List<XMLEvent> xmlFragment = new ArrayList<>();
