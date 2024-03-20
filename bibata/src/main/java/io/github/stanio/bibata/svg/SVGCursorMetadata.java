@@ -7,7 +7,6 @@ package io.github.stanio.bibata.svg;
 import static io.github.stanio.bibata.svg.SVGTransformer.newTransformer;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,6 +20,7 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
+import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamSource;
 
 import org.w3c.dom.Document;
@@ -30,7 +30,6 @@ import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
-import org.xml.sax.helpers.DefaultHandler;
 
 import java.awt.Rectangle;
 import java.awt.geom.Point2D;
@@ -49,6 +48,14 @@ import java.awt.geom.Rectangle2D;
  * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
 public class SVGCursorMetadata {
+
+    /**
+     * User data property name for a {@code SVGCursorMetadata} set to a
+     * {@code Document} node.
+     *
+     * @see  org.w3c.dom.Node#getUserData(String)
+     */
+    public static final String USER_DATA = "tag:stanio.github.io,2024-03:SVGCursorMetadata";
 
     private static final ThreadLocal<Transformer>
             identityTransformer = ThreadLocal.withInitial(() -> newTransformer(Optional.empty()));
@@ -76,7 +83,10 @@ public class SVGCursorMetadata {
      * Read metadata from in-memory DOM.
      */
     public static SVGCursorMetadata read(Document svg) {
-        return read(new DOMSource(svg));
+        SVGCursorMetadata metadata =
+                (SVGCursorMetadata) svg.getUserData(USER_DATA);
+        return (metadata == null) ? read(new DOMSource(svg))
+                                  : metadata;
     }
 
     public static SVGCursorMetadata read(Source source) {
@@ -88,6 +98,35 @@ public class SVGCursorMetadata {
             throw new IllegalStateException(e);
         }
         return new SVGCursorMetadata(handler);
+    }
+
+    /**
+     * Returns a SAX source set up for loading metadata from the given file,
+     * while providing the file content.  It could be used to load the metadata
+     * at the same time the file is loaded into a Document, for example.  Call
+     * {@code fromSource(SAXSource}} after the parsing to obtain an instance of
+     * {@code SVGCursorMetadata}.
+     *
+     * @param   file  ...
+     * @return  ...
+     * @see     #fromSource(SAXSource)
+     */
+    public static SAXSource loadingSource(Path file) {
+        ParseHandler handler = new ParseHandler();
+        handler.setParent(SAXReplayBuffer.localXMLReader());
+        return new SAXSource(handler, new InputSource(file.toUri().toString()));
+    }
+
+    /**
+     * Initializes {@code SVGCursorMetadata} from the given source, that
+     * should be obtained from {@code loadingSource()}, and then consumed/loaded.
+     *
+     * @param   source  ...
+     * @return  ...
+     * @see     #loadingSource(Path)
+     */
+    public static SVGCursorMetadata fromSource(SAXSource source) {
+        return new SVGCursorMetadata((ParseHandler) source.getXMLReader());
     }
 
     /**
@@ -128,7 +167,7 @@ public class SVGCursorMetadata {
     }
 
 
-    private static class ParseHandler extends DefaultHandler {
+    private static class ParseHandler extends BaseXMLFilter {
 
         private static final Pattern ANCHOR_POINT;
         private static final Pattern BIAS = Pattern.compile("(?ix) (?:^|\\s) bias-(\\S*)");
@@ -166,6 +205,7 @@ public class SVGCursorMetadata {
                 childAnchors.put(contentStack.currentPath().parent(),
                                  parseAnchor(attributes));
             }
+            super.startElement(uri, localName, qname, attributes);
         }
 
         @Override
@@ -230,12 +270,6 @@ public class SVGCursorMetadata {
 
             Matcher m = biasMatcher.reset(classNames);
             return m.find() ? m.group(1) : "";
-        }
-
-        @Override
-        public InputSource resolveEntity(String publicId, String systemId) {
-            // No external entities
-            return new InputSource(new StringReader(""));
         }
 
     } // class ParseHandler

@@ -26,6 +26,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMResult;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
+import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamSource;
 
 import org.xml.sax.XMLReader;
@@ -190,9 +191,12 @@ public class SVGTransformer {
 
     public Document loadDocument(Path file) throws IOException {
         DOMResult result = new DOMResult();
-        transform(new StreamSource(file.toFile()), result);
+        SAXSource metadataSource = SVGCursorMetadata.loadingSource(file);
+        transform(metadataSource, result);
         Document document = (Document) Objects.requireNonNull(result.getNode());
         document.setDocumentURI(file.toUri().toString());
+        document.setUserData(SVGCursorMetadata.USER_DATA,
+                SVGCursorMetadata.fromSource(metadataSource), null);
         return document;
     }
 
