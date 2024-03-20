@@ -60,8 +60,9 @@ import org.w3c.dom.Document;
  */
 public class SVGTransformer {
 
-    private Optional<DropShadow> dropShadow;
+    private Optional<DropShadow> dropShadow = Optional.empty();
     private boolean svg11Compat;
+    private Optional<Number> strokeWidth = Optional.empty();
 
     private Map<String, Transformer> transformers = new HashMap<>();
 
@@ -97,6 +98,15 @@ public class SVGTransformer {
         });
     }
 
+    private Transformer thinStrokeTransformer() {
+        return transformers.computeIfAbsent("thinStroke", k -> {
+            Transformer transformer = newTransformer(SVGTransformer.class
+                    .getResource("thin-stroke.xsl").toString());
+            transformer.setParameter("new-width", strokeWidth.get());
+            return transformer;
+        });
+    }
+
     private Transformer svg11Transformer() {
         return transformers.computeIfAbsent("svg11Compat", k ->
                 newTransformer(svg11CompatXslt()));
@@ -104,6 +114,9 @@ public class SVGTransformer {
 
     private Iterator<Transformer> transformPipeline() {
         Collection<Transformer> pipeline = new ArrayList<>();
+        if (strokeWidth.isPresent()) {
+            pipeline.add(thinStrokeTransformer());
+        }
         if (dropShadow.map(DropShadow::isSVG).orElse(false)) {
             pipeline.add(dropShadowTransformer());
         }

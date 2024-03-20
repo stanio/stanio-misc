@@ -17,7 +17,9 @@
     </svg>
   </xsl:template>
 
-  <xsl:template match="@href[parent::*[namespace-uri()='http://www.w3.org/2000/svg'] and not(@xlink:href)]">
+  <xsl:template match="@href[parent::*[namespace-uri()='http://www.w3.org/2000/svg']
+                             and not(../@xlink:href)]">
+    <xsl:copy />
     <xsl:attribute name="href" namespace="http://www.w3.org/1999/xlink">
       <xsl:value-of select="." />
     </xsl:attribute>
@@ -26,15 +28,19 @@
   <!-- REVISIT: lower-case(@paint-order) -->
   <xsl:template match="*[contains(normalize-space(@paint-order), 'stroke fill')]">
     <xsl:variable name="id" select="generate-id()" />
-    <use xlink:href="#{$id}">
+    <use href="#{$id}" xlink:href="#{$id}">
       <xsl:copy-of select="@*[starts-with(name(), 'stroke')]" />
+      <xsl:attribute name="originalPaintOrder">
+        <xsl:value-of select="@paint-order" />
+      </xsl:attribute>
     </use>
     <xsl:text>&#xA;</xsl:text>
     <xsl:copy>
       <xsl:attribute name="id">
         <xsl:value-of select="$id" />
       </xsl:attribute>
-      <xsl:apply-templates select="node()|@*[not(starts-with(name(), 'stroke') or name() = 'paint-order')]" />
+      <xsl:apply-templates select="node()|@*[not(starts-with(name(), 'stroke')
+                                             or name() = 'paint-order')]" />
     </xsl:copy>
   </xsl:template>
 
