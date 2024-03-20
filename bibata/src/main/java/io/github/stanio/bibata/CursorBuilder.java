@@ -19,6 +19,12 @@ import io.github.stanio.x11.XCursor;
 import io.github.stanio.bibata.BitmapsRenderer.OutputType;
 import io.github.stanio.bibata.CursorNames.Animation;
 
+/**
+ * Abstract cursor builder interface for use by the {@code BitmapsRendererBackend}
+ * implementation.
+ *
+ * @see  BitmapsRendererBackend
+ */
 abstract class CursorBuilder {
 
     protected final Optional<Animation> animation;
@@ -47,6 +53,12 @@ abstract class CursorBuilder {
     abstract void writeTo(Path target) throws IOException;
 
 
+    /**
+     * Builds Windows cursors.
+     *
+     * @see  io.github.stanio.windows.Cursor
+     * @see  AnimatedCursor
+     */
     private static class WindowsCursorBuilder extends CursorBuilder {
 
         private final AnimatedCursor frames;
@@ -85,6 +97,11 @@ abstract class CursorBuilder {
     } // class WindowsCursorBuilder
 
 
+    /**
+     * Builds X (X11, *nix) cursors.
+     *
+     * @see  XCursor
+     */
     private static class LinuxCursorBuilder extends CursorBuilder {
 
         private final XCursor frames;

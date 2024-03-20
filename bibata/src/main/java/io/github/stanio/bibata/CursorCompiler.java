@@ -68,6 +68,8 @@ import io.github.stanio.bibata.CursorNames.Animation;
  * <p>
  * Requires {@code cursor-hotspots.json} as generated from {@link SVGSizingTool},
  * in the specified <var>&lt;bitmaps-dir></var>.</p>
+ *
+ * @see  <a href="https://wiki.archlinux.org/title/Xcursorgen">Xcursorgen</a>
  */
 public class CursorCompiler {
 
