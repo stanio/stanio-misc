@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.bibata.svg;
+package io.github.stanio.bibata.util;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -11,9 +11,6 @@ import java.util.Arrays;
 
 import java.util.logging.Logger;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.sax.SAXResult;
 import javax.xml.transform.sax.SAXSource;
 
@@ -38,8 +35,6 @@ import org.xml.sax.helpers.LocatorImpl;
  */
 public class SAXReplayBuffer {
 
-    private static final ThreadLocal<XMLReader> localXMLReader = new ThreadLocal<>();
-
     private final ArrayList<Object> buffer;
 
     public SAXReplayBuffer() {
@@ -52,7 +47,7 @@ public class SAXReplayBuffer {
 
     public static SAXReplayBuffer load(Path file) throws IOException {
         SAXReplayBuffer buffer = new SAXReplayBuffer();
-        XMLReader xmlReader = localXMLReader();
+        XMLReader xmlReader = SharedXMLReader.get();
         try {
             XMLFilter filter = buffer.asXMLFilter();
             filter.setParent(xmlReader);
@@ -87,7 +82,7 @@ public class SAXReplayBuffer {
     public SAXSource asLoadingSource(Path file) {
         ensureEmpty();
         XMLFilter filter = asXMLFilter();
-        filter.setParent(localXMLReader());
+        filter.setParent(SharedXMLReader.get());
         return new SAXSource(filter, new InputSource(file.toUri().toString()));
     }
 
@@ -112,26 +107,6 @@ public class SAXReplayBuffer {
         if (!buffer.isEmpty()) {
             throw new IllegalStateException("Already loaded");
         }
-    }
-
-    static XMLReader localXMLReader() {
-        XMLReader xmlReader = localXMLReader.get();
-        if (xmlReader == null) {
-            try {
-                SAXParserFactory spf = SAXParserFactory.newInstance();
-                spf.setNamespaceAware(true);
-                spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                xmlReader = spf.newSAXParser().getXMLReader();
-                xmlReader.setFeature(BaseXMLFilter.FEATURE
-                                     + "namespace-prefixes", true);
-            } catch (SAXException | ParserConfigurationException e) {
-                throw new IllegalStateException(e);
-            }
-            localXMLReader.set(xmlReader);
-        } else {
-            BaseXMLFilter.reset(xmlReader);
-        }
-        return xmlReader;
     }
 
 

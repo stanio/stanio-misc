@@ -33,6 +33,8 @@ import org.xml.sax.XMLReader;
 
 import org.w3c.dom.Document;
 
+import io.github.stanio.bibata.util.SAXReplayBuffer;
+
 /**
  * Loads SVG document with transformations.
  * <ul>

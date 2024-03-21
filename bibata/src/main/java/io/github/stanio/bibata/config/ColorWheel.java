@@ -27,7 +27,7 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
 import io.github.stanio.bibata.CursorNames.Animation;
-import io.github.stanio.bibata.svg.SAXReplayBuffer;
+import io.github.stanio.bibata.util.SAXReplayBuffer;
 
 /**
  * Generates animation frame static images from templates with the original

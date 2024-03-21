@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.bibata.svg;
+package io.github.stanio.bibata.util;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -23,10 +23,10 @@ import org.xml.sax.helpers.XMLFilterImpl;
  * Extends the standard {@code XMLFilterImpl} with {@code LexicalHandler}
  * methods.  Handles the {@value #LEXICAL_HANDLER} property explicitly.
  */
-class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
+public class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
 
-    static final String FEATURE = "http://xml.org/sax/features/";
-    static final String PROPERTY = "http://xml.org/sax/properties/";
+    public static final String FEATURE = "http://xml.org/sax/features/";
+    public static final String PROPERTY = "http://xml.org/sax/properties/";
     static final String LEXICAL_HANDLER = PROPERTY + "lexical-handler";
 
     static final Logger log = Logger.getLogger(BaseXMLFilter.class.getName());
@@ -153,7 +153,7 @@ class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
         }
     }
 
-    void close() {
+    public void close() {
         XMLReader parent = super.getParent();
         super.setParent(null);
         super.setErrorHandler(null);
@@ -167,7 +167,7 @@ class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
         }
     }
 
-    static void reset(XMLReader xmlReader) {
+    public static void reset(XMLReader xmlReader) {
         xmlReader.setEntityResolver(null);
         xmlReader.setContentHandler(null);
         xmlReader.setErrorHandler(null);
@@ -177,7 +177,7 @@ class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
         xmlReader.setDTDHandler(null);
         try {
             xmlReader.setProperty(LEXICAL_HANDLER, null);
-            //xmlReader.setProperty(PROPERTY + "declaration-handler", null);
+            xmlReader.setProperty(PROPERTY + "declaration-handler", null);
         } catch (SAXNotRecognizedException | SAXNotSupportedException e) {
             log.log(Level.FINE, "reset(XMLReader)", e);
         }

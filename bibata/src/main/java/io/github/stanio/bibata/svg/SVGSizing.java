@@ -44,6 +44,8 @@ import java.awt.geom.Dimension2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
+import io.github.stanio.bibata.util.SharedXMLReader;
+import io.github.stanio.bibata.util.SAXReplayBuffer;
 import io.github.stanio.windows.Cursor;
 
 public class SVGSizing {
@@ -133,7 +135,7 @@ public class SVGSizing {
 
             XMLReader parent = (sourceBuffer != null)
                                ? sourceBuffer.asXMLReader()
-                               : SAXReplayBuffer.localXMLReader();
+                               : SharedXMLReader.get();
             UpdateFilter filter = UpdateFilter.withParent(parent,
                     targetSize, viewBoxSize, viewBoxOrigin, childOffsets);
             try (OutputStream fileOut = Files.newOutputStream(tempFile)) {

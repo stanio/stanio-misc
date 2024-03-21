@@ -35,6 +35,9 @@ import java.awt.Rectangle;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
+import io.github.stanio.bibata.util.BaseXMLFilter;
+import io.github.stanio.bibata.util.SharedXMLReader;
+
 /**
  * Encapsulates metadata I add to the Bibata Cursor SVG files.
  * <pre>
@@ -113,7 +116,7 @@ public class SVGCursorMetadata {
      */
     public static SAXSource loadingSource(Path file) {
         ParseHandler handler = new ParseHandler();
-        handler.setParent(SAXReplayBuffer.localXMLReader());
+        handler.setParent(SharedXMLReader.get());
         return new SAXSource(handler, new InputSource(file.toUri().toString()));
     }
 
