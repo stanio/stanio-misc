@@ -7,10 +7,13 @@ package io.github.stanio.bibata;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import org.w3c.dom.Document;
+
 import java.awt.image.BufferedImage;
 
 import io.github.stanio.bibata.jsvg.JSVGImageTranscoder;
 import io.github.stanio.bibata.svg.DropShadow;
+import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Implements rendering using the JSVG (Java SVG renderer) library.
@@ -19,6 +22,8 @@ import io.github.stanio.bibata.svg.DropShadow;
  */
 class JSVGRendererBackend extends BitmapsRendererBackend {
 
+    private SVGTransformer svgTransformer = new SVGTransformer();
+
     // REVISIT: Merge the SVGTransformer document loading from
     // JSVGImageTranscoder here.  Then likely move to the super class
     // where could be shared with the BatikRendererBackend.
@@ -26,24 +31,26 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
 
     @Override
     public void setPointerShadow(DropShadow shadow) {
+        svgTransformer.setPointerShadow(shadow);
         imageTranscoder.setDropShadow(shadow);
     }
 
     @Override
     public boolean hasPointerShadow() {
-        return imageTranscoder.dropShadow().isPresent();
+        return svgTransformer.dropShadow().isPresent();
     }
 
     @Override
     public void setStrokeWidth(Double width) {
         super.setStrokeWidth(width);
-        imageTranscoder.setStrokeWidth(width);
+        svgTransformer.setStrokeWidth(width);
     }
 
     @Override
     protected void loadFile(Path svgFile) throws IOException {
-        imageTranscoder.loadDocument(svgFile);
-        initWithDocument(imageTranscoder.document());
+        Document document = svgTransformer.loadDocument(svgFile);
+        imageTranscoder.setDocument(document);
+        initWithDocument(document);
     }
 
     @Override

@@ -35,7 +35,6 @@ import com.github.weisj.jsvg.parser.SynchronousResourceLoader;
 import com.jhlabs.image.ShadowFilter;
 
 import io.github.stanio.bibata.svg.DropShadow;
-import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Mimics the (Batik) DynamicImageTranscoder API, partially.
@@ -46,29 +45,20 @@ public class JSVGImageTranscoder {
 
     private Document document;
 
-    private SVGTransformer svgTransformer = new SVGTransformer();
+    private Optional<DropShadow> dropShadow;
     private StaxSVGLoader svgLoader;
     private ImageWriter pngWriter;
 
-    public Optional<DropShadow> dropShadow() {
-        return svgTransformer.dropShadow();
-    }
-
     public void setDropShadow(DropShadow shadow) {
-        svgTransformer.setPointerShadow(shadow);
-    }
-
-    public void setStrokeWidth(Double width) {
-        svgTransformer.setStrokeWidth(width);
+        this.dropShadow = Optional.ofNullable(shadow);
     }
 
     public Document document() {
         return document;
     }
 
-    public JSVGImageTranscoder withDocument(Document document) {
+    public void setDocument(Document document) {
         this.document = document;
-        return this;
     }
 
     public JSVGImageTranscoder withImageWidth(int width) {
@@ -81,10 +71,6 @@ public class JSVGImageTranscoder {
         document().getDocumentElement()
                   .setAttribute("height", String.valueOf(height));
         return this;
-    }
-
-    public Document loadDocument(Path file) throws IOException {
-        return document = svgTransformer.loadDocument(file);
     }
 
     private SVGDocument getSVG() {
@@ -129,8 +115,7 @@ public class JSVGImageTranscoder {
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
             svg.render(null, g);
 
-            if (svgTransformer.dropShadow()
-                    .map(shadow -> !shadow.isSVG()).orElse(false)) {
+            if (dropShadow.map(shadow -> !shadow.isSVG()).orElse(false)) {
                 g.dispose();
 
                 float vsize;
@@ -142,7 +127,7 @@ public class JSVGImageTranscoder {
                     vsize = 256;
                 }
 
-                DropShadow shadow = svgTransformer.dropShadow().get();
+                DropShadow shadow = dropShadow.get();
                 float scale = image.getWidth() / vsize;
                 ShadowFilter filter = new ShadowFilter(shadow.blur * scale,
                                                        shadow.dx * scale,
