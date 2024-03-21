@@ -67,9 +67,8 @@ public class SVGTransformer {
 
     private Map<String, Transformer> transformers = new HashMap<>();
 
-    public SVGTransformer withSVG11Compat(boolean svg11Compat) {
+    public void setSVG11Compat(boolean svg11Compat) {
         this.svg11Compat = svg11Compat;
-        return this;
     }
 
     public Optional<DropShadow> dropShadow() {

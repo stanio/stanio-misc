@@ -23,8 +23,6 @@ import io.github.stanio.batik.DynamicImageTranscoder;
 import io.github.stanio.batik.DynamicImageTranscoder.RenderedTranscoderOutput;
 
 import io.github.stanio.bibata.CursorNames.Animation;
-import io.github.stanio.bibata.svg.DropShadow;
-import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Implements rendering using the Batik SVG Toolkit.
@@ -34,23 +32,10 @@ import io.github.stanio.bibata.svg.SVGTransformer;
  */
 class BatikRendererBackend extends BitmapsRendererBackend {
 
-    private SVGTransformer svgTransformer = new SVGTransformer().withSVG11Compat(true);
     private DynamicImageTranscoder imageTranscoder = new DynamicImageTranscoder();
 
-    @Override
-    public void setPointerShadow(DropShadow shadow) {
-        svgTransformer.setPointerShadow(shadow);
-    }
-
-    @Override
-    public boolean hasPointerShadow() {
-        return svgTransformer.dropShadow().isPresent();
-    }
-
-    @Override
-    public void setStrokeWidth(Double width) {
-        super.setStrokeWidth(width);
-        svgTransformer.setStrokeWidth(width);
+    BatikRendererBackend() {
+        svgTransformer.setSVG11Compat(true);
     }
 
     @Override

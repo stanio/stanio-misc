@@ -13,7 +13,6 @@ import java.awt.image.BufferedImage;
 
 import io.github.stanio.bibata.jsvg.JSVGImageTranscoder;
 import io.github.stanio.bibata.svg.DropShadow;
-import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Implements rendering using the JSVG (Java SVG renderer) library.
@@ -22,28 +21,12 @@ import io.github.stanio.bibata.svg.SVGTransformer;
  */
 class JSVGRendererBackend extends BitmapsRendererBackend {
 
-    private SVGTransformer svgTransformer = new SVGTransformer();
-
-    // REVISIT: Merge the SVGTransformer document loading from
-    // JSVGImageTranscoder here.  Then likely move to the super class
-    // where could be shared with the BatikRendererBackend.
     private JSVGImageTranscoder imageTranscoder = new JSVGImageTranscoder();
 
     @Override
     public void setPointerShadow(DropShadow shadow) {
-        svgTransformer.setPointerShadow(shadow);
+        super.setPointerShadow(shadow);;
         imageTranscoder.setDropShadow(shadow);
-    }
-
-    @Override
-    public boolean hasPointerShadow() {
-        return svgTransformer.dropShadow().isPresent();
-    }
-
-    @Override
-    public void setStrokeWidth(Double width) {
-        super.setStrokeWidth(width);
-        svgTransformer.setStrokeWidth(width);
     }
 
     @Override

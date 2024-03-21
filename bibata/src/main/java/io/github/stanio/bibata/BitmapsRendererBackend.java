@@ -23,6 +23,7 @@ import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGSizing;
+import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Defines abstract base for rendering back-ends of {@code BitmapsRenderer}.
@@ -43,6 +44,8 @@ abstract class BitmapsRendererBackend {
     protected static final int sourceSize = 256;
 
     protected OutputType outputType;
+
+    protected final SVGTransformer svgTransformer;
 
     private String cursorName;
     private Animation animation;
@@ -65,6 +68,14 @@ abstract class BitmapsRendererBackend {
 
     private boolean outputSet;
 
+    protected BitmapsRendererBackend() {
+        this(new SVGTransformer());
+    }
+
+    protected BitmapsRendererBackend(SVGTransformer svgTransformer) {
+        this.svgTransformer = svgTransformer;
+    }
+
     public static BitmapsRendererBackend newInstance() {
         String key = System.getProperty("bibata.renderer", "").strip();
         Supplier<BitmapsRendererBackend> ctor = BACKENDS.get(key);
@@ -81,15 +92,16 @@ abstract class BitmapsRendererBackend {
     }
 
     public void setPointerShadow(DropShadow shadow) {
-        if (shadow != null)
-            implWarn("doesn't support --pointer-shadow");
+        svgTransformer.setPointerShadow(shadow);
     }
 
     public boolean hasPointerShadow() {
-        return false;
+        return svgTransformer.dropShadow().isPresent();
     }
 
     public void setStrokeWidth(Double width) {
+        svgTransformer.setStrokeWidth(width);
+
         final double baseWidth = 16;
         anchorOffset = (width == null) ? 0
                                        : (width - baseWidth) / 2;
