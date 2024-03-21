@@ -7,7 +7,6 @@
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
-    exclude-result-prefixes="xsl svg"
     xmlns="http://www.w3.org/2000/svg">
 
   <xsl:param name="new-width" select="12" />
@@ -29,6 +28,7 @@
     - f.e. "16.8" vs. "16", resulting offsets will vary.
     -->
   <xsl:template match="@stroke-width[not(../@originalStrokeWidth)
+                                     and not(contains(../@class, 'fixed-width-stroke'))
                                      and number() &gt;= $base-width
                                      and number() &lt; $base-max-width]">
     <xsl:attribute name="stroke-width">
@@ -40,8 +40,8 @@
   </xsl:template>
 
   <xsl:template match="@stroke-width[not(../@originalStrokeWidth)
-      and number() &gt;= $stroke-under-min-width
-      and ../@paint-order[contains(normalize-space(), 'stroke fill')]]">
+                                     and not(contains(../@class, 'fixed-width-stroke'))
+                                     and number() &gt;= $stroke-under-min-width]">
     <xsl:attribute name="stroke-width">
       <xsl:value-of select="number() - $stroke-under-diff" />
     </xsl:attribute>
