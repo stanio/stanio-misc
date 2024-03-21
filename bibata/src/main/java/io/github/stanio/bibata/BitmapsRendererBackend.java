@@ -53,6 +53,7 @@ abstract class BitmapsRendererBackend {
     private ColorTheme colorTheme;
     private SVGSizing svgSizing;
     private SVGSizingTool sizingTool;
+    private double anchorOffset;
 
     // REVISIT: targetCanvasFactor?
     private float drawingFactor;
@@ -86,6 +87,16 @@ abstract class BitmapsRendererBackend {
 
     public boolean hasPointerShadow() {
         return false;
+    }
+
+    public void setStrokeWidth(Double width) {
+        final double baseWidth = 16;
+        anchorOffset = (width == null) ? 0
+                                       : (width - baseWidth) / 2;
+    }
+
+    public boolean hasThinOutline() {
+        return anchorOffset != 0;
     }
 
     public void loadFile(String cursorName, Path svgFile) throws IOException {
@@ -131,7 +142,7 @@ abstract class BitmapsRendererBackend {
     public void setCanvasSize(double factor, boolean permanent) {
         int viewBoxSize = (int) Math.round(sourceSize * factor);
         sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
-                new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json")));
+                new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json"), anchorOffset));
         drawingFactor = permanent ? 1 : (float) (1 / factor);
     }
 

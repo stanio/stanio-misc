@@ -81,6 +81,11 @@ public class SVGTransformer {
         transformers.remove("dropShadow");
     }
 
+    public void setStrokeWidth(Double width) {
+        strokeWidth = Optional.ofNullable(width);
+        transformers.remove("thinStroke");
+    }
+
     XMLReader getReader(Path file) {
         // REVISIT: Figure out how to set up Stream -> XLMFilter transformation.
         throw new IllegalStateException("Not implemented");

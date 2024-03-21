@@ -58,6 +58,10 @@ public class JSVGImageTranscoder {
         svgTransformer.setPointerShadow(shadow);
     }
 
+    public void setStrokeWidth(Double width) {
+        svgTransformer.setStrokeWidth(width);
+    }
+
     public Document document() {
         return document;
     }

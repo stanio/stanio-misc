@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.awt.geom.Point2D;
 
@@ -42,6 +41,7 @@ public class AnchorPoint {
                                     BOTTOM = "bottom",
                                     LEFT = "left";
 
+        /** {@value #CENTER} {@value #CENTER} */
         static final Bias DEFAULT = new Bias(CENTER, CENTER);
 
         private static final Pattern SEP =
@@ -158,6 +158,7 @@ public class AnchorPoint {
         this.bias = Objects.requireNonNull(bias);
     }
 
+    /** {@code x: 0, y: 0, Bias(center, center)} */
     public static AnchorPoint defaultValue() {
         return DEFAULT_VALUE;
     }
@@ -189,16 +190,9 @@ public class AnchorPoint {
                                   y + bias.sigY() * offset);
     }
 
-    public static void main(String[] args) throws Exception {
-        System.out.println(Bias.valueOf("right"));
-        System.out.println(Bias.valueOf("center left"));
-        System.out.println(Bias.valueOf("bottom center"));
-        System.out.println("---");
-        final Pattern BIAS = Pattern.compile("(?ix) (?:^|\\s) bias-(\\S*)");
-        Matcher m = BIAS.matcher("werew bias-foo-bar- werewrew");
-        if (m.find()) System.out.println(m.group(1));
-        System.out.println("---");
-        System.out.println("bar baz".replaceFirst("^(?:.*\\s)?(bar).*$", "_$1_"));
+    @Override
+    public String toString() {
+        return "AnchorPoint(x: " + x + ", y: " + y + ", " + bias + ")";
     }
 
 }

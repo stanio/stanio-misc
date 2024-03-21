@@ -110,6 +110,11 @@ public class BitmapsRenderer {
         return this;
     }
 
+    public BitmapsRenderer withThinStroke(Double width) {
+        rendererBackend.setStrokeWidth(width);
+        return this;
+    }
+
     public BitmapsRenderer filterCursors(String... names) {
         return filterCursors(Arrays.asList(names));
     }
@@ -249,7 +254,8 @@ public class BitmapsRenderer {
             if (scheme.permanent) {
                 variant.add(scheme.toString());
             }
-            if (config.out.contains("-Thin")) {
+            if (config.out.contains("-Thin")
+                    || rendererBackend.hasThinOutline()) {
                 variant.add("Thin");
             }
             if (rendererBackend.hasPointerShadow()) {
@@ -310,6 +316,7 @@ public class BitmapsRenderer {
                     .withSizes(cmdArgs.sizes)
                     .withResolutions(cmdArgs.resolutions)
                     .withPointerShadow(cmdArgs.pointerShadow)
+                    .withThinStroke(cmdArgs.strokeWidth)
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
@@ -365,6 +372,7 @@ public class BitmapsRenderer {
         final Set<String> cursorFilter = new LinkedHashSet<>();
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
+        Double strokeWidth;
 
         CommandArgs(String... args) {
             Runnable standardSizes = () -> {
@@ -386,6 +394,7 @@ public class BitmapsRenderer {
                     .acceptFlag("--linux-cursors", () -> outputType = OutputType.LINUX_CURSORS)
                     .acceptFlag("--standard-sizes", standardSizes)
                     .acceptOptionalArg("--pointer-shadow", val -> pointerShadow = DropShadow.decode(val))
+                    .acceptOptionalArg("--thin-stroke", val -> strokeWidth = val.isEmpty() ? 12 : Double.parseDouble(val))
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)

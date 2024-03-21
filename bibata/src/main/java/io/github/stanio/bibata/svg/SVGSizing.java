@@ -114,15 +114,19 @@ public class SVGSizing {
      * @see     #alignToGrid(Point2D, Dimension, Rectangle2D)
      * @see     #adjustViewBoxOrigin(Rectangle2D, Point2D)
      */
-    public Point apply(int targetSize, int viewBoxSize) throws  IOException {
-        return (sourceDOM == null)
-                ? apply(sourceFile, targetSize, viewBoxSize)
-                : apply(sourceDOM, targetSize, viewBoxSize);
+    public Point apply(int targetSize, int viewBoxSize) throws IOException {
+        return apply(targetSize, viewBoxSize, 0);
     }
 
-    Point apply(Path svgFile, int targetSize, int viewBoxSize)
+    public Point apply(int targetSize, int viewBoxSize, double anchorOffset) throws IOException {
+        return (sourceDOM == null)
+                ? apply(sourceFile, targetSize, viewBoxSize, anchorOffset)
+                : apply(sourceDOM, targetSize, viewBoxSize, anchorOffset);
+    }
+
+    Point apply(Path svgFile, int targetSize, int viewBoxSize, double anchorOffset)
             throws IOException {
-        return updateOffsets(targetSize, viewBoxSize, (viewBoxOrigin, childOffsets) -> {
+        return updateOffsets(targetSize, viewBoxSize, anchorOffset, (viewBoxOrigin, childOffsets) -> {
             Path resolvedSource = resolveLinks(sourceFile);
             Path tempFile = Files.createTempFile(resolvedSource.getParent(),
                     svgFile.getFileName() + "-", null);
@@ -147,9 +151,9 @@ public class SVGSizing {
         });
     }
 
-    Point apply(Document svg, int targetSize, int viewBoxSize) {
+    Point apply(Document svg, int targetSize, int viewBoxSize, double anchorOffset) {
         return updateOffsets(targetSize, viewBoxSize,
-                             (viewBoxOrigin, childOffsets) -> {
+                             anchorOffset, (viewBoxOrigin, childOffsets) -> {
             Element svgRoot = svg.getDocumentElement();
             svgRoot.setAttribute("width", String.valueOf(targetSize));
             svgRoot.setAttribute("height", String.valueOf(targetSize));
@@ -186,6 +190,7 @@ public class SVGSizing {
 
     private <E extends Exception>
     Point updateOffsets(int targetSize, int viewBoxSize,
+                        double anchorOffset,
                         OffsetsUpdate<E> offsetsConsumer)
             throws E {
         Point2D viewBoxOrigin;
@@ -195,17 +200,17 @@ public class SVGSizing {
             Dimension targetDimension = new Dimension(targetSize, targetSize);
 
             Rectangle2D viewBox = new Rectangle2D.Double(0, 0, viewBoxSize, viewBoxSize);
-            adjustViewBoxOrigin(viewBox,
-                    alignToGrid(metadata.rootAnchor.point(), targetDimension, viewBox));
+            adjustViewBoxOrigin(viewBox,alignToGrid(metadata.rootAnchor
+                    .pointWithOffset(anchorOffset), targetDimension, viewBox));
             viewBoxOrigin = new Point2D.Double(viewBox.getX(), viewBox.getY());
 
             objectOffsets = new HashMap<>(metadata.childAnchors.size());
             metadata.childAnchors.forEach((elementPath, anchor) -> {
-                objectOffsets.put(elementPath,
-                        alignToGrid(anchor.point(), targetDimension, viewBox));
+                objectOffsets.put(elementPath, alignToGrid(anchor
+                        .pointWithOffset(anchorOffset), targetDimension, viewBox));
             });
 
-            Point2D hotspot = metadata.hotspot.point();
+            Point2D hotspot = metadata.hotspot.pointWithOffset(anchorOffset);
             Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
             int x = (hotspot.getX() > 120

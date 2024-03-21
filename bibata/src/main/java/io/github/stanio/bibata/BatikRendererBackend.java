@@ -48,6 +48,12 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
+    public void setStrokeWidth(Double width) {
+        super.setStrokeWidth(width);
+        svgTransformer.setStrokeWidth(width);
+    }
+
+    @Override
     protected void loadFile(Path svgFile) throws IOException {
         try {
             //imageTranscoder.loadDocument(fileInput(svgFile));

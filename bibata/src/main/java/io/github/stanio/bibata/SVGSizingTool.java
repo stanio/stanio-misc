@@ -66,14 +66,20 @@ public class SVGSizingTool {
     private Path hotspotsFile;
     private Map<String, Map<Integer, String>> adjustedHotspots;
     private DropShadow pointerShadow;
+    private double anchorOffset;
 
     SVGSizingTool(int viewBoxSize) {
         this(viewBoxSize, Path.of("cursor-hotspots-" + viewBoxSize + ".json"));
     }
 
     SVGSizingTool(int viewBoxSize, Path hotspotsFile) {
+        this(viewBoxSize, hotspotsFile, 0);
+    }
+
+    SVGSizingTool(int viewBoxSize, Path hotspotsFile, double anchorOffset) {
         this.viewBoxSize = viewBoxSize;
         this.hotspotsFile = hotspotsFile;
+        this.anchorOffset = anchorOffset;
     }
 
     SVGSizingTool withPointerShadow(DropShadow shadow) {
@@ -130,7 +136,7 @@ public class SVGSizingTool {
 
     public Point applySizing(String cursorName, SVGSizing sizing, int targetSize)
             throws IOException {
-        Point hotspot = sizing.apply(targetSize, viewBoxSize);
+        Point hotspot = sizing.apply(targetSize, viewBoxSize, anchorOffset);
 
         if (cursorName.startsWith("wait-")) {
             cursorName = "wait";

@@ -19,6 +19,9 @@ import io.github.stanio.bibata.svg.DropShadow;
  */
 class JSVGRendererBackend extends BitmapsRendererBackend {
 
+    // REVISIT: Merge the SVGTransformer document loading from
+    // JSVGImageTranscoder here.  Then likely move to the super class
+    // where could be shared with the BatikRendererBackend.
     private JSVGImageTranscoder imageTranscoder = new JSVGImageTranscoder();
 
     @Override
@@ -29,6 +32,12 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
     @Override
     public boolean hasPointerShadow() {
         return imageTranscoder.dropShadow().isPresent();
+    }
+
+    @Override
+    public void setStrokeWidth(Double width) {
+        super.setStrokeWidth(width);
+        imageTranscoder.setStrokeWidth(width);
     }
 
     @Override
