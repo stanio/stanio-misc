@@ -2,7 +2,7 @@
  * Copyright (C) 2024 by Stanio <stanio AT yahoo DOT com>
  * Released under BSD Zero Clause License: https://spdx.org/licenses/0BSD
  */
-package io.github.stanio.bibata.jsvg;
+package io.github.stanio.bibata.util;
 
 import java.util.Iterator;
 

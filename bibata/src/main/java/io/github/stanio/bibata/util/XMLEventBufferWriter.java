@@ -2,9 +2,9 @@
  * Copyright (C) 2024 by Stanio <stanio AT yahoo DOT com>
  * Released under BSD Zero Clause License: https://spdx.org/licenses/0BSD
  */
-package io.github.stanio.bibata.jsvg;
+package io.github.stanio.bibata.util;
 
-import static io.github.stanio.bibata.jsvg.XMLEventBufferReader.notImplementedException;
+import static io.github.stanio.bibata.util.XMLEventBufferReader.notImplementedException;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
