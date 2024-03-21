@@ -36,7 +36,7 @@ task colorWheel(type: JavaExec) {
     group = 'config'
 
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'io.github.stanio.bibata.config.ColorWheel'
+    mainClass = 'io.github.stanio.bibata.source.ColorWheel'
 }
 
 task cursorHotspots(type: JavaExec) {
@@ -44,7 +44,7 @@ task cursorHotspots(type: JavaExec) {
     group = 'config'
 
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'io.github.stanio.bibata.config.CursorHotspots'
+    mainClass = 'io.github.stanio.bibata.source.CursorHotspots'
 }
 
 jar {

@@ -6,7 +6,7 @@
 
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-    xmlns:ColorWheel="java://class/io.github.stanio.bibata.config.AnimationTransform"
+    xmlns:ColorWheel="java://class/io.github.stanio.bibata.source.AnimationTransform"
     xmlns:svg="http://www.w3.org/2000/svg"
     exclude-result-prefixes="xsl bibata svg">
 

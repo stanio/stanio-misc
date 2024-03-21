@@ -2,7 +2,7 @@
  * Copyright (C) 2023 by Stanio <stanio AT yahoo DOT com>
  * Released under BSD Zero Clause License: https://spdx.org/licenses/0BSD
  */
-package io.github.stanio.bibata.config;
+package io.github.stanio.bibata.source;
 
 import java.io.FilterOutputStream;
 import java.io.IOException;

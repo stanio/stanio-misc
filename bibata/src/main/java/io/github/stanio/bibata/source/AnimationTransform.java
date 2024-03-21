@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.bibata.config;
+package io.github.stanio.bibata.source;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
