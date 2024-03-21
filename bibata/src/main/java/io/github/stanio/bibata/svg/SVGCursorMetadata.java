@@ -174,6 +174,7 @@ public class SVGCursorMetadata {
 
         private static final Pattern ANCHOR_POINT;
         private static final Pattern BIAS = Pattern.compile("(?ix) (?:^|\\s) bias-(\\S*)");
+        private static final Pattern CLASS_NAME = Pattern.compile("\\S+");
         static {
             final String coordinate = "[-+]? (?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?";
             ANCHOR_POINT = Pattern.compile("^\\s* m \\s* (" + coordinate
@@ -189,6 +190,7 @@ public class SVGCursorMetadata {
         private final ContentStack contentStack = new ContentStack();
         private final Matcher anchorMatcher = ANCHOR_POINT.matcher("");
         private final Matcher biasMatcher = BIAS.matcher("");
+        private final Matcher classNameMatcher = CLASS_NAME.matcher("");
 
         @Override
         public void startElement(String uri, String localName,
@@ -203,8 +205,7 @@ public class SVGCursorMetadata {
                 setHotspot(attributes);
             } else if ("align-anchor".equals(id) && qname.equals("path")) {
                 setAnchor(attributes);
-            } else if ("align-anchor".equals(attributes.getValue("class"))
-                    && qname.equals("path")) {
+            } else if (hasClass(attributes, "align-anchor") && qname.equals("path")) {
                 childAnchors.put(contentStack.currentPath().parent(),
                                  parseAnchor(attributes));
             }
@@ -216,6 +217,18 @@ public class SVGCursorMetadata {
                 throws SAXException {
             contentStack.pop();
             super.endElement(uri, localName, qName);
+        }
+
+        private boolean hasClass(Attributes attributes, String className) {
+            String classList = attributes.getValue("class");
+            if (classList == null) return false;
+
+            Matcher m = classNameMatcher.reset(classList);
+            while (m.find()) {
+                if (m.group().equalsIgnoreCase(className))
+                    return true;
+            }
+            return false;
         }
 
         private void setViewBox(String spec) throws SAXException {
