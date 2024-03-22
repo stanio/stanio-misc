@@ -35,7 +35,7 @@ public class ThemeConfig {
 
     public static final class SizeScheme {
         static final SizeScheme SOURCE = new SizeScheme(null, 1.0);
-        public static final SizeScheme R = new SizeScheme("Regular", 1.5);
+        public static final SizeScheme R = new SizeScheme(null, 1.5);
         public static final SizeScheme N = new SizeScheme("Normal", 1.5, true);
         public static final SizeScheme L = new SizeScheme("Large", 1.25, true);
         public static final SizeScheme XL = new SizeScheme("Extra-Large", 1.0, true);
@@ -75,8 +75,8 @@ public class ThemeConfig {
                 return XL;
 
             default:
-                // Syntax: [!] <float> [: <name>]
-                boolean permanent = !str.startsWith("!");
+                // Syntax: [/] <float> [: <name>]
+                boolean permanent = !str.startsWith("/");
                 return valueOf(permanent ? str : str.substring(1), permanent);
             }
         }

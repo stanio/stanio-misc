@@ -243,11 +243,14 @@ public class BitmapsRenderer {
         rendererBackend.setAnimation(animation, frameNum);
 
         boolean first = true;
+        Set<String> displayTags = new LinkedHashSet<>();
         for (SizeScheme scheme : sizes(config)) {
             if (first) first = false;
             else System.out.append(",");
-            if (scheme.name != null || scheme.permanent) {
-                System.out.print(" (" + scheme + ")");
+
+            displayTags.clear();
+            if (scheme.name != null) {
+                displayTags.add(scheme.name);
             }
 
             List<String> variant = new ArrayList<>();
@@ -260,6 +263,11 @@ public class BitmapsRenderer {
             }
             if (rendererBackend.hasPointerShadow()) {
                 variant.add("Shadow");
+            }
+
+            displayTags.addAll(variant);
+            if (!displayTags.isEmpty()) {
+                System.out.print(" (" + String.join(", ", displayTags) + ")");
             }
 
             Path outDir = config.resolveOutputDir(baseDir, variant);
