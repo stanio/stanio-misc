@@ -84,7 +84,8 @@ abstract class BitmapsRendererBackend {
         } else if (!key.isEmpty()) {
             System.err.append("Unknown bibata.renderer=").println(key);
         }
-        return new JSVGRendererBackend();
+        //return new JSVGRendererBackend();
+        return new BatikRendererBackend();
     }
 
     public void setOutputType(OutputType type) {

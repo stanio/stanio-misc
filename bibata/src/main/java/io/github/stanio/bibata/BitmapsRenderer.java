@@ -330,7 +330,7 @@ public class BitmapsRenderer {
             Duration elapsedTime = Duration
                     .ofMillis(System.currentTimeMillis() - startTime);
             System.err.println();
-            System.err.append("Done: ").println(elapsedTime
+            System.err.append("Elapsed: ").println(elapsedTime
                     .toString().replaceFirst("^PT", "").toLowerCase(Locale.ROOT));
         }
     }
