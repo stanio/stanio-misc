@@ -183,7 +183,7 @@ public class SVGCursorMetadata {
         }
 
         Rectangle2D sourceViewBox = new Rectangle(256, 256);
-        AnchorPoint hotspot = new AnchorPoint(128, 128);
+        AnchorPoint hotspot = new AnchorPoint(127, 127);
         AnchorPoint rootAnchor = AnchorPoint.defaultValue(); // REVISIT: or 128,128?
         Map<ElementPath, AnchorPoint> childAnchors = new HashMap<>(1);
 

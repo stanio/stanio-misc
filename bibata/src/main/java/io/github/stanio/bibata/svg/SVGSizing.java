@@ -215,14 +215,12 @@ public class SVGSizing {
             Point2D hotspot = metadata.hotspot.pointWithOffset(anchorOffset);
             Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
-            int x = (hotspot.getX() > 120
-                            || hotspot.getX() < 0)
-                    ? (int) offsetHotspot.getX()
-                    : (int) Math.round(offsetHotspot.getX());
-            int y = (hotspot.getY() > 120
-                        || hotspot.getY() < 0)
-                    ? (int) offsetHotspot.getY()
-                    : (int) Math.round(offsetHotspot.getY());
+            int x = (int) (metadata.hotspot.bias().sigX() < 0
+                           ? Math.round(offsetHotspot.getX())
+                           : offsetHotspot.getX());
+            int y = (int) (metadata.hotspot.bias().sigY() < 0
+                           ? Math.round(offsetHotspot.getY())
+                           : offsetHotspot.getY());
             alignedHotspot = new Point(x, y);
         }
         offsetsConsumer.apply(viewBoxOrigin, objectOffsets);
