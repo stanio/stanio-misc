@@ -26,8 +26,23 @@
   </xsl:template>
 
   <!-- REVISIT: lower-case(@paint-order) -->
-  <xsl:template match="*[contains(normalize-space(@paint-order), 'stroke fill')]">
-    <xsl:variable name="id" select="generate-id()" />
+  <xsl:template match="svg:*[contains(normalize-space(@paint-order), 'stroke fill')]">
+    <xsl:choose>
+      <xsl:when test="@id">
+        <xsl:call-template name="stroke-under-fill">
+          <xsl:with-param name="id" select="@id" />
+        </xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:call-template name="stroke-under-fill">
+          <xsl:with-param name="id" select="generate-id()" />
+        </xsl:call-template>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template name="stroke-under-fill">
+    <xsl:param name="id" />
     <use href="#{$id}" xlink:href="#{$id}">
       <xsl:copy-of select="@*[starts-with(name(), 'stroke')]" />
       <xsl:attribute name="originalPaintOrder">
