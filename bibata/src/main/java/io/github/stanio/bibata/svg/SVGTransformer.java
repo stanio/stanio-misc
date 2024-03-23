@@ -79,12 +79,20 @@ public class SVGTransformer {
 
     public void setPointerShadow(DropShadow shadow) {
         this.dropShadow = Optional.ofNullable(shadow);
-        transformers.remove("dropShadow");
+        Transformer tr;
+        if (shadow != null
+                && (tr = transformers.get("dropShadow")) != null) {
+            setShadowParameters(tr);
+        }
     }
 
     public void setStrokeWidth(Double width) {
         strokeWidth = Optional.ofNullable(width);
-        transformers.remove("thinStroke");
+        Transformer tr;
+        if (width != null
+                && (tr = transformers.get("thinStroke")) != null) {
+            setStrokeParameters(tr);
+        }
     }
 
     XMLReader getReader(Path file) {
@@ -94,24 +102,32 @@ public class SVGTransformer {
 
     private Transformer dropShadowTransformer() {
         return transformers.computeIfAbsent("dropShadow", k -> {
-            DropShadow shadow = dropShadow.get();
             Transformer transformer = newTransformer(DropShadow.xslt());
-            transformer.setParameter("shadow-blur", shadow.blur);
-            transformer.setParameter("shadow-dx", shadow.dx);
-            transformer.setParameter("shadow-dy", shadow.dy);
-            transformer.setParameter("shadow-opacity", shadow.opacity);
-            transformer.setParameter("shadow-color", shadow.color());
+            setShadowParameters(transformer);
             return transformer;
         });
+    }
+
+    private void setShadowParameters(Transformer transformer) {
+        DropShadow shadow = dropShadow.get();
+        transformer.setParameter("shadow-blur", shadow.blur);
+        transformer.setParameter("shadow-dx", shadow.dx);
+        transformer.setParameter("shadow-dy", shadow.dy);
+        transformer.setParameter("shadow-opacity", shadow.opacity);
+        transformer.setParameter("shadow-color", shadow.color());
     }
 
     private Transformer thinStrokeTransformer() {
         return transformers.computeIfAbsent("thinStroke", k -> {
             Transformer transformer = newTransformer(SVGTransformer.class
                     .getResource("thin-stroke.xsl").toString());
-            transformer.setParameter("new-width", strokeWidth.get());
+            setStrokeParameters(transformer);
             return transformer;
         });
+    }
+
+    private void setStrokeParameters(Transformer transformer) {
+        transformer.setParameter("new-width", strokeWidth.get());
     }
 
     private Transformer svg11Transformer() {

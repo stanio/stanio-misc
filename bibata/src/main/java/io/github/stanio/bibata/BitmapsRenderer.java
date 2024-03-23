@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -29,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -67,6 +69,7 @@ public class BitmapsRenderer {
     private Set<String> cursorFilter = Set.of(); // include all
     private Collection<SizeScheme> sizes = List.of(SizeScheme.SOURCE);
     private int[] resolutions = { -1 }; // original/source
+    private VariantOptions[] allVariants = { VariantOptions.DEFAULTS };
 
     private final BitmapsRendererBackend rendererBackend;
 
@@ -105,13 +108,8 @@ public class BitmapsRenderer {
         return this;
     }
 
-    public BitmapsRenderer withPointerShadow(DropShadow shadow) {
-        rendererBackend.setPointerShadow(shadow);
-        return this;
-    }
-
-    public BitmapsRenderer withThinStroke(Double width) {
-        rendererBackend.setStrokeWidth(width);
+    public BitmapsRenderer withVariants(Collection<VariantOptions> variants) {
+        this.allVariants = variants.toArray(VariantOptions[]::new);
         return this;
     }
 
@@ -205,19 +203,27 @@ public class BitmapsRenderer {
         String cursorName = cursorName(svgFile);
         System.out.append(cursorName).append(": ");
 
+        boolean first = true;
+        for (VariantOptions variant : allVariants) {
+            rendererBackend.setStrokeWidth(variant.thinStroke);
+            rendererBackend.setPointerShadow(variant.pointerShadow);
+
+            // REVISIT: Load the file once, and transform
+            // from in-memory source for each variant.
         rendererBackend.loadFile(cursorName, svgFile);
 
-        boolean first = true;
         for (ThemeConfig config : renderConfig) {
             if (exclude(config, cursorName))
                 continue;
 
             if (first) first = false;
             else System.out.print(";\n\t");
-            System.out.print(config.name());
+            System.out.print(variant.tag(config.name()));
 
             rendererBackend.applyColors(config.colors());
             renderSVG(config, cursorName);
+        }
+
         }
         System.out.println('.');
     }
@@ -243,14 +249,12 @@ public class BitmapsRenderer {
         rendererBackend.setAnimation(animation, frameNum);
 
         boolean first = true;
-        Set<String> displayTags = new LinkedHashSet<>();
         for (SizeScheme scheme : sizes(config)) {
             if (first) first = false;
             else System.out.append(",");
 
-            displayTags.clear();
             if (scheme.name != null) {
-                displayTags.add(scheme.name);
+                System.out.print(" (" + scheme.name + ")");
             }
 
             List<String> variant = new ArrayList<>();
@@ -263,11 +267,6 @@ public class BitmapsRenderer {
             }
             if (rendererBackend.hasPointerShadow()) {
                 variant.add("Shadow");
-            }
-
-            displayTags.addAll(variant);
-            if (!displayTags.isEmpty()) {
-                System.out.print(" (" + String.join(", ", displayTags) + ")");
             }
 
             Path outDir = config.resolveOutputDir(baseDir, variant);
@@ -323,8 +322,8 @@ public class BitmapsRenderer {
             BitmapsRenderer.forBaseDir(configFile.getParent())
                     .withSizes(cmdArgs.sizes)
                     .withResolutions(cmdArgs.resolutions)
-                    .withPointerShadow(cmdArgs.pointerShadow)
-                    .withThinStroke(cmdArgs.strokeWidth)
+                    .withVariants(VariantOptions.combinations(cmdArgs
+                            .singleVariant, cmdArgs.strokeWidth, cmdArgs.pointerShadow))
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
@@ -368,6 +367,57 @@ public class BitmapsRenderer {
     }
 
 
+    static class VariantOptions {
+
+        static final VariantOptions DEFAULTS = new VariantOptions(null, null);
+
+        final Double thinStroke;
+        final DropShadow pointerShadow;
+
+        VariantOptions(Double thinStroke, DropShadow pointerShadow) {
+            this.thinStroke = thinStroke;
+            this.pointerShadow = pointerShadow;
+        }
+
+        static Collection<VariantOptions> combinations(boolean single,
+                Double thinStroke, DropShadow pointerShadow) {
+            if (single) {
+                return Collections.singletonList(
+                        new VariantOptions(thinStroke, pointerShadow));
+            }
+
+            // Simple solution for simple needs
+            List<VariantOptions> combinations = new ArrayList<>();
+            combinations.add(DEFAULTS);
+            if (thinStroke != null) {
+                combinations.add(new VariantOptions(thinStroke, null));
+            }
+            if (pointerShadow != null) {
+                combinations.add(new VariantOptions(null, pointerShadow));
+                if (thinStroke != null) {
+                    combinations.add(new VariantOptions(thinStroke, pointerShadow));
+                }
+            }
+            return combinations;
+        }
+
+        String tag(String name) {
+            StringJoiner tags = new StringJoiner("-");
+            tags.add(name);
+            if (thinStroke != null) tags.add("Thin");
+            if (pointerShadow != null) tags.add("Shadow");
+            return tags.toString();
+        }
+
+        @Override
+        public String toString() {
+            return "VariantOptions(thinStroke(" + thinStroke
+                    + "), " + pointerShadow + ")";
+        }
+
+    } // class VariantOptions
+
+
     private static class CommandArgs {
 
         private static final String DEFAULT_BASE = "";
@@ -381,6 +431,7 @@ public class BitmapsRenderer {
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
         Double strokeWidth;
+        boolean singleVariant;
 
         CommandArgs(String... args) {
             Runnable standardSizes = () -> {
@@ -403,6 +454,7 @@ public class BitmapsRenderer {
                     .acceptFlag("--standard-sizes", standardSizes)
                     .acceptOptionalArg("--pointer-shadow", val -> pointerShadow = DropShadow.decode(val))
                     .acceptOptionalArg("--thin-stroke", val -> strokeWidth = val.isEmpty() ? 12 : Double.parseDouble(val))
+                    .acceptFlag("--single-variant", () -> singleVariant = true)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
