@@ -9,9 +9,10 @@ import static io.github.stanio.batik.DynamicImageTranscoder.fileOutput;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+
+import org.w3c.dom.Document;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
@@ -39,30 +40,23 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void loadFile(Path svgFile) throws IOException {
+    protected void setDocument(Document svgDoc) {
         try {
-            //imageTranscoder.loadDocument(fileInput(svgFile));
-            imageTranscoder.withDocument(svgTransformer.loadDocument(svgFile));
+            imageTranscoder.withDocument(svgDoc);
         } catch (TranscoderException e) {
-            throw findIOCause(e);
+            throw new IllegalStateException(e);
         }
-
-        imageTranscoder.fromDocument(svg -> {
-            initWithDocument(svg);
-            return null;
-        });
     }
 
     @Override
-    public void applyColors(Map<String, String> colorMap) {
-        imageTranscoder.updateDocument(svg -> super.applyColors(colorMap));
+    protected <T> T fromDocument(Function<Document, T> task) {
+        return imageTranscoder.fromDocument(svg -> task.apply(svg));
     }
 
     @Override
     protected Point applySizing(int targetSize) {
         try {
-            return imageTranscoder
-                    .fromDocument(svg -> super.applySizing(targetSize));
+            return super.applySizing(targetSize);
         } finally {
             resetView();
         }

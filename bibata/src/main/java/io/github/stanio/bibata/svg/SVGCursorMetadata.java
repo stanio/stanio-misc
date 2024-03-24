@@ -60,7 +60,7 @@ public class SVGCursorMetadata {
      */
     public static final String USER_DATA = "tag:stanio.github.io,2024-03:SVGCursorMetadata";
 
-    private static final ThreadLocal<Transformer>
+    static final ThreadLocal<Transformer>
             identityTransformer = ThreadLocal.withInitial(() -> newTransformer(Optional.empty()));
 
     final Rectangle2D sourceViewBox;

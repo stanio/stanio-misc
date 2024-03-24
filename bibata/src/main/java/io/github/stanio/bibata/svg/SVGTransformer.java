@@ -26,7 +26,6 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMResult;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
-import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamSource;
 
 import org.xml.sax.XMLReader;
@@ -62,6 +61,9 @@ import io.github.stanio.bibata.util.SAXReplayBuffer;
  * </ul>
  */
 public class SVGTransformer {
+
+    private static final int FLAG_LOAD = 1;
+    private static final int FLAG_UPDATE = 2;
 
     private Optional<DropShadow> dropShadow = Optional.empty();
     private boolean svg11Compat;
@@ -100,7 +102,7 @@ public class SVGTransformer {
         throw new IllegalStateException("Not implemented");
     }
 
-    private Transformer dropShadowTransformer() {
+    Transformer dropShadowTransformer() {
         return transformers.computeIfAbsent("dropShadow", k -> {
             Transformer transformer = newTransformer(DropShadow.xslt());
             setShadowParameters(transformer);
@@ -117,7 +119,7 @@ public class SVGTransformer {
         transformer.setParameter("shadow-color", shadow.color());
     }
 
-    private Transformer thinStrokeTransformer() {
+    Transformer thinStrokeTransformer() {
         return transformers.computeIfAbsent("thinStroke", k -> {
             Transformer transformer = newTransformer(SVGTransformer.class
                     .getResource("thin-stroke.xsl").toString());
@@ -135,22 +137,30 @@ public class SVGTransformer {
                 newTransformer(svg11CompatXslt()));
     }
 
-    private Iterator<Transformer> transformPipeline() {
+    private Iterator<Transformer> transformPipeline(int flags) {
         Collection<Transformer> pipeline = new ArrayList<>();
-        if (strokeWidth.isPresent()) {
+        if ((flags & FLAG_UPDATE) != 0 && strokeWidth.isPresent()) {
             pipeline.add(thinStrokeTransformer());
         }
-        if (dropShadow.map(DropShadow::isSVG).orElse(false)) {
+        if ((flags & FLAG_UPDATE) != 0
+                && dropShadow.map(DropShadow::isSVG).orElse(false)) {
             pipeline.add(dropShadowTransformer());
         }
-        if (svg11Compat) {
+        if ((flags & FLAG_LOAD) != 0 &&  svg11Compat) {
             pipeline.add(svg11Transformer());
+        }
+        if (pipeline.isEmpty()) {
+            pipeline.add(SVGCursorMetadata.identityTransformer.get());
         }
         return pipeline.iterator();
     }
 
     void transform(final Source source, final Result target) throws IOException {
-        Iterator<Transformer> pipeline = transformPipeline();
+        transform(FLAG_LOAD | FLAG_UPDATE, source, target);
+    }
+
+    private void transform(int flags, final Source source, final Result target) throws IOException {
+        Iterator<Transformer> pipeline = transformPipeline(flags);
         try {
             Source current = source;
             do {
@@ -213,13 +223,24 @@ public class SVGTransformer {
 
     public Document loadDocument(Path file) throws IOException {
         DOMResult result = new DOMResult();
-        SAXSource metadataSource = SVGCursorMetadata.loadingSource(file);
-        transform(metadataSource, result);
+        //SAXSource metadataSource = SVGCursorMetadata.loadingSource(file);
+        //transform(FLAG_LOAD, metadataSource, result);
+        transform(FLAG_LOAD, new StreamSource(file.toFile()), result);
         Document document = (Document) Objects.requireNonNull(result.getNode());
-        document.setDocumentURI(file.toUri().toString());
-        document.setUserData(SVGCursorMetadata.USER_DATA,
-                SVGCursorMetadata.fromSource(metadataSource), null);
+        //document.setDocumentURI(file.toUri().toString());
+        //document.setUserData(SVGCursorMetadata.USER_DATA,
+        //        SVGCursorMetadata.fromSource(metadataSource), null);
         return document;
+    }
+
+    public Document updateDocument(Document svgDoc) {
+        try {
+            DOMResult result = new DOMResult();
+            transform(FLAG_UPDATE, new DOMSource(svgDoc), result);
+            return (Document) Objects.requireNonNull(result.getNode());
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static IOException ioException(Exception e) {

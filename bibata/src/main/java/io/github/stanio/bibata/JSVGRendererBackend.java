@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import javax.xml.XMLConstants;
 import javax.xml.stream.XMLEventReader;
@@ -68,10 +69,13 @@ class JSVGRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void loadFile(Path svgFile) throws IOException {
-        Document document = svgTransformer.loadDocument(svgFile);
-        imageTranscoder.setDocument(document);
-        initWithDocument(document);
+    protected void setDocument(Document svg) {
+        imageTranscoder.setDocument(svg);
+    }
+
+    @Override
+    protected <T> T fromDocument(Function<Document, T> task) {
+        return task.apply(imageTranscoder.document());
     }
 
     @Override

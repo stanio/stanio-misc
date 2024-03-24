@@ -33,6 +33,8 @@ import io.github.stanio.bibata.svg.SVGTransformer;
  * @see  BitmapsRenderer
  */
 abstract class BitmapsRendererBackend {
+    // REVISIT: Make this independent CursorRenderer having a reference to
+    // minimal-interface RendererBackend instance.
 
     private static final Map<String, Supplier<BitmapsRendererBackend>>
             BACKENDS = Map.of("batik", BatikRendererBackend::new,
@@ -46,6 +48,7 @@ abstract class BitmapsRendererBackend {
     protected OutputType outputType;
 
     protected final SVGTransformer svgTransformer;
+    private Document sourceDocument;
 
     private String cursorName;
     private Animation animation;
@@ -53,9 +56,9 @@ abstract class BitmapsRendererBackend {
 
     private Path outDir;
 
-    private ColorTheme colorTheme;
-    private SVGSizing svgSizing;
-    private SVGSizingTool sizingTool;
+    private volatile ColorTheme colorTheme;
+    private volatile SVGSizing svgSizing;
+    private volatile SVGSizingTool sizingTool;
     private double anchorOffset;
 
     // REVISIT: targetCanvasFactor?
@@ -94,6 +97,7 @@ abstract class BitmapsRendererBackend {
 
     public void setPointerShadow(DropShadow shadow) {
         svgTransformer.setPointerShadow(shadow);
+        resetFile();
     }
 
     public boolean hasPointerShadow() {
@@ -102,6 +106,7 @@ abstract class BitmapsRendererBackend {
 
     public void setStrokeWidth(Double width) {
         svgTransformer.setStrokeWidth(width);
+        resetFile();
 
         final double baseWidth = 16;
         anchorOffset = (width == null) ? 0
@@ -115,12 +120,15 @@ abstract class BitmapsRendererBackend {
     public void loadFile(String cursorName, Path svgFile) throws IOException {
         resetFile();
         this.cursorName = cursorName;
-        loadFile(svgFile);
-        // REVISIT: Verify non-null colorTheme and svgSizing
+        // REVISIT: Use two SVGTransformer instances (independent configurations):
+        // - loadingTransformer, for initial loading
+        // - variantTransformer, for transforming with "thin-stroke", "drop-shadow"
+        // The former could be supplied by the subclasses (at least they need to
+        // specify "svg11-compat" usage.
+        sourceDocument = svgTransformer.loadDocument(svgFile);
     }
 
     private void resetFile() {
-        cursorName = null;
         animation = null;
         frameNum = staticFrame;
         currentFrames = null;
@@ -130,15 +138,28 @@ abstract class BitmapsRendererBackend {
         outputSet = false;
     }
 
-    protected abstract void loadFile(Path svgFile) throws IOException;
-
-    protected void initWithDocument(Document svg) {
-        colorTheme = ColorTheme.forDocument(svg);
-        svgSizing = SVGSizing.forDocument(svg);
+    private void initDocument() {
+        setDocument(svgTransformer
+                .updateDocument(sourceDocument));
+        fromDocument(svg -> {
+            colorTheme = ColorTheme.forDocument(svg);
+            svgSizing = SVGSizing.forDocument(svg);
+            return null;
+        });
     }
 
-    public void applyColors(Map<String, String> colorMap) {
-        colorTheme.apply(colorMap);
+    protected abstract void setDocument(Document svg);
+
+    protected abstract <T> T fromDocument(java.util.function.Function<Document, T> task);
+
+    public final void applyColors(Map<String, String> colorMap) {
+        if (colorTheme == null) {
+            initDocument();
+        }
+        fromDocument(svg -> {
+            colorTheme.apply(colorMap);
+            return null;
+        });
     }
 
     public void setAnimation(Animation animation, Integer frameNum) {
@@ -221,14 +242,19 @@ abstract class BitmapsRendererBackend {
     }
 
     protected Point applySizing(int targetSize) {
-        try {
-            // REVISIT: Implement "reset sizing" to remove previous alignments,
-            // and/or provide flag whether to apply alignments.
-            return sizingTool.applySizing(cursorName, svgSizing,
-                                   targetSize > 0 ? targetSize : sourceSize);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (svgSizing == null) {
+            initDocument();
         }
+        return fromDocument(svg -> {
+            try {
+                // REVISIT: Implement "reset sizing" to remove previous alignments,
+                // and/or provide flag whether to apply alignments.
+                return sizingTool.applySizing(cursorName, svgSizing,
+                        targetSize > 0 ? targetSize : sourceSize);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
     }
 
     protected abstract void writeStatic(Path targetFile)

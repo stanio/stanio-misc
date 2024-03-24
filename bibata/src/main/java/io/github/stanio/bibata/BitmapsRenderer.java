@@ -203,14 +203,12 @@ public class BitmapsRenderer {
         String cursorName = cursorName(svgFile);
         System.out.append(cursorName).append(": ");
 
+        rendererBackend.loadFile(cursorName, svgFile);
+
         boolean first = true;
         for (VariantOptions variant : allVariants) {
             rendererBackend.setStrokeWidth(variant.thinStroke);
             rendererBackend.setPointerShadow(variant.pointerShadow);
-
-            // REVISIT: Load the file once, and transform
-            // from in-memory source for each variant.
-        rendererBackend.loadFile(cursorName, svgFile);
 
         for (ThemeConfig config : renderConfig) {
             if (exclude(config, cursorName))
