@@ -50,12 +50,13 @@ import io.github.stanio.windows.Cursor;
 
 public class SVGSizing {
 
+    private static final SVGTransformer identityTransformer = new SVGTransformer();
+    private static Supplier<SVGTransformer> svgTransformer = () -> identityTransformer;
+
     private final Path sourceFile;
     private final SAXReplayBuffer sourceBuffer;
     private final Document sourceDOM;
     private final SVGCursorMetadata metadata;
-
-    private final SVGTransformer svgTransformer = new SVGTransformer();
 
     private SVGSizing(Path sourceFile,
             SAXReplayBuffer sourceBuffer, SVGCursorMetadata metadata) {
@@ -86,13 +87,8 @@ public class SVGSizing {
         return metadata;
     }
 
-    /**
-     * Drop shadow to add or update to file sources.
-     *
-     * @param   shadow  the drop shadow parameters
-     */
-    public void setDropShadow(DropShadow shadow) {
-        svgTransformer.setPointerShadow(shadow);
+    public static void setFileSourceTransformer(Supplier<SVGTransformer> supplier) {
+        svgTransformer = supplier;
     }
 
     /**
@@ -140,8 +136,8 @@ public class SVGSizing {
                     targetSize, viewBoxSize, viewBoxOrigin, childOffsets);
             try (OutputStream fileOut = Files.newOutputStream(tempFile)) {
                 InputSource input = new InputSource(svgFile.toUri().toString());
-                svgTransformer.transform(new SAXSource(filter, input),
-                                         new StreamResult(fileOut));
+                svgTransformer.get().transform(new SAXSource(filter, input),
+                                               new StreamResult(fileOut));
                 fileOut.write('\n');
             }
             try {

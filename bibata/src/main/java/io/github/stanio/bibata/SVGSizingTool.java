@@ -31,6 +31,7 @@ import com.google.gson.JsonParseException;
 
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGSizing;
+import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
  * Command-line utility for adjusting SVG sources' {@code width}, {@code height},
@@ -65,7 +66,6 @@ public class SVGSizingTool {
     private int viewBoxSize;
     private Path hotspotsFile;
     private Map<String, Map<Integer, String>> adjustedHotspots;
-    private DropShadow pointerShadow;
     private double anchorOffset;
 
     SVGSizingTool(int viewBoxSize) {
@@ -80,11 +80,6 @@ public class SVGSizingTool {
         this.viewBoxSize = viewBoxSize;
         this.hotspotsFile = hotspotsFile;
         this.anchorOffset = anchorOffset;
-    }
-
-    SVGSizingTool withPointerShadow(DropShadow shadow) {
-        this.pointerShadow = shadow;
-        return this;
     }
 
     private Map<String, Map<Integer, String>>
@@ -129,7 +124,6 @@ public class SVGSizingTool {
 
     private void updateSVG(Path svg, int targetSize) throws IOException {
         SVGSizing sizing = SVGSizing.forFile(svg);
-        sizing.setDropShadow(pointerShadow);
         String cursorName = svg.getFileName().toString().replaceFirst("\\.svg$", "");
         applySizing(cursorName, sizing, targetSize);
     }
@@ -174,6 +168,8 @@ public class SVGSizingTool {
             int viewBoxSize;
             Path path;
             DropShadow pointerShadow;
+            Double strokeWidth;
+            boolean svg11Compat;
 
             CommandArgs(String[] args) {
                 List<String> argList = new ArrayList<>(Arrays.asList(args));
@@ -184,6 +180,11 @@ public class SVGSizingTool {
                 findOptionalArg(argList, "--pointer-shadow")
                         .ifPresent(argValue -> pointerShadow =
                                 DropShadow.decode(argValue, DropShadow.instance(true)));
+
+                findOptionalArg(argList, "--thin-stroke")
+                        .ifPresent(argValue -> strokeWidth = Double.parseDouble(argValue));
+
+                svg11Compat = argList.remove("--svg11-compat");
 
                 if (argList.size() != 3) {
                     exitWithHelp(1);
@@ -215,8 +216,13 @@ public class SVGSizingTool {
 
         CommandArgs cmdArgs = new CommandArgs(args);
         try {
+            SVGTransformer svgTransformer = new SVGTransformer();
+            svgTransformer.setSVG11Compat(cmdArgs.svg11Compat);
+            svgTransformer.setPointerShadow(cmdArgs.pointerShadow);
+            svgTransformer.setStrokeWidth(cmdArgs.strokeWidth);
+            SVGSizing.setFileSourceTransformer(() -> svgTransformer);
+
             new SVGSizingTool(cmdArgs.viewBoxSize)
-                    .withPointerShadow(cmdArgs.pointerShadow)
                     .update(cmdArgs.path, cmdArgs.targetSize);
         } catch (IOException | JsonParseException | SAXException e) {
             exitMessage(3, "Error: ", e);
