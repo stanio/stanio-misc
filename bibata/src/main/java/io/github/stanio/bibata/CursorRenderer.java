@@ -9,15 +9,11 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.w3c.dom.Document;
 
 import java.awt.Point;
-import java.awt.image.BufferedImage;
 
 import io.github.stanio.bibata.BitmapsRenderer.OutputType;
 import io.github.stanio.bibata.CursorNames.Animation;
@@ -276,66 +272,3 @@ final class CursorRenderer {
     }
 
 } // class CursorRenderer
-
-
-/**
- * Defines abstract base for rendering back-ends of {@code CursorRenderer}.
- */
-abstract class RendererBackend {
-
-    private static final Map<String, Supplier<RendererBackend>>
-            BACKENDS = Map.of("batik", BatikRendererBackend::new,
-                              "jsvg", JSVGRendererBackend::new);
-
-    Integer frameNum = CursorRenderer.staticFrame;
-
-    public static RendererBackend newInstance() {
-        String key = System.getProperty("bibata.renderer", "").strip();
-        Supplier<RendererBackend> ctor = BACKENDS.get(key);
-        if (ctor != null) {
-            return ctor.get();
-        } else if (!key.isEmpty()) {
-            System.err.append("Unknown bibata.renderer=").println(key);
-        }
-        return new JSVGRendererBackend();
-        //return new BatikRendererBackend();
-    }
-
-    public boolean needSVG11Compat() {
-        return false;
-    }
-
-    public abstract void setDocument(Document svg);
-
-    public abstract <T> T fromDocument(Function<Document, T> task);
-
-    public void resetView() {
-        // no op
-    }
-
-    public abstract void writeStatic(Path targetFile)
-            throws IOException;
-
-    public abstract BufferedImage renderStatic();
-
-    public void writeAnimation(Animation animation, Path targetBase, String nameFormat)
-            throws IOException {
-        implWarn("doesn't handle SVG animations");
-        writeStatic(targetBase.resolve(String.format(Locale.ROOT, nameFormat, frameNum)));
-    }
-
-    @FunctionalInterface
-    public static interface AnimationFrameCallback {
-        void accept(int frameNo, BufferedImage image);
-    }
-
-    public void renderAnimation(Animation animation, AnimationFrameCallback callback) {
-        implWarn("doesn't handle SVG animations");
-        callback.accept(frameNum, renderStatic());
-    }
-
-    private void implWarn(String msg) {
-        System.err.append(getClass().getName()).append(' ').println(msg);
-    }
-
-} // class BitmapsRendererBackend

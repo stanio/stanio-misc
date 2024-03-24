@@ -4,6 +4,8 @@
  */
 package io.github.stanio.bibata;
 
+import static io.github.stanio.batik.DynamicImageTranscoder.fileOutput;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,9 +13,13 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import javax.xml.XMLConstants;
 import javax.xml.stream.XMLEventReader;
@@ -39,19 +45,204 @@ import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
+import org.apache.batik.transcoder.TranscoderException;
+import org.apache.batik.transcoder.TranscoderOutput;
+
 import com.github.weisj.jsvg.SVGDocument;
 import com.github.weisj.jsvg.SVGRenderingHints;
 import com.github.weisj.jsvg.parser.DefaultParserProvider;
 import com.github.weisj.jsvg.parser.NodeSupplier;
 import com.github.weisj.jsvg.parser.StaxSVGLoader;
 import com.github.weisj.jsvg.parser.SynchronousResourceLoader;
-
 import com.jhlabs.image.ShadowFilter;
 
+import io.github.stanio.batik.DynamicImageTranscoder;
+import io.github.stanio.batik.DynamicImageTranscoder.RenderedTranscoderOutput;
+import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.util.XMLEventBufferReader;
 import io.github.stanio.bibata.util.XMLEventBufferWriter;
 import io.github.stanio.bibata.util.XMLInputFactoryAdapter;
+
+/**
+ * Defines abstract base for rendering back-ends of {@code CursorRenderer}.
+ */
+abstract class RendererBackend {
+
+    private static final Map<String, Supplier<RendererBackend>>
+            BACKENDS = Map.of("batik", BatikRendererBackend::new,
+                              "jsvg", JSVGRendererBackend::new);
+
+    Integer frameNum = CursorRenderer.staticFrame;
+
+    public static RendererBackend newInstance() {
+        String key = System.getProperty("bibata.renderer", "").strip();
+        Supplier<RendererBackend> ctor = BACKENDS.get(key);
+        if (ctor != null) {
+            return ctor.get();
+        } else if (!key.isEmpty()) {
+            System.err.append("Unknown bibata.renderer=").println(key);
+        }
+        return new JSVGRendererBackend();
+        //return new BatikRendererBackend();
+    }
+
+    public boolean needSVG11Compat() {
+        return false;
+    }
+
+    public abstract void setDocument(Document svg);
+
+    public abstract <T> T fromDocument(Function<Document, T> task);
+
+    public void resetView() {
+        // no op
+    }
+
+    public abstract void writeStatic(Path targetFile)
+            throws IOException;
+
+    public abstract BufferedImage renderStatic();
+
+    public void writeAnimation(Animation animation, Path targetBase, String nameFormat)
+            throws IOException {
+        implWarn("doesn't handle SVG animations");
+        writeStatic(targetBase.resolve(String.format(Locale.ROOT, nameFormat, frameNum)));
+    }
+
+    @FunctionalInterface
+    public static interface AnimationFrameCallback {
+        void accept(int frameNo, BufferedImage image);
+    }
+
+    public void renderAnimation(Animation animation, AnimationFrameCallback callback) {
+        implWarn("doesn't handle SVG animations");
+        callback.accept(frameNum, renderStatic());
+    }
+
+    private void implWarn(String msg) {
+        System.err.append(getClass().getName()).append(' ').println(msg);
+    }
+
+} // class RendererBackend
+
+
+/**
+ * Implements rendering using the Batik SVG Toolkit.
+ *
+ * @see  <a href="https://xmlgraphics.apache.org/batik/">Apache Batik SVG Toolkit</a>
+ * @see  DynamicImageTranscoder
+ */
+class BatikRendererBackend extends RendererBackend {
+
+    private DynamicImageTranscoder imageTranscoder = new DynamicImageTranscoder();
+
+    @Override
+    public boolean needSVG11Compat() {
+        return true;
+    }
+
+    @Override
+    public void setDocument(Document svgDoc) {
+        try {
+            imageTranscoder.withDocument(svgDoc);
+        } catch (TranscoderException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public <T> T fromDocument(Function<Document, T> task) {
+        return imageTranscoder.fromDocument(svg -> task.apply(svg));
+    }
+
+    @Override
+    public void resetView() {
+        try {
+            imageTranscoder.withImageWidth(-1)
+                           .withImageHeight(-1)
+                           .resetView();
+        } catch (TranscoderException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public BufferedImage renderStatic() {
+        try {
+            RenderedTranscoderOutput output = new RenderedTranscoderOutput();
+            imageTranscoder.transcodeTo(output);
+            return output.getImage();
+        } catch (TranscoderException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public void writeStatic(Path targetFile) throws IOException {
+        try {
+            imageTranscoder.transcodeTo(fileOutput(targetFile));
+        } catch (TranscoderException e) {
+            throw findIOCause(e);
+        }
+    }
+
+    @Override
+    public void renderAnimation(Animation animation, AnimationFrameCallback callback) {
+        try {
+            renderAnimation(animation, frameNo -> new RenderedTranscoderOutput(),
+                    (frameNo, output) -> callback.accept(frameNo, output.getImage()));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public void writeAnimation(Animation animation, Path targetBase, String nameFormat)
+            throws IOException {
+        Function<Integer, TranscoderOutput> fileProvider = frameNo -> {
+            String fileName = String.format(Locale.ROOT, nameFormat, frameNo);
+            return fileOutput(targetBase.resolve(fileName));
+        };
+        renderAnimation(animation, fileProvider,
+                (frameNo, output) -> {/* written to file already */});
+    }
+
+    private <T extends TranscoderOutput>
+    void renderAnimation(Animation animation,
+                         Function<Integer, T> outputInitializer,
+                         BiConsumer<Integer, T> outputConsumer)
+            throws IOException {
+        final float duration = animation.duration;
+        final float frameRate = animation.frameRate;
+        float currentTime = 0f;
+        for (int frameNo = 1;
+                currentTime < duration;
+                currentTime = frameNo++ / frameRate) {
+            float snapshotTime = currentTime;
+
+            T output = outputInitializer.apply(frameNo);
+
+            try {
+                imageTranscoder.transcodeDynamic(output,
+                        ctx -> ctx.getAnimationEngine().setCurrentTime(snapshotTime));
+            } catch (TranscoderException e) {
+                throw findIOCause(e);
+            }
+
+            outputConsumer.accept(frameNo, output);
+        }
+    }
+
+    private static IOException findIOCause(TranscoderException e) {
+        Throwable cause = e.getCause();
+        return (cause instanceof IOException)
+                ? (IOException) cause
+                : new IOException(e);
+    }
+
+} // class BatikRendererBackend
+
 
 /**
  * Implements rendering using the JSVG (Java SVG renderer) library.
