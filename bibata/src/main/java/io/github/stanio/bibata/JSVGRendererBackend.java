@@ -58,33 +58,27 @@ import io.github.stanio.bibata.util.XMLInputFactoryAdapter;
  *
  * @see  <a href="https://github.com/weisJ/jsvg">JSVG - Java SVG renderer</a>
  */
-class JSVGRendererBackend extends BitmapsRendererBackend {
+class JSVGRendererBackend extends RendererBackend {
 
     private final JSVGImageTranscoder imageTranscoder = new JSVGImageTranscoder();
 
     @Override
-    public void setPointerShadow(DropShadow shadow) {
-        super.setPointerShadow(shadow);;
-        imageTranscoder.setDropShadow(shadow);
-    }
-
-    @Override
-    protected void setDocument(Document svg) {
+    public void setDocument(Document svg) {
         imageTranscoder.setDocument(svg);
     }
 
     @Override
-    protected <T> T fromDocument(Function<Document, T> task) {
+    public <T> T fromDocument(Function<Document, T> task) {
         return task.apply(imageTranscoder.document());
     }
 
     @Override
-    protected BufferedImage renderStatic() {
+    public BufferedImage renderStatic() {
         return imageTranscoder.transcode();
     }
 
     @Override
-    protected void writeStatic(Path targetFile) throws IOException {
+    public void writeStatic(Path targetFile) throws IOException {
         imageTranscoder.transcodeTo(targetFile);
     }
 
@@ -100,7 +94,7 @@ class JSVGImageTranscoder {
 
     private Document document;
 
-    private Optional<DropShadow> dropShadow;
+    private Optional<DropShadow> dropShadow = Optional.empty();
     private StaxSVGLoader svgLoader;
     private ImageWriter pngWriter;
 

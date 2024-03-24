@@ -14,7 +14,6 @@ import java.util.function.Function;
 
 import org.w3c.dom.Document;
 
-import java.awt.Point;
 import java.awt.image.BufferedImage;
 
 import org.apache.batik.transcoder.TranscoderException;
@@ -31,16 +30,17 @@ import io.github.stanio.bibata.CursorNames.Animation;
  * @see  <a href="https://xmlgraphics.apache.org/batik/">Apache Batik SVG Toolkit</a>
  * @see  DynamicImageTranscoder
  */
-class BatikRendererBackend extends BitmapsRendererBackend {
+class BatikRendererBackend extends RendererBackend {
 
     private DynamicImageTranscoder imageTranscoder = new DynamicImageTranscoder();
 
-    BatikRendererBackend() {
-        super(true);
+    @Override
+    public boolean needSVG11Compat() {
+        return true;
     }
 
     @Override
-    protected void setDocument(Document svgDoc) {
+    public void setDocument(Document svgDoc) {
         try {
             imageTranscoder.withDocument(svgDoc);
         } catch (TranscoderException e) {
@@ -49,20 +49,12 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected <T> T fromDocument(Function<Document, T> task) {
+    public <T> T fromDocument(Function<Document, T> task) {
         return imageTranscoder.fromDocument(svg -> task.apply(svg));
     }
 
     @Override
-    protected Point applySizing(int targetSize) {
-        try {
-            return super.applySizing(targetSize);
-        } finally {
-            resetView();
-        }
-    }
-
-    private void resetView() {
+    public void resetView() {
         try {
             imageTranscoder.withImageWidth(-1)
                            .withImageHeight(-1)
@@ -73,7 +65,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected BufferedImage renderStatic() {
+    public BufferedImage renderStatic() {
         try {
             RenderedTranscoderOutput output = new RenderedTranscoderOutput();
             imageTranscoder.transcodeTo(output);
@@ -84,7 +76,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void writeStatic(Path targetFile) throws IOException {
+    public void writeStatic(Path targetFile) throws IOException {
         try {
             imageTranscoder.transcodeTo(fileOutput(targetFile));
         } catch (TranscoderException e) {
@@ -93,7 +85,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void renderAnimation(Animation animation, AnimationFrameCallback callback) {
+    public void renderAnimation(Animation animation, AnimationFrameCallback callback) {
         try {
             renderAnimation(animation, frameNo -> new RenderedTranscoderOutput(),
                     (frameNo, output) -> callback.accept(frameNo, output.getImage()));
@@ -103,7 +95,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     }
 
     @Override
-    protected void writeAnimation(Animation animation, Path targetBase, String nameFormat)
+    public void writeAnimation(Animation animation, Path targetBase, String nameFormat)
             throws IOException {
         Function<Integer, TranscoderOutput> fileProvider = frameNo -> {
             String fileName = String.format(Locale.ROOT, nameFormat, frameNo);

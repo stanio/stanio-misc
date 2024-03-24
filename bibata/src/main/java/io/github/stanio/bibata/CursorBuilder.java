@@ -4,7 +4,7 @@
  */
 package io.github.stanio.bibata;
 
-import static io.github.stanio.bibata.BitmapsRendererBackend.staticFrame;
+import static io.github.stanio.bibata.CursorRenderer.staticFrame;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -23,7 +23,7 @@ import io.github.stanio.bibata.CursorNames.Animation;
  * Abstract cursor builder interface for use by the {@code BitmapsRendererBackend}
  * implementation.
  *
- * @see  BitmapsRendererBackend
+ * @see  RendererBackend
  */
 abstract class CursorBuilder {
 

@@ -71,12 +71,12 @@ public class BitmapsRenderer {
     private int[] resolutions = { -1 }; // original/source
     private VariantOptions[] allVariants = { VariantOptions.DEFAULTS };
 
-    private final BitmapsRendererBackend rendererBackend;
+    private final CursorRenderer renderer;
 
     BitmapsRenderer(Path baseDir) {
         this.baseDir = Objects.requireNonNull(baseDir, "null baseDir");
 
-        rendererBackend = BitmapsRendererBackend.newInstance();
+        renderer = new CursorRenderer();
     }
 
     public static BitmapsRenderer forBaseDir(Path baseDir) {
@@ -123,7 +123,7 @@ public class BitmapsRenderer {
     }
 
     public BitmapsRenderer buildCursors(OutputType type) {
-        rendererBackend.setOutputType(type);
+        renderer.setOutputType(type);
         return this;
     }
 
@@ -137,14 +137,14 @@ public class BitmapsRenderer {
 
     public void render(ThemeConfig... config)
             throws IOException {
-        rendererBackend.reset();
+        renderer.reset();
         try {
             for (var entry : groupByDir(config).entrySet()) {
                 renderDir(entry.getKey(), entry.getValue());
             }
         } finally {
-            if (rendererBackend.outputType == OutputType.BITMAPS)
-                rendererBackend.saveHotspots();
+            if (renderer.outputType == OutputType.BITMAPS)
+                renderer.saveHotspots();
         }
     }
 
@@ -164,7 +164,7 @@ public class BitmapsRenderer {
                 renderSVG(svg, config);
             }
         }
-        rendererBackend.saveDeferred();
+        renderer.saveDeferred();
     }
 
     private Stream<Path> listSVGFiles(String dir, Collection<ThemeConfig> configs)
@@ -203,12 +203,12 @@ public class BitmapsRenderer {
         String cursorName = cursorName(svgFile);
         System.out.append(cursorName).append(": ");
 
-        rendererBackend.loadFile(cursorName, svgFile);
+        renderer.loadFile(cursorName, svgFile);
 
         boolean first = true;
         for (VariantOptions variant : allVariants) {
-            rendererBackend.setStrokeWidth(variant.thinStroke);
-            rendererBackend.setPointerShadow(variant.pointerShadow);
+            renderer.setStrokeWidth(variant.thinStroke);
+            renderer.setPointerShadow(variant.pointerShadow);
 
         for (ThemeConfig config : renderConfig) {
             if (exclude(config, cursorName))
@@ -218,7 +218,7 @@ public class BitmapsRenderer {
             else System.out.print(";\n\t");
             System.out.print(variant.tag(config.name()));
 
-            rendererBackend.applyColors(config.colors());
+            renderer.applyColors(config.colors());
             renderSVG(config, cursorName);
         }
 
@@ -244,7 +244,7 @@ public class BitmapsRenderer {
             frameNum = Integer.valueOf(frameNumSuffix.group(1));
         }
 
-        rendererBackend.setAnimation(animation, frameNum);
+        renderer.setAnimation(animation, frameNum);
 
         boolean first = true;
         for (SizeScheme scheme : sizes(config)) {
@@ -260,20 +260,20 @@ public class BitmapsRenderer {
                 variant.add(scheme.toString());
             }
             if (config.out.contains("-Thin")
-                    || rendererBackend.hasThinOutline()) {
+                    || renderer.hasThinOutline()) {
                 variant.add("Thin");
             }
-            if (rendererBackend.hasPointerShadow()) {
+            if (renderer.hasPointerShadow()) {
                 variant.add("Shadow");
             }
 
             Path outDir = config.resolveOutputDir(baseDir, variant);
-            if (rendererBackend.outputType == OutputType.LINUX_CURSORS) {
+            if (renderer.outputType == OutputType.LINUX_CURSORS) {
                 outDir = outDir.resolve("cursors");
             }
-            rendererBackend.setOutDir(outDir);
+            renderer.setOutDir(outDir);
 
-            rendererBackend.setCanvasSize(scheme.canvasSize, scheme.permanent);
+            renderer.setCanvasSize(scheme.canvasSize, scheme.permanent);
 
             for (int res : resolutions(config)) {
                 if (animation != null
@@ -285,10 +285,10 @@ public class BitmapsRenderer {
                 if (res > 0) {
                     System.out.append(' ').print(res);
                 }
-                rendererBackend.renderTargetSize(res);
+                renderer.renderTargetSize(res);
             }
 
-            rendererBackend.saveCurrent();
+            renderer.saveCurrent();
         }
     }
 

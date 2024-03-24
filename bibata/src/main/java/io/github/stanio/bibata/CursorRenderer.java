@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.w3c.dom.Document;
@@ -26,19 +27,14 @@ import io.github.stanio.bibata.svg.SVGSizing;
 import io.github.stanio.bibata.svg.SVGTransformer;
 
 /**
- * Defines abstract base for rendering back-ends of {@code BitmapsRenderer}.
- * Provides DRY implementation currently common to the two back-ends: Batik
- * and JSVG.
+ * Creates cursors from SVG sources.  Implements the actual cursor generation,
+ * independent from the user UI ({@code BitmapsRenderer}, the CLI tool).
  *
  * @see  BitmapsRenderer
  */
-abstract class BitmapsRendererBackend {
-    // REVISIT: Make this independent CursorRenderer having a reference to
-    // minimal-interface RendererBackend instance.
-
-    private static final Map<String, Supplier<BitmapsRendererBackend>>
-            BACKENDS = Map.of("batik", BatikRendererBackend::new,
-                              "jsvg", JSVGRendererBackend::new);
+final class CursorRenderer {
+    // REVISIT: Rename to CursorCompiler, and rename BitmapsRenderer to
+    // CursorGenerator The current CursorCompiler (wincur) is no longer needed.
 
     public static final Integer staticFrame = 0;
 
@@ -49,6 +45,7 @@ abstract class BitmapsRendererBackend {
 
     private final SVGTransformer loadTransformer;
     private final SVGTransformer variantTransformer;
+    private final RendererBackend backend;
     private Document sourceDocument;
 
     private String cursorName;
@@ -72,26 +69,11 @@ abstract class BitmapsRendererBackend {
 
     private boolean outputSet;
 
-    protected BitmapsRendererBackend() {
-        this(false);
-    }
-
-    protected BitmapsRendererBackend(boolean svg11Compat) {
+    CursorRenderer() {
         this.loadTransformer = new SVGTransformer();
         this.variantTransformer = new SVGTransformer();
-        loadTransformer.setSVG11Compat(svg11Compat);
-    }
-
-    public static BitmapsRendererBackend newInstance() {
-        String key = System.getProperty("bibata.renderer", "").strip();
-        Supplier<BitmapsRendererBackend> ctor = BACKENDS.get(key);
-        if (ctor != null) {
-            return ctor.get();
-        } else if (!key.isEmpty()) {
-            System.err.append("Unknown bibata.renderer=").println(key);
-        }
-        return new JSVGRendererBackend();
-        //return new BatikRendererBackend();
+        this.backend = RendererBackend.newInstance();
+        loadTransformer.setSVG11Compat(backend.needSVG11Compat());
     }
 
     public void setOutputType(OutputType type) {
@@ -133,7 +115,7 @@ abstract class BitmapsRendererBackend {
 
     private void resetFile() {
         animation = null;
-        frameNum = staticFrame;
+        frameNum = backend.frameNum = staticFrame;
         currentFrames = null;
         colorTheme = null;
         svgSizing = null;
@@ -142,24 +124,20 @@ abstract class BitmapsRendererBackend {
     }
 
     private void initDocument() {
-        setDocument(variantTransformer
+        backend.setDocument(variantTransformer
                 .transformDocument(sourceDocument));
-        fromDocument(svg -> {
+        backend.fromDocument(svg -> {
             colorTheme = ColorTheme.forDocument(svg);
             svgSizing = SVGSizing.forDocument(svg);
             return null;
         });
     }
 
-    protected abstract void setDocument(Document svg);
-
-    protected abstract <T> T fromDocument(java.util.function.Function<Document, T> task);
-
-    public final void applyColors(Map<String, String> colorMap) {
+    public void applyColors(Map<String, String> colorMap) {
         if (colorTheme == null) {
             initDocument();
         }
-        fromDocument(svg -> {
+        backend.fromDocument(svg -> {
             colorTheme.apply(colorMap);
             return null;
         });
@@ -167,7 +145,7 @@ abstract class BitmapsRendererBackend {
 
     public void setAnimation(Animation animation, Integer frameNum) {
         this.animation = animation;
-        this.frameNum = (frameNum == null) ? staticFrame : frameNum;
+        this.frameNum = backend.frameNum = (frameNum == null) ? staticFrame : frameNum;
         outputSet = false;
     }
 
@@ -224,65 +202,44 @@ abstract class BitmapsRendererBackend {
             // Static cursor or animation frame from static image
             switch (outputType) {
             case BITMAPS:
-                writeStatic(outDir.resolve(cursorName + sizeSuffix + ".png"));
+                backend.writeStatic(outDir.resolve(cursorName + sizeSuffix + ".png"));
                 break;
             default:
-                currentFrames.addFrame(frameNum, renderStatic(), hotspot);
+                currentFrames.addFrame(frameNum, backend.renderStatic(), hotspot);
             }
         } else {
             assert (animation != null);
 
             switch (outputType) {
             case BITMAPS:
-                writeAnimation(animation, outDir, cursorName + "-%0"
+                backend.writeAnimation(animation, outDir, cursorName + "-%0"
                         + animation.numDigits + "d" + sizeSuffix + ".png");
                 break;
             default:
-                renderAnimation(animation, (frameNo, image) -> currentFrames
+                backend.renderAnimation(animation, (frameNo, image) -> currentFrames
                         .addFrame(frameNo, image, hotspot));
             }
         }
     }
 
-    protected Point applySizing(int targetSize) {
+    private Point applySizing(int targetSize) {
         if (svgSizing == null) {
             initDocument();
         }
-        return fromDocument(svg -> {
-            try {
-                // REVISIT: Implement "reset sizing" to remove previous alignments,
-                // and/or provide flag whether to apply alignments.
-                return sizingTool.applySizing(cursorName, svgSizing,
-                        targetSize > 0 ? targetSize : sourceSize);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
-    }
-
-    protected abstract void writeStatic(Path targetFile)
-            throws IOException;
-
-    protected abstract BufferedImage renderStatic();
-
-    protected void writeAnimation(Animation animation, Path targetBase, String nameFormat)
-            throws IOException {
-        implWarn("doesn't handle SVG animations");
-        writeStatic(targetBase.resolve(String.format(Locale.ROOT, nameFormat, frameNum)));
-    }
-
-    @FunctionalInterface
-    protected static interface AnimationFrameCallback {
-        void accept(int frameNo, BufferedImage image);
-    }
-
-    protected void renderAnimation(Animation animation, AnimationFrameCallback callback) {
-        implWarn("doesn't handle SVG animations");
-        callback.accept(frameNum, renderStatic());
-    }
-
-    private void implWarn(String msg) {
-        System.err.append(getClass().getName()).append(' ').println(msg);
+        try {
+            return backend.fromDocument(svg -> {
+                try {
+                    // REVISIT: Implement "reset sizing" to remove previous alignments,
+                    // and/or provide flag whether to apply alignments.
+                    return sizingTool.applySizing(cursorName, svgSizing,
+                            targetSize > 0 ? targetSize : sourceSize);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        } finally {
+            backend.resetView();
+        }
     }
 
     public void saveCurrent() throws IOException {
@@ -314,4 +271,67 @@ abstract class BitmapsRendererBackend {
         deferredFrames.clear();
     }
 
-}
+} // class CursorRenderer
+
+
+/**
+ * Defines abstract base for rendering back-ends of {@code CursorRenderer}.
+ */
+abstract class RendererBackend {
+
+    private static final Map<String, Supplier<RendererBackend>>
+            BACKENDS = Map.of("batik", BatikRendererBackend::new,
+                              "jsvg", JSVGRendererBackend::new);
+
+    Integer frameNum = CursorRenderer.staticFrame;
+
+    public static RendererBackend newInstance() {
+        String key = System.getProperty("bibata.renderer", "").strip();
+        Supplier<RendererBackend> ctor = BACKENDS.get(key);
+        if (ctor != null) {
+            return ctor.get();
+        } else if (!key.isEmpty()) {
+            System.err.append("Unknown bibata.renderer=").println(key);
+        }
+        return new JSVGRendererBackend();
+        //return new BatikRendererBackend();
+    }
+
+    public boolean needSVG11Compat() {
+        return false;
+    }
+
+    public abstract void setDocument(Document svg);
+
+    public abstract <T> T fromDocument(Function<Document, T> task);
+
+    public void resetView() {
+        // no op
+    }
+
+    public abstract void writeStatic(Path targetFile)
+            throws IOException;
+
+    public abstract BufferedImage renderStatic();
+
+    public void writeAnimation(Animation animation, Path targetBase, String nameFormat)
+            throws IOException {
+        implWarn("doesn't handle SVG animations");
+        writeStatic(targetBase.resolve(String.format(Locale.ROOT, nameFormat, frameNum)));
+    }
+
+    @FunctionalInterface
+    public static interface AnimationFrameCallback {
+        void accept(int frameNo, BufferedImage image);
+    }
+
+    public void renderAnimation(Animation animation, AnimationFrameCallback callback) {
+        implWarn("doesn't handle SVG animations");
+        callback.accept(frameNum, renderStatic());
+    }
+
+    private void implWarn(String msg) {
+        System.err.append(getClass().getName()).append(' ').println(msg);
+    }
+
+} // class BitmapsRendererBackend
