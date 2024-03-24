@@ -319,8 +319,8 @@ public class BitmapsRenderer {
             BitmapsRenderer.forBaseDir(configFile.getParent())
                     .withSizes(cmdArgs.sizes)
                     .withResolutions(cmdArgs.resolutions)
-                    .withVariants(VariantOptions.combinations(cmdArgs
-                            .singleVariant, cmdArgs.strokeWidth, cmdArgs.pointerShadow))
+                    .withVariants(VariantOptions.combinations(!cmdArgs
+                            .allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow))
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
@@ -428,7 +428,7 @@ public class BitmapsRenderer {
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
         Double strokeWidth;
-        boolean singleVariant;
+        boolean allVariants;
 
         CommandArgs(String... args) {
             Runnable standardSizes = () -> {
@@ -451,7 +451,7 @@ public class BitmapsRenderer {
                     .acceptFlag("--standard-sizes", standardSizes)
                     .acceptOptionalArg("--pointer-shadow", val -> pointerShadow = DropShadow.decode(val))
                     .acceptOptionalArg("--thin-stroke", val -> strokeWidth = val.isEmpty() ? 12 : Double.parseDouble(val))
-                    .acceptFlag("--single-variant", () -> singleVariant = true)
+                    .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
