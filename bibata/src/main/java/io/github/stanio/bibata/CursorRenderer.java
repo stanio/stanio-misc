@@ -165,7 +165,8 @@ final class CursorRenderer {
         if (outputSet) return;
 
         if (animation == null) {
-            currentFrames = newCursorBuilder();
+            if (outputType != OutputType.BITMAPS)
+                currentFrames = newCursorBuilder();
         } else {
             Path animDir = outDir.resolve(animation.lowerName);
             switch (outputType) {
@@ -243,6 +244,9 @@ final class CursorRenderer {
     }
 
     public void saveCurrent() throws IOException {
+        if (outputType == OutputType.BITMAPS)
+            return;
+
         // Static cursor or complete animation
         if (frameNum == staticFrame) {
             currentFrames.writeTo(outDir.resolve(cursorName));
