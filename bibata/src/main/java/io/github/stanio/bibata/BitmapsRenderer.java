@@ -73,6 +73,8 @@ public class BitmapsRenderer {
 
     private final CursorRenderer renderer;
 
+    private final ProgressOutput progress = new ProgressOutput();
+
     BitmapsRenderer(Path baseDir) {
         this.baseDir = Objects.requireNonNull(baseDir, "null baseDir");
 
@@ -143,6 +145,8 @@ public class BitmapsRenderer {
                 renderDir(entry.getKey(), entry.getValue());
             }
         } finally {
+            progress.pop();
+
             if (renderer.outputType == OutputType.BITMAPS)
                 renderer.saveHotspots();
         }
@@ -201,11 +205,10 @@ public class BitmapsRenderer {
     private void renderSVG(Path svgFile, Collection<ThemeConfig> renderConfig)
             throws IOException {
         String cursorName = cursorName(svgFile);
-        System.out.append(cursorName).append(": ");
+        progress.push(cursorName);
 
         renderer.loadFile(cursorName, svgFile);
 
-        boolean first = true;
         for (VariantOptions variant : allVariants) {
             renderer.setStrokeWidth(variant.thinStroke);
             renderer.setPointerShadow(variant.pointerShadow);
@@ -214,16 +217,16 @@ public class BitmapsRenderer {
             if (exclude(config, cursorName))
                 continue;
 
-            if (first) first = false;
-            else System.out.print(";\n\t");
-            System.out.print(variant.tag(config.name()));
+            progress.push(variant.tag(config.name()));
 
             renderer.applyColors(config.colors());
             renderSVG(config, cursorName);
+
+            progress.pop();
         }
 
         }
-        System.out.println('.');
+        progress.pop();
     }
 
     private boolean exclude(ThemeConfig config, String cursorName) {
@@ -246,14 +249,8 @@ public class BitmapsRenderer {
 
         renderer.setAnimation(animation, frameNum);
 
-        boolean first = true;
         for (SizeScheme scheme : sizes(config)) {
-            if (first) first = false;
-            else System.out.append(",");
-
-            if (scheme.name != null) {
-                System.out.print(" (" + scheme.name + ")");
-            }
+            progress.push(scheme.name == null ? "" : "(" + scheme.name + ")");
 
             List<String> variant = new ArrayList<>();
             if (scheme.permanent) {
@@ -283,12 +280,14 @@ public class BitmapsRenderer {
                     continue;
 
                 if (res > 0) {
-                    System.out.append(' ').print(res);
+                    progress.next(res);
                 }
                 renderer.renderTargetSize(res);
             }
 
             renderer.saveCurrent();
+
+            progress.pop();
         }
     }
 
