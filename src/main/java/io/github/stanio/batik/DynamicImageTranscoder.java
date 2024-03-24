@@ -261,7 +261,9 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
 
     public DynamicImageTranscoder withDocument(Document document)
             throws TranscoderException {
-        return loadDocument(new TranscoderInput(document));
+        TranscoderInput input = new TranscoderInput(document);
+        input.setURI(document.getDocumentURI());
+        return loadDocument(input);
     }
 
     public DynamicImageTranscoder

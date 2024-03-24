@@ -215,7 +215,7 @@ public class SVGTransformer {
         //transform(metadataSource, result);
         transform(new StreamSource(file.toFile()), result);
         Document document = (Document) Objects.requireNonNull(result.getNode());
-        //document.setDocumentURI(file.toUri().toString());
+        document.setDocumentURI(file.toUri().toString());
         //document.setUserData(SVGCursorMetadata.USER_DATA,
         //        SVGCursorMetadata.fromSource(metadataSource), null);
         return document;
@@ -225,7 +225,9 @@ public class SVGTransformer {
         try {
             DOMResult result = new DOMResult();
             transform(new DOMSource(svgDoc), result);
-            return (Document) Objects.requireNonNull(result.getNode());
+            Document document = (Document) Objects.requireNonNull(result.getNode());
+            document.setDocumentURI(svgDoc.getDocumentURI());
+            return document;
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
