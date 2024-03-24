@@ -36,7 +36,7 @@ class BatikRendererBackend extends BitmapsRendererBackend {
     private DynamicImageTranscoder imageTranscoder = new DynamicImageTranscoder();
 
     BatikRendererBackend() {
-        svgTransformer.setSVG11Compat(true);
+        super(true);
     }
 
     @Override

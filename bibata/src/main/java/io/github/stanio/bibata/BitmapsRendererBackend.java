@@ -47,7 +47,8 @@ abstract class BitmapsRendererBackend {
 
     protected OutputType outputType;
 
-    protected final SVGTransformer svgTransformer;
+    private final SVGTransformer loadTransformer;
+    private final SVGTransformer variantTransformer;
     private Document sourceDocument;
 
     private String cursorName;
@@ -72,11 +73,13 @@ abstract class BitmapsRendererBackend {
     private boolean outputSet;
 
     protected BitmapsRendererBackend() {
-        this(new SVGTransformer());
+        this(false);
     }
 
-    protected BitmapsRendererBackend(SVGTransformer svgTransformer) {
-        this.svgTransformer = svgTransformer;
+    protected BitmapsRendererBackend(boolean svg11Compat) {
+        this.loadTransformer = new SVGTransformer();
+        this.variantTransformer = new SVGTransformer();
+        loadTransformer.setSVG11Compat(svg11Compat);
     }
 
     public static BitmapsRendererBackend newInstance() {
@@ -96,16 +99,16 @@ abstract class BitmapsRendererBackend {
     }
 
     public void setPointerShadow(DropShadow shadow) {
-        svgTransformer.setPointerShadow(shadow);
+        variantTransformer.setPointerShadow(shadow);
         resetFile();
     }
 
     public boolean hasPointerShadow() {
-        return svgTransformer.dropShadow().isPresent();
+        return variantTransformer.dropShadow().isPresent();
     }
 
     public void setStrokeWidth(Double width) {
-        svgTransformer.setStrokeWidth(width);
+        variantTransformer.setStrokeWidth(width);
         resetFile();
 
         final double baseWidth = 16;
@@ -125,7 +128,7 @@ abstract class BitmapsRendererBackend {
         // - variantTransformer, for transforming with "thin-stroke", "drop-shadow"
         // The former could be supplied by the subclasses (at least they need to
         // specify "svg11-compat" usage.
-        sourceDocument = svgTransformer.loadDocument(svgFile);
+        sourceDocument = loadTransformer.loadDocument(svgFile);
     }
 
     private void resetFile() {
@@ -139,8 +142,8 @@ abstract class BitmapsRendererBackend {
     }
 
     private void initDocument() {
-        setDocument(svgTransformer
-                .updateDocument(sourceDocument));
+        setDocument(variantTransformer
+                .transformDocument(sourceDocument));
         fromDocument(svg -> {
             colorTheme = ColorTheme.forDocument(svg);
             svgSizing = SVGSizing.forDocument(svg);

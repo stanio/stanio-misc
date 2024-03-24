@@ -28,8 +28,6 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
 import javax.xml.transform.stream.StreamSource;
 
-import org.xml.sax.XMLReader;
-
 import org.w3c.dom.Document;
 
 import io.github.stanio.bibata.util.SAXReplayBuffer;
@@ -62,8 +60,8 @@ import io.github.stanio.bibata.util.SAXReplayBuffer;
  */
 public class SVGTransformer {
 
-    private static final int FLAG_LOAD = 1;
-    private static final int FLAG_UPDATE = 2;
+    private static final ThreadLocal<Transformer> identityTransformer = ThreadLocal
+            .withInitial(() -> newTransformer(Optional.empty()));
 
     private Optional<DropShadow> dropShadow = Optional.empty();
     private boolean svg11Compat;
@@ -97,9 +95,8 @@ public class SVGTransformer {
         }
     }
 
-    XMLReader getReader(Path file) {
-        // REVISIT: Figure out how to set up Stream -> XLMFilter transformation.
-        throw new IllegalStateException("Not implemented");
+    static Transformer identityTransformer() {
+        return identityTransformer.get();
     }
 
     Transformer dropShadowTransformer() {
@@ -137,30 +134,25 @@ public class SVGTransformer {
                 newTransformer(svg11CompatXslt()));
     }
 
-    private Iterator<Transformer> transformPipeline(int flags) {
+    private Iterator<Transformer> transformPipeline() {
         Collection<Transformer> pipeline = new ArrayList<>();
-        if ((flags & FLAG_UPDATE) != 0 && strokeWidth.isPresent()) {
+        if (strokeWidth.isPresent()) {
             pipeline.add(thinStrokeTransformer());
         }
-        if ((flags & FLAG_UPDATE) != 0
-                && dropShadow.map(DropShadow::isSVG).orElse(false)) {
+        if (dropShadow.map(DropShadow::isSVG).orElse(false)) {
             pipeline.add(dropShadowTransformer());
         }
-        if ((flags & FLAG_LOAD) != 0 &&  svg11Compat) {
+        if (svg11Compat) {
             pipeline.add(svg11Transformer());
         }
         if (pipeline.isEmpty()) {
-            pipeline.add(SVGCursorMetadata.identityTransformer.get());
+            pipeline.add(identityTransformer());
         }
         return pipeline.iterator();
     }
 
     void transform(final Source source, final Result target) throws IOException {
-        transform(FLAG_LOAD | FLAG_UPDATE, source, target);
-    }
-
-    private void transform(int flags, final Source source, final Result target) throws IOException {
-        Iterator<Transformer> pipeline = transformPipeline(flags);
+        Iterator<Transformer> pipeline = transformPipeline();
         try {
             Source current = source;
             do {
@@ -171,9 +163,7 @@ public class SVGTransformer {
                     // DOM doesn't preserve original attribute order, but if the
                     // initial source is already DOM - use DOM as intermediate
                     // result for possible(?) best performance.
-                    result = (source instanceof DOMSource)
-                             ? new DOMResult()
-                             : SAXReplayBuffer.newResult();
+                    result = SAXReplayBuffer.newResult();
                 } else {
                     result = target;
                 }
@@ -181,9 +171,7 @@ public class SVGTransformer {
                 transformation.transform(current, result);
 
                 if (pipeline.hasNext()) {
-                    current = (source instanceof DOMSource)
-                              ? new DOMSource(((DOMResult) result).getNode())
-                              : SAXReplayBuffer.sourceFrom((SAXResult) result);
+                    current = SAXReplayBuffer.sourceFrom((SAXResult) result);
                 } else {
                     current = null;
                 }
@@ -224,8 +212,8 @@ public class SVGTransformer {
     public Document loadDocument(Path file) throws IOException {
         DOMResult result = new DOMResult();
         //SAXSource metadataSource = SVGCursorMetadata.loadingSource(file);
-        //transform(FLAG_LOAD, metadataSource, result);
-        transform(FLAG_LOAD, new StreamSource(file.toFile()), result);
+        //transform(metadataSource, result);
+        transform(new StreamSource(file.toFile()), result);
         Document document = (Document) Objects.requireNonNull(result.getNode());
         //document.setDocumentURI(file.toUri().toString());
         //document.setUserData(SVGCursorMetadata.USER_DATA,
@@ -233,10 +221,10 @@ public class SVGTransformer {
         return document;
     }
 
-    public Document updateDocument(Document svgDoc) {
+    public Document transformDocument(Document svgDoc) {
         try {
             DOMResult result = new DOMResult();
-            transform(FLAG_UPDATE, new DOMSource(svgDoc), result);
+            transform(new DOMSource(svgDoc), result);
             return (Document) Objects.requireNonNull(result.getNode());
         } catch (IOException e) {
             throw new IllegalStateException(e);

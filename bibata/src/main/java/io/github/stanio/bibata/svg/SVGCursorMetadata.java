@@ -4,19 +4,17 @@
  */
 package io.github.stanio.bibata.svg;
 
-import static io.github.stanio.bibata.svg.SVGTransformer.newTransformer;
+import static io.github.stanio.bibata.svg.SVGTransformer.identityTransformer;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.xml.transform.Source;
-import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
@@ -60,9 +58,6 @@ public class SVGCursorMetadata {
      */
     public static final String USER_DATA = "tag:stanio.github.io,2024-03:SVGCursorMetadata";
 
-    static final ThreadLocal<Transformer>
-            identityTransformer = ThreadLocal.withInitial(() -> newTransformer(Optional.empty()));
-
     final Rectangle2D sourceViewBox;
     final AnchorPoint hotspot;
     final AnchorPoint rootAnchor;
@@ -95,8 +90,7 @@ public class SVGCursorMetadata {
     public static SVGCursorMetadata read(Source source) {
         ParseHandler handler = new ParseHandler();
         try {
-            identityTransformer.get().transform(source,
-                                                new SAXResult(handler));
+            identityTransformer().transform(source, new SAXResult(handler));
         } catch (TransformerException e) {
             throw new IllegalStateException(e);
         }
