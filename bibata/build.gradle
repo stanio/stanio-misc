@@ -6,8 +6,9 @@ plugins {
 
 application {
     mainClass = 'io.github.stanio.bibata.Command'
-    applicationDefaultJvmArgs = bibataJvmArgs ? bibataJvmArgs.split(' ') as List
-                                              : []
+    def argStr = bibataJvmArgs.trim()
+    applicationDefaultJvmArgs = argStr ? argStr.split(' ') as List
+                                       : []
 }
 
 java {
