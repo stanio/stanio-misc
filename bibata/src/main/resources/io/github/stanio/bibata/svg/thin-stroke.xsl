@@ -7,7 +7,8 @@
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
-    xmlns="http://www.w3.org/2000/svg">
+    xmlns="http://www.w3.org/2000/svg"
+    exclude-result-prefixes="svg">
 
   <xsl:param name="new-width" select="12" />
   <xsl:param name="base-width" select="16" />

@@ -8,7 +8,7 @@
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
     xmlns:xlink="http://www.w3.org/1999/xlink"
-    exclude-result-prefixes="xsl svg"
+    exclude-result-prefixes="svg"
     xmlns="http://www.w3.org/2000/svg">
 
   <xsl:template match="/svg:svg">
@@ -43,20 +43,24 @@
 
   <xsl:template name="stroke-under-fill">
     <xsl:param name="id" />
-    <use href="#{$id}" xlink:href="#{$id}">
-      <xsl:copy-of select="@*[starts-with(name(), 'stroke')]" />
-      <xsl:attribute name="originalPaintOrder">
-        <xsl:value-of select="@paint-order" />
-      </xsl:attribute>
-    </use>
-    <xsl:text>&#xA;</xsl:text>
-    <xsl:copy>
-      <xsl:attribute name="id">
-        <xsl:value-of select="$id" />
-      </xsl:attribute>
-      <xsl:apply-templates select="node()|@*[not(starts-with(name(), 'stroke')
-                                             or name() = 'paint-order')]" />
-    </xsl:copy>
+    <g originalPaintOrder="{@paint-order}">
+      <xsl:apply-templates select="@*[name() = 'mask' or name() = 'clip-path']" />
+      <xsl:text>&#xA;</xsl:text>
+      <use href="#{$id}" xlink:href="#{$id}">
+        <xsl:copy-of select="@*[starts-with(name(), 'stroke')]" />
+      </use>
+      <xsl:text>&#xA;</xsl:text>
+      <xsl:copy>
+        <xsl:attribute name="id">
+          <xsl:value-of select="$id" />
+        </xsl:attribute>
+        <xsl:apply-templates select="node()|@*[not(starts-with(name(), 'stroke')
+                                                   or name() = 'paint-order'
+                                                   or name() = 'mask'
+                                                   or name() = 'clip-path')]" />
+      </xsl:copy>
+      <xsl:text>&#xA;</xsl:text>
+    </g>
   </xsl:template>
 
   <xsl:template match="svg:clipPath">

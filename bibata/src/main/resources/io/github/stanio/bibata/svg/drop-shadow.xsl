@@ -8,7 +8,8 @@
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
     xmlns:xlink="http://www.w3.org/1999/xlink"
-    xmlns="http://www.w3.org/2000/svg">
+    xmlns="http://www.w3.org/2000/svg"
+    exclude-result-prefixes="svg">
 
   <xsl:param name="shadow-blur" select="3" />
   <xsl:param name="shadow-dx" select="12" />
