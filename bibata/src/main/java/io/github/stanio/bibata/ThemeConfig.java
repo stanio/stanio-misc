@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,6 +17,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -180,7 +180,7 @@ public class ThemeConfig {
 
         private ColorTheme(Document document) {
             this.document = Objects.requireNonNull(document, "null document");
-            this.index = new HashMap<>();
+            this.index = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         }
 
         public static ColorTheme forDocument(Document document) {
@@ -188,7 +188,7 @@ public class ThemeConfig {
         }
 
         private void updateIndex(Collection<String> colors) {
-            colors.forEach(it -> index.putIfAbsent(it, Collections.emptyList()));
+            //colors.forEach(it -> index.putIfAbsent(it, Collections.emptyList()));
             for (Element elem : DocumentElements.of(document)) {
                 NamedNodeMap attrs = elem.getAttributes();
                 for (int i = 0, len = attrs.getLength(); i < len; i++) {
@@ -205,15 +205,15 @@ public class ThemeConfig {
         public void apply(Map<String, String> colorMap) {
             reset();
 
-            Set<String> newColors = colorMap.keySet();
-            if (!index.isEmpty()) {
-                newColors = new HashSet<>(newColors);
+            Map<String, String> colorsIgnoreCase = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+            colorsIgnoreCase.putAll(colorMap);
+            if (!index.keySet().containsAll(colorsIgnoreCase.keySet())) {
+                Set<String> newColors = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+                newColors.addAll(colorsIgnoreCase.keySet());
                 newColors.removeAll(index.keySet());
-            }
-            if (!newColors.isEmpty()) {
                 updateIndex(newColors);
             }
-            apply(colorMap::get);
+            apply(colorsIgnoreCase::get);
         }
 
         private void reset() {
