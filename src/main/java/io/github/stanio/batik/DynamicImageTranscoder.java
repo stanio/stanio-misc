@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2023 by Stanio <stanio AT yahoo DOT com>
- * Released under BSD Zero Clause License: https://spdx.org/licenses/0BSD
+ * SPDX-FileCopyrightText: 2023 Stanio <stanio AT yahoo DOT com>
+ * SPDX-License-Identifier: 0BSD
  */
 package io.github.stanio.batik;
 
