@@ -101,11 +101,6 @@ final class CursorRenderer {
     public void loadFile(String cursorName, Path svgFile) throws IOException {
         resetFile();
         this.cursorName = cursorName;
-        // REVISIT: Use two SVGTransformer instances (independent configurations):
-        // - loadingTransformer, for initial loading
-        // - variantTransformer, for transforming with "thin-stroke", "drop-shadow"
-        // The former could be supplied by the subclasses (at least they need to
-        // specify "svg11-compat" usage.
         sourceDocument = loadTransformer.loadDocument(svgFile);
     }
 
