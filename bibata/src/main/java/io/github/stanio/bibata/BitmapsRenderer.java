@@ -468,7 +468,7 @@ public class BitmapsRenderer {
                     + " [-t <theme>]... [-f <cursor>]...");
             out.println();
             out.println("<base-path> could be the Bibata_Cursor directory, or"
-                    + " the \"render.json\" inside it, possibly with a differnt name.");
+                    + " the \"render.json\" inside it, possibly with a different name.");
         }
 
     } // class CommandArgs

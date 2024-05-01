@@ -81,7 +81,7 @@ import org.apache.batik.transcoder.image.ImageTranscoder;
  *         transcoder.loadDocument(input)
  *                   .transcodeTo(output);
  *
- *         // Equivlent to standard:
+ *         // Equivalent to standard:
  *
  *         transcoder.transcode(input, output);</code></pre>
  * <p>
