@@ -17,7 +17,6 @@ import java.awt.Point;
 
 import io.github.stanio.bibata.BitmapsRenderer.OutputType;
 import io.github.stanio.bibata.CursorNames.Animation;
-import io.github.stanio.bibata.ThemeConfig.ColorTheme;
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGSizing;
 import io.github.stanio.bibata.svg.SVGTransformer;
@@ -50,7 +49,7 @@ final class CursorRenderer {
 
     private Path outDir;
 
-    private volatile ColorTheme colorTheme;
+    private volatile DocumentColors colorTheme;
     private volatile SVGSizing svgSizing;
     private volatile SVGSizingTool sizingTool;
     private double anchorOffset;
@@ -118,7 +117,7 @@ final class CursorRenderer {
         backend.setDocument(variantTransformer
                 .transformDocument(sourceDocument));
         backend.fromDocument(svg -> {
-            colorTheme = ColorTheme.forDocument(svg);
+            colorTheme = DocumentColors.forDocument(svg);
             svgSizing = SVGSizing.forDocument(svg);
             return null;
         });
