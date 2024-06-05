@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import org.w3c.dom.Document;
 
@@ -91,6 +92,10 @@ final class CursorRenderer {
     }
 
     public void setPointerShadow(DropShadow shadow) {
+        if (Objects.equals(shadow,
+                variantTransformer.dropShadow().orElse(null)))
+            return;
+
         variantTransformer.setPointerShadow(shadow);
         resetFile();
     }
@@ -100,6 +105,10 @@ final class CursorRenderer {
     }
 
     public void setStrokeWidth(Double width) {
+        if (Objects.equals(width,
+                variantTransformer.strokeWidth().orElse(null)))
+            return;
+
         variantTransformer.setStrokeWidth(width);
         resetFile();
 

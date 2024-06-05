@@ -17,7 +17,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -26,7 +25,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,6 +39,7 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.options.SizeScheme;
 import io.github.stanio.bibata.options.ThemeConfig;
+import io.github.stanio.bibata.options.VariantOptions;
 import io.github.stanio.bibata.svg.DropShadow;
 
 /**
@@ -64,7 +63,6 @@ public class BitmapsRenderer {
     private Set<String> cursorFilter = Set.of(); // include all
     private Collection<SizeScheme> sizes = List.of(SizeScheme.SOURCE);
     private int[] resolutions = { -1 }; // original/source
-    private VariantOptions[] allVariants = { VariantOptions.DEFAULTS };
 
     private final CursorRenderer renderer;
 
@@ -102,11 +100,6 @@ public class BitmapsRenderer {
             this.resolutions = resolutions.stream()
                     .mapToInt(Number::intValue).toArray();
         }
-        return this;
-    }
-
-    public BitmapsRenderer withVariants(Collection<VariantOptions> variants) {
-        this.allVariants = variants.toArray(VariantOptions[]::new);
         return this;
     }
 
@@ -204,22 +197,18 @@ public class BitmapsRenderer {
 
         renderer.loadFile(cursorName, svgFile);
 
-        for (VariantOptions variant : allVariants) {
-            renderer.setStrokeWidth(variant.thinStroke);
-            renderer.setPointerShadow(variant.pointerShadow);
-
         for (ThemeConfig config : renderConfig) {
             if (exclude(config, cursorName))
                 continue;
 
-            progress.push(variant.tag(config.name()));
+            progress.push(config.name());
 
+            renderer.setStrokeWidth(config.strokeWidth());
+            renderer.setPointerShadow(config.pointerShadow());
             renderer.applyColors(config.colors());
             renderSVG(config, cursorName);
 
             progress.pop();
-        }
-
         }
         progress.pop();
     }
@@ -310,12 +299,13 @@ public class BitmapsRenderer {
             return;
         }
 
+        renderConfig = VariantOptions.apply(renderConfig,
+                cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
+
         try {
             BitmapsRenderer.forBaseDir(configFile.getParent())
                     .withSizes(cmdArgs.sizes)
                     .withResolutions(cmdArgs.resolutions)
-                    .withVariants(VariantOptions.combinations(!cmdArgs
-                            .allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow))
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
@@ -339,57 +329,6 @@ public class BitmapsRenderer {
                     .filter(path -> Files.isRegularFile(path)
                                     && endsWithIgnoreCase(path, ".svg"));
     }
-
-
-    static class VariantOptions {
-
-        static final VariantOptions DEFAULTS = new VariantOptions(null, null);
-
-        final Double thinStroke;
-        final DropShadow pointerShadow;
-
-        VariantOptions(Double thinStroke, DropShadow pointerShadow) {
-            this.thinStroke = thinStroke;
-            this.pointerShadow = pointerShadow;
-        }
-
-        static Collection<VariantOptions> combinations(boolean single,
-                Double thinStroke, DropShadow pointerShadow) {
-            if (single) {
-                return Collections.singletonList(
-                        new VariantOptions(thinStroke, pointerShadow));
-            }
-
-            // Simple solution for simple needs
-            List<VariantOptions> combinations = new ArrayList<>();
-            combinations.add(DEFAULTS);
-            if (thinStroke != null) {
-                combinations.add(new VariantOptions(thinStroke, null));
-            }
-            if (pointerShadow != null) {
-                combinations.add(new VariantOptions(null, pointerShadow));
-                if (thinStroke != null) {
-                    combinations.add(new VariantOptions(thinStroke, pointerShadow));
-                }
-            }
-            return combinations;
-        }
-
-        String tag(String name) {
-            StringJoiner tags = new StringJoiner("-");
-            tags.add(name);
-            if (thinStroke != null) tags.add("Thin");
-            if (pointerShadow != null) tags.add("Shadow");
-            return tags.toString();
-        }
-
-        @Override
-        public String toString() {
-            return "VariantOptions(thinStroke(" + thinStroke
-                    + "), " + pointerShadow + ")";
-        }
-
-    } // class VariantOptions
 
 
     private static class CommandArgs {

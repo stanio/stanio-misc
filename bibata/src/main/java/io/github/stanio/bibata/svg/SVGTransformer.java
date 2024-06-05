@@ -86,6 +86,10 @@ public class SVGTransformer {
         }
     }
 
+    public Optional<Number> strokeWidth() {
+        return strokeWidth;
+    }
+
     public void setStrokeWidth(Double width) {
         strokeWidth = Optional.ofNullable(width);
         Transformer tr;

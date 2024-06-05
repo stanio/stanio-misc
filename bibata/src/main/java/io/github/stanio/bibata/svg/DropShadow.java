@@ -4,6 +4,8 @@
  */
 package io.github.stanio.bibata.svg;
 
+import static java.lang.Float.floatToIntBits;
+
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -11,6 +13,7 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Function;
 
 public class DropShadow {
@@ -106,6 +109,31 @@ public class DropShadow {
             // fall back to file system
         }
         return Path.of(location).toUri().toString();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(blur, dx, dy, opacity, color, svg);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        DropShadow other = (DropShadow) obj;
+        return floatToIntBits(blur) == floatToIntBits(other.blur)
+                && floatToIntBits(dx) == floatToIntBits(other.dx)
+                && floatToIntBits(dy) == floatToIntBits(other.dy)
+                && floatToIntBits(opacity) == floatToIntBits(other.opacity)
+                && color == other.color
+                && svg == other.svg;
     }
 
     @Override

@@ -18,16 +18,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.StringJoiner;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 
+import io.github.stanio.bibata.svg.DropShadow;
+
 /**
  * An entry value in {@code render.json}.
  */
-public class ThemeConfig {
+public class ThemeConfig implements Cloneable {
 
     String name;
     private String dir;
@@ -37,6 +41,9 @@ public class ThemeConfig {
     LinkedHashSet<SizeScheme> sizes;
     int[] resolutions;
     private List<Map<String, String>> colors;
+
+    private transient Double strokeWidth;
+    private transient DropShadow pointerShadow;
 
     public static ThemeConfig of(String dir, String out) {
         ThemeConfig config = new ThemeConfig();
@@ -103,18 +110,58 @@ public class ThemeConfig {
         return resolutions; // XXX: Need to preserve null for the time being
     }
 
+    public Double strokeWidth() {
+        return strokeWidth;
+    }
+
+    public DropShadow pointerShadow() {
+        return pointerShadow;
+    }
+
+    ThemeConfig withOptions(Double strokeWidth,
+                            DropShadow pointerShadow) {
+        if (strokeWidth == null && pointerShadow == null)
+            return this;
+
+        ThemeConfig copy = clone();
+        copy.strokeWidth = strokeWidth;
+        copy.pointerShadow = pointerShadow;
+        copy.tagName();
+        return copy;
+    }
+
+    private void tagName() {
+        StringJoiner tags = new StringJoiner("-");
+        tags.add(name);
+        if (strokeWidth != null) tags.add("Thin");
+        if (pointerShadow != null) tags.add("Shadow");
+        name = tags.toString();
+    }
+
+    @Override
+    public ThemeConfig clone() {
+        try {
+            return (ThemeConfig) super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     public static ThemeConfig[] load(Path configFile,
                                      Collection<String> themesFilter)
             throws IOException, JsonParseException
     {
+        Set<String> ciFilter = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        ciFilter.addAll(themesFilter);
+
         try (InputStream fin = Files.newInputStream(configFile);
                 Reader reader = new InputStreamReader(fin, StandardCharsets.UTF_8)) {
             Map<String, ThemeConfig> configMap =
                     new Gson().fromJson(reader, new TypeToken<>() {/* inferred */});
             // REVISIT: Validate minimum required properties.
             return configMap.entrySet().stream()
-                    .filter(entry -> themesFilter.isEmpty()
-                            || themesFilter.contains(entry.getKey()))
+                    .filter(entry -> ciFilter.isEmpty()
+                            || ciFilter.contains(entry.getKey()))
                     .map(entry -> entry.getValue().withName(entry.getKey()))
                     .toArray(ThemeConfig[]::new);
         }
