@@ -4,6 +4,7 @@
  */
 package io.github.stanio.bibata;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -44,10 +45,17 @@ class DocumentColors {
                 String value = node.getNodeValue();
                 if (value.startsWith("#") && colors.contains(value)) {
                     index.merge(value, Arrays.asList(node),
-                                       ThemeConfig::concat);
+                                       DocumentColors::concat);
                 }
             }
         }
+    }
+
+    static <T> Collection<T> concat(Collection<T> col1, Collection<T> col2) {
+        Collection<T> result =
+                (col1 instanceof ArrayList) ? col1 : new ArrayList<>(col1);
+        result.addAll(col2);
+        return result;
     }
 
     public void apply(Map<String, String> colorMap) {

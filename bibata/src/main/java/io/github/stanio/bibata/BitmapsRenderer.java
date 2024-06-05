@@ -9,11 +9,7 @@ import static io.github.stanio.bibata.Command.exitMessage;
 import static io.github.stanio.cli.CommandLine.splitOnComma;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,15 +33,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
-import com.google.gson.reflect.TypeToken;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
 
 import io.github.stanio.bibata.CursorNames.Animation;
-import io.github.stanio.bibata.ThemeConfig.SizeScheme;
+import io.github.stanio.bibata.options.SizeScheme;
+import io.github.stanio.bibata.options.ThemeConfig;
 import io.github.stanio.bibata.svg.DropShadow;
 
 /**
@@ -130,11 +125,11 @@ public class BitmapsRenderer {
     }
 
     private Collection<SizeScheme> sizes(ThemeConfig config) {
-        return Objects.requireNonNullElse(config.sizes, sizes);
+        return Objects.requireNonNullElse(config.sizes(), sizes);
     }
 
     private int[] resolutions(ThemeConfig config) {
-        return Objects.requireNonNullElse(config.resolutions, resolutions);
+        return Objects.requireNonNullElse(config.resolutions(), resolutions);
     }
 
     public void render(ThemeConfig... config)
@@ -157,7 +152,7 @@ public class BitmapsRenderer {
         return Stream.of(config)
                 .collect(Collectors.toMap(ThemeConfig::dir,
                                           Arrays::asList,
-                                          ThemeConfig::concat,
+                                          DocumentColors::concat,
                                           LinkedHashMap::new));
     }
 
@@ -256,7 +251,7 @@ public class BitmapsRenderer {
             if (scheme.permanent) {
                 variant.add(scheme.toString());
             }
-            if (config.out.contains("-Thin")
+            if (config.out().contains("-Thin")
                     || renderer.hasThinOutline()) {
                 variant.add("Thin");
             }
@@ -309,7 +304,7 @@ public class BitmapsRenderer {
 
         ThemeConfig[] renderConfig;
         try {
-            renderConfig = loadRenderConfig(configFile, cmdArgs.themeFilter);
+            renderConfig = ThemeConfig.load(configFile, cmdArgs.themeFilter);
         } catch (IOException | JsonParseException e) {
             exitMessage(2, "Could not read \"render.json\" configuration: ", e);
             return;
@@ -336,24 +331,6 @@ public class BitmapsRenderer {
             System.err.println();
             System.err.append("Elapsed: ").println(elapsedTime
                     .toString().replaceFirst("^PT", "").toLowerCase(Locale.ROOT));
-        }
-    }
-
-    private static
-    ThemeConfig[] loadRenderConfig(Path configFile,
-                                   Collection<String> themesFilter)
-            throws IOException, JsonParseException
-    {
-        try (InputStream fin = Files.newInputStream(configFile);
-                Reader reader = new InputStreamReader(fin, StandardCharsets.UTF_8)) {
-            Map<String, ThemeConfig> configMap =
-                    new Gson().fromJson(reader, new TypeToken<>() {/* inferred */});
-            // REVISIT: Validate minimum required properties.
-            return configMap.entrySet().stream()
-                    .filter(entry -> themesFilter.isEmpty()
-                            || themesFilter.contains(entry.getKey()))
-                    .map(entry -> entry.getValue().withName(entry.getKey()))
-                    .toArray(ThemeConfig[]::new);
         }
     }
 
