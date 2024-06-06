@@ -18,9 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.StringJoiner;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -38,7 +38,7 @@ public class ThemeConfig implements Cloneable {
     String out;
     String defaultSubdir;
     private LinkedHashSet<String> cursors;
-    LinkedHashSet<SizeScheme> sizes;
+    private transient SizeScheme sizeScheme;
     int[] resolutions;
     private List<Map<String, String>> colors;
 
@@ -58,8 +58,11 @@ public class ThemeConfig implements Cloneable {
     }
 
     public String name() {
-        return (name != null) ? name
-                              : Path.of(out).getFileName().toString();
+        if (name == null) {
+            name = Path.of(out == null ? dir() : out)
+                       .normalize().getFileName().toString();
+        }
+        return name;
     }
 
     public String dir() {
@@ -67,26 +70,21 @@ public class ThemeConfig implements Cloneable {
     }
 
     public String out() {
-        return out;
+        return out == null ? name() : out;
     }
 
-    public Path resolveOutputDir(Path baseDir, List<String> variant) {
+    private void resolveOutputDir(String baseDir) {
         // Remove variant tokens already present, and
         // re-add them in the specified order
-        String out = variant.stream().reduce(this.out,
-                (result, token) -> result.replace("-" + token, ""));
+        //String out = variant.stream().reduce(out(),
+        //        (result, token) -> result.replace("-" + token, ""));
 
-        Path outDir = baseDir.resolve(out);
-        if (variant.isEmpty()) {
-            return (defaultSubdir != null)
-                    ? outDir.resolve(defaultSubdir)
-                    : outDir;
+        if (defaultSubdir == null) {
+            out = tagVariant(baseDir);
+        } else {
+            String tags = tagVariant(null);
+            out = baseDir + "/" + (tags.isEmpty() ? defaultSubdir : tags);
         }
-        String variantString = String.join("-", variant);
-        return (defaultSubdir != null)
-                ? outDir.resolve(variantString)
-                : outDir.resolveSibling(outDir.getFileName()
-                                        + "-" + variantString);
     }
 
     public Set<String> cursors() {
@@ -102,8 +100,8 @@ public class ThemeConfig implements Cloneable {
                                           m -> m.get("replace")));
     }
 
-    public Collection<SizeScheme> sizes() {
-        return sizes; // XXX: Need to preserve null for the time being
+    public SizeScheme sizeScheme() {
+        return Objects.requireNonNullElse(sizeScheme, SizeScheme.SOURCE);
     }
 
     public int[] resolutions() {
@@ -118,24 +116,30 @@ public class ThemeConfig implements Cloneable {
         return pointerShadow;
     }
 
-    ThemeConfig withOptions(Double strokeWidth,
-                            DropShadow pointerShadow) {
-        if (strokeWidth == null && pointerShadow == null)
-            return this;
-
+    ThemeConfig newVariant(SizeScheme sizeScheme,
+                           Double strokeWidth,
+                           DropShadow pointerShadow) {
         ThemeConfig copy = clone();
+        copy.sizeScheme = sizeScheme;
         copy.strokeWidth = strokeWidth;
         copy.pointerShadow = pointerShadow;
-        copy.tagName();
+        // Assumes this `name` and `out` don't contain variant tags
+        copy.name = copy.tagVariant(name());
+        copy.resolveOutputDir(out());
         return copy;
     }
 
-    private void tagName() {
-        StringJoiner tags = new StringJoiner("-");
-        tags.add(name);
+    private String tagVariant(String prefix) {
+        return variantTags(prefix).collect(Collectors.joining("-"));
+    }
+
+    private Stream<String> variantTags(String prefix) {
+        Stream.Builder<String> tags = Stream.builder();
+        if (prefix != null) tags.add(prefix);
+        if (sizeScheme().permanent) tags.add(sizeScheme.toString());
         if (strokeWidth != null) tags.add("Thin");
         if (pointerShadow != null) tags.add("Shadow");
-        name = tags.toString();
+        return tags.build();
     }
 
     @Override

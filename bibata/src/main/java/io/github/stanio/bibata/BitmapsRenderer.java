@@ -61,7 +61,6 @@ public class BitmapsRenderer {
 
     // Default/implied config
     private Set<String> cursorFilter = Set.of(); // include all
-    private Collection<SizeScheme> sizes = List.of(SizeScheme.SOURCE);
     private int[] resolutions = { -1 }; // original/source
 
     private final CursorRenderer renderer;
@@ -76,16 +75,6 @@ public class BitmapsRenderer {
 
     public static BitmapsRenderer forBaseDir(Path baseDir) {
         return new BitmapsRenderer(baseDir == null ? Path.of("") : baseDir);
-    }
-
-    public BitmapsRenderer withSizes(SizeScheme... sizes) {
-        return withSizes(Arrays.asList(sizes));
-    }
-
-    public BitmapsRenderer withSizes(Collection<SizeScheme> sizes) {
-        this.sizes = sizes.isEmpty() ? List.of(SizeScheme.SOURCE)
-                                     : new LinkedHashSet<>(sizes);
-        return this;
     }
 
     public BitmapsRenderer withResolutions(int... resolutions) {
@@ -115,10 +104,6 @@ public class BitmapsRenderer {
     public BitmapsRenderer buildCursors(OutputType type) {
         renderer.setOutputType(type);
         return this;
-    }
-
-    private Collection<SizeScheme> sizes(ThemeConfig config) {
-        return Objects.requireNonNullElse(config.sizes(), sizes);
     }
 
     private int[] resolutions(ThemeConfig config) {
@@ -197,6 +182,15 @@ public class BitmapsRenderer {
 
         renderer.loadFile(cursorName, svgFile);
 
+        Animation animation = Animation
+                .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
+
+        Integer frameNum = null;
+        if (animation != null
+                && frameNumSuffix.reset(cursorName).find()) {
+            frameNum = Integer.valueOf(frameNumSuffix.group(1));
+        }
+
         for (ThemeConfig config : renderConfig) {
             if (exclude(config, cursorName))
                 continue;
@@ -206,7 +200,8 @@ public class BitmapsRenderer {
             renderer.setStrokeWidth(config.strokeWidth());
             renderer.setPointerShadow(config.pointerShadow());
             renderer.applyColors(config.colors());
-            renderSVG(config, cursorName);
+            renderer.setAnimation(animation, frameNum);
+            renderSVG(config, cursorName, animation);
 
             progress.pop();
         }
@@ -220,59 +215,32 @@ public class BitmapsRenderer {
         return !filter.contains(frameNumSuffix.reset(cursorName).replaceFirst(""));
     }
 
-    private void renderSVG(ThemeConfig config, String cursorName) //, SVGCursorMetadata cursorMetadata)
+    private void renderSVG(ThemeConfig config, String cursorName, Animation animation)
             throws IOException {
-        Animation animation = Animation
-                .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
+        SizeScheme scheme = config.sizeScheme();
 
-        Integer frameNum = null;
-        if (animation != null
-                && frameNumSuffix.reset(cursorName).find()) {
-            frameNum = Integer.valueOf(frameNumSuffix.group(1));
+        Path outDir = baseDir.resolve(config.out());
+        if (renderer.outputType == OutputType.LINUX_CURSORS) {
+            outDir = outDir.resolve("cursors");
+        }
+        renderer.setOutDir(outDir);
+
+        renderer.setCanvasSize(scheme.canvasSize, scheme.permanent);
+
+        for (int res : resolutions(config)) {
+            if (animation != null
+                    && (res > CursorCompiler.maxAnimSize
+                            || res < CursorCompiler.minAnimSize)
+                    && resolutions(config).length > 1)
+                continue;
+
+            if (res > 0) {
+                progress.next(res);
+            }
+            renderer.renderTargetSize(res);
         }
 
-        renderer.setAnimation(animation, frameNum);
-
-        for (SizeScheme scheme : sizes(config)) {
-            progress.push(scheme.name == null ? "" : "(" + scheme.name + ")");
-
-            List<String> variant = new ArrayList<>();
-            if (scheme.permanent) {
-                variant.add(scheme.toString());
-            }
-            if (config.out().contains("-Thin")
-                    || renderer.hasThinOutline()) {
-                variant.add("Thin");
-            }
-            if (renderer.hasPointerShadow()) {
-                variant.add("Shadow");
-            }
-
-            Path outDir = config.resolveOutputDir(baseDir, variant);
-            if (renderer.outputType == OutputType.LINUX_CURSORS) {
-                outDir = outDir.resolve("cursors");
-            }
-            renderer.setOutDir(outDir);
-
-            renderer.setCanvasSize(scheme.canvasSize, scheme.permanent);
-
-            for (int res : resolutions(config)) {
-                if (animation != null
-                        && (res > CursorCompiler.maxAnimSize
-                                || res < CursorCompiler.minAnimSize)
-                        && resolutions(config).length > 1)
-                    continue;
-
-                if (res > 0) {
-                    progress.next(res);
-                }
-                renderer.renderTargetSize(res);
-            }
-
-            renderer.saveCurrent();
-
-            progress.pop();
-        }
+        renderer.saveCurrent();
     }
 
     public static void main(String[] args) {
@@ -299,13 +267,12 @@ public class BitmapsRenderer {
             return;
         }
 
-        renderConfig = VariantOptions.apply(renderConfig,
+        renderConfig = VariantOptions.apply(renderConfig, cmdArgs.sizes(),
                 cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
 
         try {
             BitmapsRenderer.forBaseDir(configFile.getParent())
-                    .withSizes(cmdArgs.sizes)
-                    .withResolutions(cmdArgs.resolutions)
+                    .withResolutions(cmdArgs.resolutions())
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
@@ -347,13 +314,6 @@ public class BitmapsRenderer {
         boolean allVariants;
 
         CommandArgs(String... args) {
-            Runnable standardSizes = () -> {
-                sizes.clear();
-                sizes.addAll(List.of(SizeScheme.N, SizeScheme.L, SizeScheme.XL));
-                resolutions.clear();
-                resolutions.addAll(List.of(32, 48, 64, 96, 128));
-            };
-
             CommandLine cmd = CommandLine.ofUnixStyle()
                     .acceptOption("-s", sizes::addAll,
                             // REVISIT: Validate at most one "permanent" size
@@ -364,7 +324,6 @@ public class BitmapsRenderer {
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptFlag("--windows-cursors", () -> outputType = OutputType.WINDOWS_CURSORS)
                     .acceptFlag("--linux-cursors", () -> outputType = OutputType.LINUX_CURSORS)
-                    .acceptFlag("--standard-sizes", standardSizes)
                     .acceptOptionalArg("--pointer-shadow", val -> pointerShadow = DropShadow.decode(val))
                     .acceptOptionalArg("--thin-stroke", val -> strokeWidth = val.isEmpty() ? 12 : Double.parseDouble(val))
                     .acceptFlag("--all-variants", () -> allVariants = true)
@@ -374,6 +333,27 @@ public class BitmapsRenderer {
                     .withMaxArgs(1);
 
             cmd.arg(0, "<base-path>", Path::of).ifPresent(configPath::set);
+        }
+
+        Set<SizeScheme> sizes() {
+            if (sizes.isEmpty()) {
+                switch (outputType) {
+                case WINDOWS_CURSORS:
+                    sizes.addAll(List.of(SizeScheme.N, SizeScheme.L, SizeScheme.XL));
+                    break;
+                default:
+                    sizes.add(SizeScheme.SOURCE);
+                }
+            }
+            return sizes;
+        }
+
+        Set<Integer> resolutions() {
+            if (resolutions.isEmpty()
+                    && outputType == OutputType.WINDOWS_CURSORS) {
+                resolutions.addAll(List.of(32, 48, 64, 96, 128));
+            }
+            return resolutions;
         }
 
         public static void printHelp(PrintStream out) {
