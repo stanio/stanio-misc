@@ -65,17 +65,18 @@ shadowJar {
     }
 }
 
-repositories {
-    maven {
-        // Test with JSVG nightly snapshots
-        url 'https://oss.sonatype.org/content/repositories/snapshots/'
-    }
-}
+//repositories {
+//    maven {
+//        // Test with JSVG nightly snapshots
+//        url 'https://oss.sonatype.org/content/repositories/snapshots/'
+//    }
+//}
 
 dependencies {
     implementation rootProject
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'com.github.weisj:jsvg:latest.integration' // 1.5.0-SNAPSHOT
+    //implementation 'com.github.weisj:jsvg:latest.integration'
+    implementation 'com.github.weisj:jsvg:1.5.0'
     implementation 'com.jhlabs:filters:2.0.235-1'
     runtimeOnly    'com.fasterxml.woodstox:woodstox-core:6.6.2'
 }
