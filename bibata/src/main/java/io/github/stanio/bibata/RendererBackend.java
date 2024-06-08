@@ -353,6 +353,8 @@ class JSVGImageTranscoder {
                                RenderingHints.VALUE_FRACTIONALMETRICS_ON);
             g.setRenderingHint(SVGRenderingHints.KEY_SOFT_CLIPPING,
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
+            g.setRenderingHint(SVGRenderingHints.KEY_MASK_CLIP_RENDERING,
+                               SVGRenderingHints.VALUE_MASK_CLIP_RENDERING_ACCURACY);
             svg.render(null, g);
 
             if (dropShadow.map(shadow -> !shadow.isSVG()).orElse(false)) {
