@@ -4,41 +4,41 @@
  */
 package io.github.stanio.bibata;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
+import com.google.gson.reflect.TypeToken;
+
 public class CursorNames {
 
 
-    public enum Animation {
-
-        LEFT_PTR_WATCH(12),
-
-        WAIT(12);
+    public static class Animation {
 
         private static float rateGain = Float
                 .parseFloat(System.getProperty("bibata.animRateGain", "1.25"));
 
+        public final String name;
         public final float duration;
         public final float frameRate;
         public final int numDigits;
-        public final String lowerName;
 
-        private Animation(float frameRate) {
-            this(3, frameRate);
-        }
-
-        private Animation(float duration, float frameRate) {
+        private Animation(String name, float duration, float frameRate) {
             this.duration = duration;
             this.frameRate = frameRate;
             this.numDigits = String
                     .valueOf((int) Math.ceil(duration * frameRate)).length();
-            this.lowerName = name().toLowerCase(Locale.ROOT);
+            this.name = name;
         }
 
         public int jiffies() {
@@ -50,16 +50,22 @@ public class CursorNames {
         }
 
         public static Animation lookUp(String name) {
-            return nameIndex.get(name.toUpperCase(Locale.ROOT));
+            return nameIndex.get(name);
         }
 
-        private static final Map<String, Animation> nameIndex;
-        static {
-            Map<String, Animation> index = new HashMap<>(2, 1);
-            for (Animation item : Animation.values()) {
-                index.put(item.name(), item);
+        private static final Map<String, Animation>
+                nameIndex = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+
+        public static void define(URL json) throws IOException, JsonParseException {
+            try (InputStream bytes = json.openStream();
+                    Reader text = new InputStreamReader(bytes, StandardCharsets.UTF_8)) {
+                new Gson().fromJson(text, new TypeToken<Map<String, Map<String, Object>>>() {/*inferred*/})
+                        .forEach((name, params) -> {
+                    float duration = Float.parseFloat(params.get("durationSeconds").toString());
+                    float frameRate = Float.parseFloat(params.get("frameRate").toString());
+                    nameIndex.put(name, new Animation(name, duration, frameRate));
+                });
             }
-            nameIndex = index;
         }
     }
 

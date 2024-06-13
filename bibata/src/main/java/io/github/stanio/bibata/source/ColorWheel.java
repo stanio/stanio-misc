@@ -26,6 +26,8 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
+import com.google.gson.JsonParseException;
+
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.util.SAXReplayBuffer;
 
@@ -105,7 +107,7 @@ public class ColorWheel {
             System.out.append('#').print(frameNo);
 
             Path frameFile = baseDir.resolve(String.format(Locale.ROOT,
-                    "%s-%02d.svg", animation.lowerName, frameNo));
+                    "%s-%02d.svg", animation.name, frameNo));
             context.snapshotTime(currentTime);
 
             try (OutputStream fout = Files.newOutputStream(frameFile)) {
@@ -191,6 +193,29 @@ public class ColorWheel {
             }
         }
 
+        Path animDefs;
+        optIdx = cmdArgs.indexOf("-a");
+        if (optIdx < 0) {
+            animDefs = Path.of("animations.json");
+        } else if (optIdx + 1 >= cmdArgs.size()) {
+            printUsageAndExit();
+            throw runningAfterSystemExit();
+        } else {
+            cmdArgs.remove(optIdx);
+            try {
+                animDefs = baseDir.resolve(cmdArgs.remove(optIdx));
+            } catch (InvalidPathException e) {
+                printErrorUsageAndExit(e);
+                throw runningAfterSystemExit();
+            }
+        }
+        try {
+            Animation.define(animDefs.toUri().toURL());
+        } catch (IOException | JsonParseException e) {
+            printErrorUsageAndExit(e);
+            throw runningAfterSystemExit();
+        }
+
         int frameCount = DEFAULT_FRAME_COUNT;
         if (cmdArgs.size() == 1) {
             try {
@@ -223,7 +248,7 @@ public class ColorWheel {
     }
 
     private static void printUsageAndExit() {
-        System.err.println("USAGE: colorWheel [-b <base-dir>] [<target-frame-count>]");
+        System.err.println("USAGE: colorWheel [-b <base-dir>] [-a <animations.json>] [<target-frame-count>]");
         System.exit(1);
     }
 

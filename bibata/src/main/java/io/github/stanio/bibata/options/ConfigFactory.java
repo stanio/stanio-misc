@@ -29,6 +29,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 
+import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.svg.DropShadow;
 
 public final class ConfigFactory {
@@ -69,6 +70,19 @@ public final class ConfigFactory {
             path = baseDir.resolve(colorsFile);
         }
         colorRegistry.read(path.toUri().toURL());
+    }
+
+    public void deifineAnimations(String animationsFile)
+            throws IOException, JsonParseException {
+        Path path;
+        if (animationsFile == null) {
+            path = baseDir.resolve("animations.json");
+            if (Files.notExists(path))
+                return;
+        } else {
+            path = baseDir.resolve(animationsFile);
+        }
+        Animation.define(path.toUri().toURL());
     }
 
     public Map<String, String> loadCursorNames(String namesFile, boolean optional)

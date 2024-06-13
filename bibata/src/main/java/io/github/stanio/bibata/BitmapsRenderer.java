@@ -156,7 +156,7 @@ public class BitmapsRenderer {
         if (animation != null
                 && frameNumSuffix.reset(cursorName).find()) {
             frameNum = Integer.valueOf(frameNumSuffix.group(1));
-            targetName = cursorNames.targetName(animation.lowerName);
+            targetName = cursorNames.targetName(animation.name);
         } else {
             targetName = cursorNames.targetName(cursorName);
             frameNum = null;
@@ -233,6 +233,13 @@ public class BitmapsRenderer {
             return;
         }
 
+        try {
+            configFactory.deifineAnimations(cmdArgs.animationsFile);
+        } catch (IOException | JsonParseException e) {
+            exitMessage(2, "Could not read animation definitions: ", e);
+            return;
+        }
+
         ThemeConfig[] renderConfig;
         try {
             if (cmdArgs.sourceDirs.isEmpty()) {
@@ -300,6 +307,7 @@ public class BitmapsRenderer {
 
         final Set<String> colors = new LinkedHashSet<>();
         String colorsFile;
+        String animationsFile;
         String buildDir = "themes";
         String namesFile;
         boolean optionalNames;
@@ -323,6 +331,7 @@ public class BitmapsRenderer {
                     .acceptOption("--color", colors::addAll,
                             splitOnComma(Function.identity()))
                     .acceptOption("--color-map", val -> colorsFile = val)
+                    .acceptOption("--animations", val -> animationsFile = val)
                     .acceptOptionalArg("--windows-cursors", val ->
                             setOutputType(OutputType.WINDOWS_CURSORS, val, "win-names.json"))
                     .acceptOptionalArg("--linux-cursors", val ->
@@ -376,6 +385,7 @@ public class BitmapsRenderer {
         public static void printHelp(PrintStream out) {
             out.println("USAGE: render [<project-path>] [--build-dir <dir>]"
                     + " [--source <svg-dir>]... [--name <theme-name>]..."
+                    + " [--animations <animations.json>]"
                     + " [--color <color>]... [--color-map <colors.json>]"
                     + " [--pointer-shadow] [--linux-cursors[=<win-names.json>]]"
                     + " [--thin-stroke] [--windows-cursors[=<x11-names.json>]]"
