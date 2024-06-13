@@ -252,8 +252,13 @@ public class BitmapsRenderer {
 
         ThemeConfig[] renderConfig;
         try {
-            renderConfig = configFactory.create(cmdArgs.themeFilter, cmdArgs.colors,
-                    cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
+            if (cmdArgs.sourceDirs.isEmpty()) {
+                renderConfig = configFactory.create(cmdArgs.themeFilter, cmdArgs.colors,
+                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
+            } else {
+                renderConfig = configFactory.create(cmdArgs.sourceDirs, cmdArgs.themeNames, cmdArgs.colors,
+                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
+            }
         } catch (IOException | JsonParseException e) {
             exitMessage(2, "Could not read \"render.json\" configuration: ", e);
             return;
@@ -295,6 +300,8 @@ public class BitmapsRenderer {
         final AtomicReference<Path>
                 projectPath = new AtomicReference<>(Path.of(CWD));
         final List<String> themeFilter = new ArrayList<>(1);
+        final List<String> sourceDirs = new ArrayList<>();
+        final List<String> themeNames = new ArrayList<>();
         final Set<Integer> resolutions = new LinkedHashSet<>(2);
         final Set<SizeScheme> sizes = new LinkedHashSet<>(2);
         final Set<String> cursorFilter = new LinkedHashSet<>();
@@ -316,6 +323,8 @@ public class BitmapsRenderer {
                     .acceptOption("-r", resolutions::addAll,
                             splitOnComma(Integer::valueOf))
                     .acceptOption("-t", themeFilter::add, String::strip)
+                    .acceptOption("--source", sourceDirs::add)
+                    .acceptOption("--name", themeNames::add)
                     .acceptOption("-f", cursorFilter::add, String::strip)
                     .acceptOption("--color", colors::addAll,
                             splitOnComma(Function.identity()))
@@ -361,6 +370,7 @@ public class BitmapsRenderer {
 
         public static void printHelp(PrintStream out) {
             out.println("USAGE: render [<project-path>] [--build-dir <dir>]"
+                    + " [--source <svg-dir>]... [--name <theme-name>]..."
                     + " [--color <color>]... [--color-map <colors.json>]"
                     + " [--pointer-shadow] [--linux-cursors]"
                     + " [--thin-stroke] [--windows-cursors]"

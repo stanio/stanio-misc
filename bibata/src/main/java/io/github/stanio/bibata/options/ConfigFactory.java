@@ -104,6 +104,29 @@ public final class ConfigFactory {
                 sizeOptions, interpolate, thinStroke, pointerShadow);
     }
 
+    public ThemeConfig[] create(List<String> sourceDirectories,
+                                List<String> baseNames,
+                                Collection<String> colorOptions,
+                                Collection<SizeScheme> sizeOptions,
+                                boolean allVariants,
+                                Double thinStroke,
+                                DropShadow pointerShadow) {
+        for (int i = 0, n = sourceDirectories.size(); i < n; i++) {
+            String dir = sourceDirectories.get(i);
+            String name = i < baseNames.size() ? baseNames.get(i)
+                                                : fileName(dir);
+            themeNames.setNameForDir(dir, name);
+        }
+
+        Collection<ThemeConfig> sourceConfigs = new ArrayList<>();
+        themeNames.forEach((dir, name) ->
+                sourceConfigs.add(new ThemeConfig(name, dir, null)));
+
+        return interpolate(sourceConfigs,
+                colorOptions, sizeOptions, allVariants, thinStroke,
+                pointerShadow);
+    }
+
     private ThemeConfig[] interpolate(Collection<ThemeConfig> sourceConfigs,
                                       Collection<String> colorOptions,
                                       Collection<SizeScheme> sizeOptions,

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -32,13 +33,23 @@ class ThemeNames {
     }
 
     public void setNameForDir(String dir, String candidate) {
-        namesByDir.computeIfAbsent(dir, k -> {
-            String name = candidate;
-            for (int idx = 2; !allNames.add(name); idx++) {
-                name = candidate + "-" + idx;
-            }
-            return name;
-        });
+        if (namesByDir.containsKey(dir)) {
+            System.err.println("Duplicate source diretory ignored: " + dir);
+            return;
+        }
+
+        String name = candidate;
+        for (int idx = 2; !allNames.add(name); idx++) {
+            name = candidate + "-" + idx;
+        }
+        if (!name.equals(candidate)) {
+            System.err.println("Duplicate theme name adjusted: " + name);
+        }
+        namesByDir.put(dir, name);
+    }
+
+    public void forEach(BiConsumer<String, String> action) {
+        namesByDir.forEach(action);
     }
 
     private static String[] tokenize(String str) {
