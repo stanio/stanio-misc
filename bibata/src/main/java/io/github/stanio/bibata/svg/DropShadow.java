@@ -138,9 +138,8 @@ public class DropShadow {
 
     @Override
     public String toString() {
-        return "DropShadow(svg: " + svg
-                + ", blur: " + blur + ", dx: " + dx + ", dy: " + dy
-                + ", opacity=" + opacity + ", color=" + color() + ")";
+        return "DropShadow(" + blur + "," + dx + "," + dy
+                + "," + opacity + "," + color() + ")";
     }
 
 }

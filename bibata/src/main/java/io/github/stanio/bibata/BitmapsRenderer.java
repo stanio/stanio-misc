@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -37,9 +38,9 @@ import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
 
 import io.github.stanio.bibata.CursorNames.Animation;
+import io.github.stanio.bibata.options.ConfigFactory;
 import io.github.stanio.bibata.options.SizeScheme;
 import io.github.stanio.bibata.options.ThemeConfig;
-import io.github.stanio.bibata.options.VariantOptions;
 import io.github.stanio.bibata.svg.DropShadow;
 
 /**
@@ -57,9 +58,9 @@ public class BitmapsRenderer {
 
     public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS }
 
-    private final Path baseDir;
+    private final Path projectDir; // source base
+    private final Path buildDir;   // output base
 
-    // Default/implied config
     private Set<String> cursorFilter = Set.of(); // include all
     private int[] resolutions = { -1 }; // original/source
 
@@ -67,19 +68,10 @@ public class BitmapsRenderer {
 
     private final ProgressOutput progress = new ProgressOutput();
 
-    BitmapsRenderer(Path baseDir) {
-        this.baseDir = Objects.requireNonNull(baseDir, "null baseDir");
-
+    BitmapsRenderer(Path projectDir, Path buildDir) {
+        this.projectDir = Objects.requireNonNull(projectDir, "null projectDir");
+        this.buildDir = Objects.requireNonNull(buildDir, "null buildDir");
         renderer = new CursorRenderer();
-    }
-
-    public static BitmapsRenderer forBaseDir(Path baseDir) {
-        return new BitmapsRenderer(baseDir == null ? Path.of("") : baseDir);
-    }
-
-    public BitmapsRenderer withResolutions(int... resolutions) {
-        this.resolutions = Arrays.copyOf(resolutions, resolutions.length);
-        return this;
     }
 
     public BitmapsRenderer withResolutions(Collection<Integer> resolutions) {
@@ -90,10 +82,6 @@ public class BitmapsRenderer {
                     .mapToInt(Number::intValue).toArray();
         }
         return this;
-    }
-
-    public BitmapsRenderer filterCursors(String... names) {
-        return filterCursors(Arrays.asList(names));
     }
 
     public BitmapsRenderer filterCursors(Collection<String> names) {
@@ -146,7 +134,7 @@ public class BitmapsRenderer {
 
     private Stream<Path> listSVGFiles(String dir, Collection<ThemeConfig> configs)
             throws IOException {
-        Path svgDir = baseDir.resolve(dir);
+        Path svgDir = projectDir.resolve(dir);
         boolean fullList = cursorFilter.isEmpty()
                 && configs.stream().map(ThemeConfig::cursors)
                                    .anyMatch(Collection::isEmpty);
@@ -219,7 +207,7 @@ public class BitmapsRenderer {
             throws IOException {
         SizeScheme scheme = config.sizeScheme();
 
-        Path outDir = baseDir.resolve(config.out());
+        Path outDir = buildDir.resolve(config.name());
         if (renderer.outputType == OutputType.LINUX_CURSORS) {
             outDir = outDir.resolve("cursors");
         }
@@ -254,24 +242,26 @@ public class BitmapsRenderer {
             return;
         }
 
-        Path configFile = cmdArgs.configPath.get();
-        if (Files.isDirectory(configFile)) {
-            configFile = configFile.resolve("render.json");
+        ConfigFactory configFactory = new ConfigFactory(cmdArgs.projectPath.get());
+        try {
+            configFactory.loadColors(cmdArgs.colorsFile);
+        } catch (IOException | JsonParseException e) {
+            exitMessage(2, "Could not read color map: ", e);
+            return;
         }
 
         ThemeConfig[] renderConfig;
         try {
-            renderConfig = ThemeConfig.load(configFile, cmdArgs.themeFilter);
+            renderConfig = configFactory.create(cmdArgs.themeFilter, cmdArgs.colors,
+                    cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
         } catch (IOException | JsonParseException e) {
             exitMessage(2, "Could not read \"render.json\" configuration: ", e);
             return;
         }
 
-        renderConfig = VariantOptions.apply(renderConfig, cmdArgs.sizes(),
-                cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
-
         try {
-            BitmapsRenderer.forBaseDir(configFile.getParent())
+            Path projectDir = configFactory.baseDir();
+            new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
                     .withResolutions(cmdArgs.resolutions())
                     .filterCursors(cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
@@ -300,14 +290,19 @@ public class BitmapsRenderer {
 
     private static class CommandArgs {
 
-        private static final String DEFAULT_BASE = "";
+        private static final String CWD = "";
 
         final AtomicReference<Path>
-                configPath = new AtomicReference<>(Path.of(DEFAULT_BASE));
+                projectPath = new AtomicReference<>(Path.of(CWD));
         final List<String> themeFilter = new ArrayList<>(1);
         final Set<Integer> resolutions = new LinkedHashSet<>(2);
         final Set<SizeScheme> sizes = new LinkedHashSet<>(2);
         final Set<String> cursorFilter = new LinkedHashSet<>();
+
+        final Set<String> colors = new LinkedHashSet<>();
+        String colorsFile;
+        String buildDir = "themes";
+
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
         Double strokeWidth;
@@ -322,17 +317,25 @@ public class BitmapsRenderer {
                             splitOnComma(Integer::valueOf))
                     .acceptOption("-t", themeFilter::add, String::strip)
                     .acceptOption("-f", cursorFilter::add, String::strip)
-                    .acceptFlag("--windows-cursors", () -> outputType = OutputType.WINDOWS_CURSORS)
-                    .acceptFlag("--linux-cursors", () -> outputType = OutputType.LINUX_CURSORS)
-                    .acceptOptionalArg("--pointer-shadow", val -> pointerShadow = DropShadow.decode(val))
-                    .acceptOptionalArg("--thin-stroke", val -> strokeWidth = val.isEmpty() ? 12 : Double.parseDouble(val))
+                    .acceptOption("--color", colors::addAll,
+                            splitOnComma(Function.identity()))
+                    .acceptOption("--color-map", val -> colorsFile = val)
+                    .acceptFlag("--windows-cursors",
+                            () -> outputType = OutputType.WINDOWS_CURSORS)
+                    .acceptFlag("--linux-cursors",
+                            () -> outputType = OutputType.LINUX_CURSORS)
+                    .acceptOptionalArg("--pointer-shadow",
+                            val -> pointerShadow = DropShadow.decode(val))
+                    .acceptOptionalArg("--thin-stroke",
+                            val -> strokeWidth = val.isEmpty() ? 12 : Double.parseDouble(val))
                     .acceptFlag("--all-variants", () -> allVariants = true)
+                    .acceptOption("--build-dir", val -> buildDir = val)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
                     .withMaxArgs(1);
 
-            cmd.arg(0, "<base-path>", Path::of).ifPresent(configPath::set);
+            cmd.arg(0, "<project-path>", Path::of).ifPresent(projectPath::set);
         }
 
         Set<SizeScheme> sizes() {
@@ -357,14 +360,16 @@ public class BitmapsRenderer {
         }
 
         public static void printHelp(PrintStream out) {
-            out.println("USAGE: render [<base-path>]"
+            out.println("USAGE: render [<project-path>] [--build-dir <dir>]"
+                    + " [--color <color>]... [--color-map <colors.json>]"
                     + " [--pointer-shadow] [--linux-cursors]"
-                    + " [--standard-sizes] [--windows-cursors]"
+                    + " [--thin-stroke] [--windows-cursors]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]...");
             out.println();
-            out.println("<base-path> could be the Bibata_Cursor directory, or"
-                    + " the \"render.json\" inside it, possibly with a different name.");
+            out.println("<project-path> could be the source project base directory, or"
+                    + " the \"render.json\" inside it, possibly with a different name"
+                    + " - describing an alternative source configuration.");
         }
 
     } // class CommandArgs

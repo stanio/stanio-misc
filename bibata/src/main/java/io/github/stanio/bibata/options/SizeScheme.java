@@ -4,7 +4,10 @@
  */
 package io.github.stanio.bibata.options;
 
+import static java.lang.Double.doubleToLongBits;
+
 import java.util.Locale;
+import java.util.Objects;
 
 public final class SizeScheme {
 
@@ -67,6 +70,29 @@ public final class SizeScheme {
             return new SizeScheme(name, size, permanent);
         }
         return SOURCE;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, canvasSize, permanent);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        SizeScheme other = (SizeScheme) obj;
+        return doubleToLongBits(canvasSize) ==
+                        doubleToLongBits(other.canvasSize)
+                && Objects.equals(name, other.name)
+                && permanent == other.permanent;
     }
 
     @Override
