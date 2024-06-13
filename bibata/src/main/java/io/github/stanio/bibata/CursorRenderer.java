@@ -62,6 +62,7 @@ final class CursorRenderer {
     private String cursorName;
     private Animation animation;
     private Integer frameNum;
+    private String targetName;
 
     private Path outDir;
 
@@ -121,9 +122,10 @@ final class CursorRenderer {
         return anchorOffset != 0;
     }
 
-    public void loadFile(String cursorName, Path svgFile) throws IOException {
+    public void loadFile(String cursorName, Path svgFile, String targetName) throws IOException {
         resetFile();
         this.cursorName = cursorName;
+        this.targetName = targetName;
         sourceDocument = loadTransformer.loadDocument(svgFile);
     }
 
@@ -182,7 +184,7 @@ final class CursorRenderer {
             if (outputType != OutputType.BITMAPS)
                 currentFrames = newCursorBuilder();
         } else {
-            Path animDir = outDir.resolve(animation.lowerName);
+            Path animDir = outDir.resolve(targetName);
             switch (outputType) {
             case BITMAPS:
                 // Place individual frame bitmaps in a subdirectory.
@@ -263,7 +265,7 @@ final class CursorRenderer {
 
         // Static cursor or complete animation
         if (frameNum == staticFrame) {
-            currentFrames.writeTo(outDir.resolve(cursorName));
+            currentFrames.writeTo(outDir.resolve(targetName));
         }
         currentFrames = null;
     }

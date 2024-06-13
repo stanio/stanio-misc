@@ -75,22 +75,11 @@ abstract class CursorBuilder {
 
         @Override
         void writeTo(Path target) throws IOException {
-            Path outDir = target.getParent();
-            String cursorName = target.getFileName().toString();
-
-            String winName = CursorNames.winName(cursorName);
-            if (winName == null) {
-                winName = cursorName;
-                for (int n = 2; CursorNames.nameWinName(winName) != null; n++) {
-                    winName = cursorName + "_" + n++;
-                }
-            }
-
             if (animation.isEmpty()) {
                 frames.prepareFrame(staticFrame)
-                        .write(outDir.resolve(winName + ".cur"));
+                        .write(target.resolveSibling(target.getFileName() + ".cur"));
             } else {
-                frames.write(outDir.resolve(winName + ".ani"));
+                frames.write(target.resolveSibling(target.getFileName() + ".ani"));
             }
         }
 
@@ -121,13 +110,7 @@ abstract class CursorBuilder {
 
         @Override
         void writeTo(Path target) throws IOException {
-            Path outDir = target.getParent();
-            String cursorName = target.getFileName().toString();
-
-            String x11Name = CursorNames.x11Name(cursorName);
-            if (x11Name != null) {
-                frames.writeTo(outDir.resolve(x11Name));
-            }
+            frames.writeTo(target);
         }
 
     } // class LinuxCursorBuilder

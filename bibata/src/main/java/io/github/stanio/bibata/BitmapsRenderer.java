@@ -17,7 +17,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,7 +35,6 @@ import com.google.gson.JsonParseException;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
-
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.options.ConfigFactory;
 import io.github.stanio.bibata.options.SizeScheme;
@@ -61,7 +59,7 @@ public class BitmapsRenderer {
     private final Path projectDir; // source base
     private final Path buildDir;   // output base
 
-    private Set<String> cursorFilter = Set.of(); // include all
+    private final CursorNames cursorNames = new CursorNames();
     private int[] resolutions = { -1 }; // original/source
 
     private final CursorRenderer renderer;
@@ -84,8 +82,10 @@ public class BitmapsRenderer {
         return this;
     }
 
-    public BitmapsRenderer filterCursors(Collection<String> names) {
-        this.cursorFilter = new LinkedHashSet<>(names);
+    public BitmapsRenderer cursorNames(Map<String, String> names,
+                                       Collection<String> filter) {
+        cursorNames.putAll(names);
+        cursorNames.filter(filter);
         return this;
     }
 
@@ -124,30 +124,12 @@ public class BitmapsRenderer {
 
     private void renderDir(String svgDir, Collection<ThemeConfig> config)
             throws IOException {
-        try (Stream<Path> svgStream = listSVGFiles(svgDir, config)) {
+        try (Stream<Path> svgStream = listSVGFiles(projectDir.resolve(svgDir))) {
             for (Path svg : (Iterable<Path>) svgStream::iterator) {
                 renderSVG(svg, config);
             }
         }
         renderer.saveDeferred();
-    }
-
-    private Stream<Path> listSVGFiles(String dir, Collection<ThemeConfig> configs)
-            throws IOException {
-        Path svgDir = projectDir.resolve(dir);
-        boolean fullList = cursorFilter.isEmpty()
-                && configs.stream().map(ThemeConfig::cursors)
-                                   .anyMatch(Collection::isEmpty);
-        if (fullList) {
-            return listSVGFiles(svgDir);
-        }
-
-        Collection<String> names = new HashSet<>(cursorFilter);
-        configs.stream().map(ThemeConfig::cursors)
-                        .flatMap(Collection::stream)
-                        .forEach(names::add);
-        return listSVGFiles(svgDir).filter(file ->
-                names.contains(cursorName(file.getFileName().toString(), true)));
     }
 
     private final Matcher svgExt = Pattern.compile("(?i)\\.svg$").matcher("");
@@ -166,22 +148,30 @@ public class BitmapsRenderer {
     private void renderSVG(Path svgFile, Collection<ThemeConfig> renderConfig)
             throws IOException {
         String cursorName = cursorName(svgFile);
-        progress.push(cursorName);
-
-        renderer.loadFile(cursorName, svgFile);
-
         Animation animation = Animation
                 .lookUp(frameNumSuffix.reset(cursorName).replaceFirst(""));
 
-        Integer frameNum = null;
+        String targetName;
+        Integer frameNum;
         if (animation != null
                 && frameNumSuffix.reset(cursorName).find()) {
             frameNum = Integer.valueOf(frameNumSuffix.group(1));
+            targetName = cursorNames.targetName(animation.lowerName);
+        } else {
+            targetName = cursorNames.targetName(cursorName);
+            frameNum = null;
         }
+        if (targetName == null)
+            return;
+
+        progress.push(cursorName);
+        renderer.loadFile(cursorName, svgFile, targetName);
 
         for (ThemeConfig config : renderConfig) {
-            if (exclude(config, cursorName))
-                continue;
+            // REVISIT: Test cursorName or animation.lowerName
+            //if (!config.cursors().isEmpty()
+            //        && !config.cursors().contains(cursorName))
+            //    continue;
 
             progress.push(config.name());
 
@@ -194,13 +184,6 @@ public class BitmapsRenderer {
             progress.pop();
         }
         progress.pop();
-    }
-
-    private boolean exclude(ThemeConfig config, String cursorName) {
-        Set<String> filter = config.cursors();
-        if (filter.isEmpty()) filter = cursorFilter;
-        if (filter.isEmpty()) return false;
-        return !filter.contains(frameNumSuffix.reset(cursorName).replaceFirst(""));
     }
 
     private void renderSVG(ThemeConfig config, String cursorName, Animation animation)
@@ -264,11 +247,20 @@ public class BitmapsRenderer {
             return;
         }
 
+        Map<String, String> nameMapping;
+        try {
+            nameMapping = configFactory
+                    .loadCursorNames(cmdArgs.namesFile, cmdArgs.optionalNames);
+        } catch (IOException | JsonParseException e) {
+            exitMessage(2, "Problem reading cursor names: ", e);
+            return;
+        }
+
         try {
             Path projectDir = configFactory.baseDir();
             new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
                     .withResolutions(cmdArgs.resolutions())
-                    .filterCursors(cmdArgs.cursorFilter)
+                    .cursorNames(nameMapping, cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
         } catch (IOException e) {
@@ -309,6 +301,8 @@ public class BitmapsRenderer {
         final Set<String> colors = new LinkedHashSet<>();
         String colorsFile;
         String buildDir = "themes";
+        String namesFile;
+        boolean optionalNames;
 
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
@@ -329,10 +323,10 @@ public class BitmapsRenderer {
                     .acceptOption("--color", colors::addAll,
                             splitOnComma(Function.identity()))
                     .acceptOption("--color-map", val -> colorsFile = val)
-                    .acceptFlag("--windows-cursors",
-                            () -> outputType = OutputType.WINDOWS_CURSORS)
-                    .acceptFlag("--linux-cursors",
-                            () -> outputType = OutputType.LINUX_CURSORS)
+                    .acceptOptionalArg("--windows-cursors", val ->
+                            setOutputType(OutputType.WINDOWS_CURSORS, val, "win-names.json"))
+                    .acceptOptionalArg("--linux-cursors", val ->
+                            setOutputType(OutputType.LINUX_CURSORS, val, "x11-names.json"))
                     .acceptOptionalArg("--pointer-shadow",
                             val -> pointerShadow = DropShadow.decode(val))
                     .acceptOptionalArg("--thin-stroke",
@@ -345,6 +339,17 @@ public class BitmapsRenderer {
                     .withMaxArgs(1);
 
             cmd.arg(0, "<project-path>", Path::of).ifPresent(projectPath::set);
+        }
+
+        private void setOutputType(OutputType type, String explicitNames, String impliedNames) {
+            outputType = type;
+            if (explicitNames.isEmpty()) {
+                this.namesFile = impliedNames;
+                this.optionalNames = true;
+            } else {
+                this.namesFile = explicitNames;
+                this.optionalNames = false;
+            }
         }
 
         Set<SizeScheme> sizes() {
@@ -372,8 +377,8 @@ public class BitmapsRenderer {
             out.println("USAGE: render [<project-path>] [--build-dir <dir>]"
                     + " [--source <svg-dir>]... [--name <theme-name>]..."
                     + " [--color <color>]... [--color-map <colors.json>]"
-                    + " [--pointer-shadow] [--linux-cursors]"
-                    + " [--thin-stroke] [--windows-cursors]"
+                    + " [--pointer-shadow] [--linux-cursors[=<win-names.json>]]"
+                    + " [--thin-stroke] [--windows-cursors[=<x11-names.json>]]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]...");
             out.println();

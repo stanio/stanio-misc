@@ -71,6 +71,7 @@ import io.github.stanio.bibata.CursorNames.Animation;
  *
  * @see  <a href="https://wiki.archlinux.org/title/Xcursorgen">Xcursorgen</a>
  */
+@Deprecated(forRemoval = true)
 public class CursorCompiler {
 
     private static final Pattern WS = Pattern.compile("\\s+");
@@ -80,10 +81,8 @@ public class CursorCompiler {
 
     private Path outputDir;
 
-    private boolean createAll;
-
     CursorCompiler(boolean createAll) {
-        this.createAll = createAll;
+        // This class is candidate for removal
     }
 
     void build(Path dir) throws IOException, JsonParseException {
@@ -109,15 +108,7 @@ public class CursorCompiler {
                               Map<Integer, String> cursorHotspots,
                               Stream<Path> cursorBitmaps)
             throws IOException {
-        String winName = CursorNames.winName(cursorName);
-        if (winName == null) {
-            if (!createAll) return;
-
-            winName = cursorName;
-            for (int n = 2; CursorNames.nameWinName(winName) != null; n++) {
-                winName = cursorName + "_" + n;
-            }
-        }
+        String winName = cursorName;
 
         System.out.println(winName);
         Animation animation = Animation.lookUp(cursorName);

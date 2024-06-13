@@ -5,6 +5,10 @@
 package io.github.stanio.bibata.options;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,7 +25,9 @@ import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
+import com.google.gson.reflect.TypeToken;
 
 import io.github.stanio.bibata.svg.DropShadow;
 
@@ -63,6 +69,18 @@ public final class ConfigFactory {
             path = baseDir.resolve(colorsFile);
         }
         colorRegistry.read(path.toUri().toURL());
+    }
+
+    public Map<String, String> loadCursorNames(String namesFile, boolean optional)
+            throws IOException, JsonParseException {
+        Path path = baseDir.resolve(namesFile);
+        if (Files.notExists(path) && optional)
+            return Collections.emptyMap();
+
+        try (InputStream bytes = Files.newInputStream(path);
+                Reader text = new InputStreamReader(bytes, StandardCharsets.UTF_8)) {
+            return new Gson().fromJson(text, new TypeToken<>() {/*inferred*/});
+        }
     }
 
     private static String fileName(String path) {

@@ -4,12 +4,13 @@
  */
 package io.github.stanio.bibata;
 
-import static java.util.Map.entry;
-
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.TreeMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class CursorNames {
 
@@ -63,61 +64,29 @@ public class CursorNames {
     }
 
 
-    private CursorNames() {}
+    private final Map<String, String> names;
 
-    public static String winName(String name) {
-        return winNames.get(name);
+    public CursorNames() {
+        names = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     }
 
-    public static String nameWinName(String name) {
-        for (Map.Entry<String, String> entry : winNames.entrySet()) {
-            if (name.equalsIgnoreCase(entry.getValue())) {
-                return entry.getKey();
-            }
+    public String targetName(String sourceName) {
+        return names.isEmpty() ? sourceName
+                               : names.get(sourceName);
+    }
+
+    public void putAll(Map<String, String> names) {
+        this.names.putAll(names);
+    }
+
+    public void filter(Collection<String> filter) {
+        if (names.isEmpty()) {
+            names.putAll(filter.stream()
+                               .collect(Collectors.toMap(Function.identity(),
+                                                         Function.identity())));
+        } else if (!filter.isEmpty()) {
+            names.keySet().retainAll(filter);
         }
-        return null;
     }
-
-    public static String x11Name(String name) {
-        String xname = x11Names.getOrDefault(name, "");
-        if (xname.isEmpty()) {
-            return x11Excluded.contains(name) ? null : name;
-        }
-        return xname;
-    }
-
-    private static Map<String, String>
-            winNames = Map.ofEntries(entry("bd_double_arrow", "Dgn1"),
-                                     entry("circle", "Unavailable"),
-                                     entry("crosshair", "Cross"),
-                                     entry("fd_double_arrow", "Dgn2"),
-                                     entry("grabbing", "Grabbing"),
-                                     entry("hand1", "Pan"),
-                                     entry("hand2", "Link"),
-                                     entry("left_ptr", "Pointer"),
-                                     entry("left_ptr_watch", "Work"),
-                                     entry("move", "Move"),
-                                     entry("pencil", "Handwriting"),
-                                     entry("question_arrow", "Help"),
-                                     entry("right_ptr", "Alternate"),
-                                     entry("sb_h_double_arrow", "Horz"),
-                                     entry("sb_v_double_arrow", "Vert"),
-                                     entry("wait", "Busy"),
-                                     entry("xterm", "Text"),
-                                     entry("zoom-in", "Zoom-in"),
-                                     entry("zoom-out", "Zoom-out"),
-                                     entry("person", "Person"),
-                                     entry("pin", "Pin"),
-                                     // Additions
-                                     entry("center_ptr", "Alternate_2"),
-                                     entry("sb_up_arrow", "Alternate_3"),
-                                     entry("cross", "Cross_2"),
-                                     entry("crossed_circle", "Unavailable_2"));
-
-    private static Set<String> x11Excluded = Set.of("person", "pin");
-
-    private static Map<String, String>
-            x11Names = Map.ofEntries(entry("zoom_in", "zoom-in"),
-                                     entry("zoom_out", "zoom-out"));
 
 }
