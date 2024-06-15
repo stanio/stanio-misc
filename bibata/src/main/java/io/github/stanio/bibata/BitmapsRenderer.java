@@ -83,8 +83,10 @@ public class BitmapsRenderer {
     }
 
     public BitmapsRenderer cursorNames(Map<String, String> names,
+                                       boolean allCursors,
                                        Collection<String> filter) {
         cursorNames.putAll(names);
+        cursorNames.includeAll(allCursors);
         cursorNames.filter(filter);
         return this;
     }
@@ -267,7 +269,7 @@ public class BitmapsRenderer {
             Path projectDir = configFactory.baseDir();
             new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
                     .withResolutions(cmdArgs.resolutions())
-                    .cursorNames(nameMapping, cmdArgs.cursorFilter)
+                    .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
         } catch (IOException e) {
@@ -304,6 +306,7 @@ public class BitmapsRenderer {
         final Set<Integer> resolutions = new LinkedHashSet<>(2);
         final Set<SizeScheme> sizes = new LinkedHashSet<>(2);
         final Set<String> cursorFilter = new LinkedHashSet<>();
+        boolean allCursors;
 
         final Set<String> colors = new LinkedHashSet<>();
         String colorsFile;
@@ -336,6 +339,7 @@ public class BitmapsRenderer {
                             setOutputType(OutputType.WINDOWS_CURSORS, val, "win-names.json"))
                     .acceptOptionalArg("--linux-cursors", val ->
                             setOutputType(OutputType.LINUX_CURSORS, val, "x11-names.json"))
+                    .acceptFlag("--all-cursors", () -> allCursors = true)
                     .acceptOptionalArg("--pointer-shadow",
                             val -> pointerShadow = DropShadow.decode(val))
                     .acceptOptionalArg("--thin-stroke",
@@ -390,7 +394,7 @@ public class BitmapsRenderer {
                     + " [--pointer-shadow] [--linux-cursors[=<win-names.json>]]"
                     + " [--thin-stroke] [--windows-cursors[=<x11-names.json>]]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
-                    + " [-t <theme>]... [-f <cursor>]...");
+                    + " [-t <theme>]... [-f <cursor>]... [--all-cursors]");
             out.println();
             out.println("<project-path> could be the source project base directory, or"
                     + " the \"render.json\" inside it, possibly with a different name"

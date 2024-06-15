@@ -12,7 +12,9 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -71,18 +73,42 @@ public class CursorNames {
 
 
     private final Map<String, String> names;
+    private final Set<String> fileNames;
+    private boolean allCursors;
 
     public CursorNames() {
         names = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        fileNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+    }
+
+    public void includeAll(boolean all) {
+        allCursors = all;
     }
 
     public String targetName(String sourceName) {
-        return names.isEmpty() ? sourceName
-                               : names.get(sourceName);
+        if (names.isEmpty()) {
+            return sourceName; // Implicit 'allCursors'
+        }
+
+        String fileName = names.get(sourceName);
+        if (fileName == null && allCursors) {
+            fileName = put(sourceName, sourceName);
+        }
+        return fileName;
+    }
+
+    private String put(String source, String target) {
+        return names.computeIfAbsent(source, k -> {
+            String actualTarget = target;
+            for (int idx = 2; !fileNames.add(actualTarget); idx++) {
+                actualTarget = target + "_" + idx;
+            }
+            return actualTarget;
+        });
     }
 
     public void putAll(Map<String, String> names) {
-        this.names.putAll(names);
+        names.forEach(this::put);
     }
 
     public void filter(Collection<String> filter) {
@@ -92,6 +118,8 @@ public class CursorNames {
                                                          Function.identity())));
         } else if (!filter.isEmpty()) {
             names.keySet().retainAll(filter);
+            if (allCursors)
+                filter.forEach(it -> put(it, it));
         }
     }
 
