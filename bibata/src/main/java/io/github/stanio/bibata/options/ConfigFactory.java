@@ -34,6 +34,8 @@ import io.github.stanio.bibata.svg.DropShadow;
 
 public final class ConfigFactory {
 
+    private static final String[] JSON_EXTS = { ".json", ".jsonc", ".json5" };
+
     private final Path baseDir;
     private final Path configFile;
     private final ThemeNames themeNames = new ThemeNames();
@@ -63,8 +65,8 @@ public final class ConfigFactory {
     public void loadColors(String colorsFile) throws IOException {
         Path path;
         if (colorsFile == null) {
-            path = baseDir.resolve("colors.json");
-            if (Files.notExists(path))
+            path = resolveExisting(baseDir, "colors", JSON_EXTS);
+            if (path == null)
                 return;
         } else {
             path = baseDir.resolve(colorsFile);
@@ -72,12 +74,24 @@ public final class ConfigFactory {
         colorRegistry.read(path.toUri().toURL());
     }
 
+    static Path resolveExisting(Path parent, String name, String... extensions) {
+        String[] suffixes = (extensions.length == 0)
+                            ? new String[] { "" }
+                            : extensions;
+        for (String ext : suffixes) {
+            Path path = parent.resolve(name + ext);
+            if (Files.exists(path))
+                return path;
+        }
+        return null;
+    }
+
     public void deifineAnimations(String animationsFile)
             throws IOException, JsonParseException {
         Path path;
         if (animationsFile == null) {
-            path = baseDir.resolve("animations.json");
-            if (Files.notExists(path))
+            path = resolveExisting(baseDir, "animations", JSON_EXTS);
+            if (path == null)
                 return;
         } else {
             path = baseDir.resolve(animationsFile);
@@ -85,11 +99,16 @@ public final class ConfigFactory {
         Animation.define(path.toUri().toURL());
     }
 
-    public Map<String, String> loadCursorNames(String namesFile, boolean optional)
+    public Map<String, String> loadCursorNames(String namesFile, boolean implied)
             throws IOException, JsonParseException {
-        Path path = baseDir.resolve(namesFile);
-        if (Files.notExists(path) && optional)
-            return Collections.emptyMap();
+        Path path;
+        if (implied) {
+            path = resolveExisting(baseDir, namesFile, JSON_EXTS);
+            if (path == null)
+                return Collections.emptyMap();
+        } else {
+            path = baseDir.resolve(namesFile);
+        }
 
         try (InputStream bytes = Files.newInputStream(path);
                 Reader text = new InputStreamReader(bytes, StandardCharsets.UTF_8)) {
