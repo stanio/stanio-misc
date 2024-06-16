@@ -152,7 +152,7 @@ public class ColorWheel {
     }
 
     private static Animation lookAnimationUp(Path path) {
-        final String suffix = ".svg_";
+        final String suffix = "_.svg";
         final int suffixLength = suffix.length();
         String pathStr = path.toString();
         if (pathStr.regionMatches(true, // endsWithIgnoreCase
