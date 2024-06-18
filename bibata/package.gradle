@@ -27,7 +27,7 @@ def themeComment(Map args) {
 
 def themeName(Map args) {
     def name = "Bibata ${args.shape} ${args.color}"
-    if (args.leftHand) name += " left-handed"
+    if (args.leftHand) name += " Left-Handed"
     if (args.sizing == 'Extra-Large') name += ' [x-large]'
     else if (args.sizing) name += " [${ args.sizing.toLowerCase() }]"
     def tags = [ args.outline ? 'thin' : null,
@@ -43,35 +43,36 @@ task windowsInstallScripts {
     outputs.upToDateWhen { false }
 
     doLast {
-        themeShapes.split(',').each { shape ->
-            themeColors.split(',').each { color ->
-                def themeIndex = 1
-                def setupInfo = [
-                    name: themeName(shape: shape, color: color),
-                    comment: themeComment(shape: shape, color: color),
-                    fileSets: [:],
-                    destinationDirs: [],
-                    schemesReg: [],
-                    strings: []
-                ]
-                windowsSizes.split(',').each { schemeSize ->
-                    def args = [ shape: shape,
-                                 color: color,
-                                 leftHand: null,
-                                 sizing: schemeSize,
-                                 outline: null,
-                                 shadow: null ]
+        cartesianProduct(0, themeShapes.split(',') as List,
+                            themeColors.split(',') as List,
+                            leftHandOpts.split(',') as List).each { row ->
+            def args = [ shape: row[0],
+                         color: row[1],
+                         leftHand: row[2] ]
 
-                    addSetupInfo(args, themeIndex++, setupInfo)
-                    if (args.sizing != 'Extra-Large')
-                        addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
+            def themeIndex = 1
+            def setupInfo = [
+                name: themeName(args),
+                comment: themeComment(args),
+                fileSets: [:],
+                destinationDirs: [],
+                schemesReg: [],
+                strings: []
+            ]
+            windowsSizes.split(',').each { schemeSize ->
+                args << [ sizing: schemeSize,
+                          outline: null,
+                          shadow: null ]
 
-                    addSetupInfo(args << [outline: 'Thin', shadow: null], themeIndex++, setupInfo)
-                    if (args.sizing != 'Extra-Large')
-                        addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
-                }
-                writeWindowsInstallScripts(setupInfo)
+                addSetupInfo(args, themeIndex++, setupInfo)
+                if (args.sizing != 'Extra-Large')
+                    addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
+
+                addSetupInfo(args << [outline: 'Thin', shadow: null], themeIndex++, setupInfo)
+                if (args.sizing != 'Extra-Large')
+                    addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
             }
+            writeWindowsInstallScripts(setupInfo)
         }
     }
 }
@@ -148,7 +149,7 @@ def addSetupInfo(Map args, index, setupInfo) {
 }
 
 def winCurDir(Map args) {
-    def tags = [ args.shape, args.color, args.leftHand,
+    def tags = [ args.leftHand, args.shape, args.color,
                  args.sizing ? args.sizing : 'Normal',
                  args.outline, args.shadow] - null - ''
     return "Bibata\\${ tags.join('-') }"
@@ -162,20 +163,20 @@ task linuxThemeFiles {
     outputs.upToDateWhen { false }
 
     doLast {
-        themeShapes.split(',').each { shape ->
-            themeColors.split(',').each { color ->
-                def args = [ shape: shape,
-                             color: color,
-                             leftHand: null,
-                             sizing: null,
-                             outline: null,
-                             shadow: null ]
+        cartesianProduct(0, themeShapes.split(',') as List,
+                            themeColors.split(',') as List,
+                            leftHandOpts.split(',') as List).each { row ->
+            def args = [ shape: row[0],
+                         color: row[1],
+                         leftHand: row[2],
+                         sizing: null,
+                         outline: null,
+                         shadow: null ]
 
-                writeLinuxThemeFiles(args)
-                writeLinuxThemeFiles(args << [outline: 'Thin'])
-                writeLinuxThemeFiles(args << [shadow: 'Shadow'])
-                writeLinuxThemeFiles(args << [outline: null])
-            }
+            writeLinuxThemeFiles(args)
+            writeLinuxThemeFiles(args << [outline: 'Thin'])
+            writeLinuxThemeFiles(args << [shadow: 'Shadow'])
+            writeLinuxThemeFiles(args << [outline: null])
         }
     }
 }
@@ -185,7 +186,7 @@ task linuxThemeFiles {
  * https://wiki.archlinux.org/title/Xcursorgen
  */
 def writeLinuxThemeFiles(Map args) {
-    def tags = [ args.shape, args.color, args.leftHand,
+    def tags = [ args.leftHand, args.shape, args.color,
                  args.outline, args.shadow ] - null - ''
     def properties = [
         name: themeName(args),
@@ -204,4 +205,33 @@ def writeLinuxThemeFiles(Map args) {
             escapeBackslash = true
         }
     }
+}
+
+/*
+ * Maybe use Guava Lists.cartesianProduct(lists)
+ */
+def cartesianProduct(int index, Collection<?>... options) {
+    if (index == options.length) {
+        return List.of(Arrays.asList(new Object[options.length]));
+    }
+
+    def optionValues = options[index];
+    if (optionValues.empty) {
+        optionValues = Collections.singleton(null);
+    }
+
+    def subProduct = cartesianProduct(index + 1, options);
+    def combinations =
+            new ArrayList<>(optionValues.size() * subProduct.size());
+    optionValues.each { value ->
+        if (subProduct == null) {
+            subProduct = cartesianProduct(index + 1, options);
+        }
+        subProduct.each { row ->
+            row.set(index, value);
+            combinations.add(row);
+        }
+        subProduct = null;
+    }
+    return combinations;
 }

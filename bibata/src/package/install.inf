@@ -9,7 +9,7 @@
 ; Modified for: https://github.com/stanio/Bibata_Cursor
 
 
-; ${name} ${version}
+; ${name} (${version})
 ; ${comment}. https://www.bibata.live
 
 [Version]
