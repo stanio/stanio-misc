@@ -336,9 +336,9 @@ public class BitmapsRenderer {
                     .acceptOption("--color-map", val -> colorsFile = val)
                     .acceptOption("--animations", val -> animationsFile = val)
                     .acceptOptionalArg("--windows-cursors", val ->
-                            setOutputType(OutputType.WINDOWS_CURSORS, val, "win-names.json"))
+                            setOutputType(OutputType.WINDOWS_CURSORS, val, "win-names"))
                     .acceptOptionalArg("--linux-cursors", val ->
-                            setOutputType(OutputType.LINUX_CURSORS, val, "x11-names.json"))
+                            setOutputType(OutputType.LINUX_CURSORS, val, "x11-names"))
                     .acceptFlag("--all-cursors", () -> allCursors = true)
                     .acceptOptionalArg("--pointer-shadow",
                             val -> pointerShadow = DropShadow.decode(val))
