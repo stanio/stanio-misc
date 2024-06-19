@@ -71,7 +71,7 @@ import io.github.stanio.bibata.CursorNames.Animation;
  *
  * @see  <a href="https://wiki.archlinux.org/title/Xcursorgen">Xcursorgen</a>
  */
-@Deprecated(forRemoval = true)
+//@Deprecated(forRemoval = true)
 public class CursorCompiler {
 
     private static final Pattern WS = Pattern.compile("\\s+");
