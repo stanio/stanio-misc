@@ -223,7 +223,7 @@ public final class ConfigFactory {
 
         String name = Stream.of(themeNames.getNameForDir(source.dir()),
                                 colorName,
-                                sizeScheme.name,
+                                sizeScheme.permanent ? sizeScheme.toString() : null,
                                 strokeWidth == null ? null : "Thin",
                                 pointerShadow == null ? null : "Shadow")
                             .filter(Objects::nonNull)

@@ -175,7 +175,11 @@ public class BitmapsRenderer {
             //        && !config.cursors().contains(cursorName))
             //    continue;
 
-            progress.push(config.name());
+            String themeLabel = config.name();
+            if (config.name() != null && !config.sizeScheme().permanent) {
+                themeLabel += " (" + config.sizeScheme() + ")";
+            }
+            progress.push(themeLabel);
 
             renderer.setStrokeWidth(config.strokeWidth());
             renderer.setPointerShadow(config.pointerShadow());
