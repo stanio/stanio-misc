@@ -22,7 +22,7 @@ AddReg    = Scheme.Reg,Wreg
 [DestinationDirs]
 ; "Using Dirids"
 ; <https://learn.microsoft.com/en-us/windows-hardware/drivers/install/using-dirids>
-; 16419  All Users\Application Data  (ProgramData)
+; Consider: | 16419 | All Users\Application Data | (ProgramData)
 ${destinationDirs}
 
 [Scheme.Reg]
@@ -52,8 +52,10 @@ HKLM,"SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce\Setup","Mouse Pointers",
 ${sourceFiles}
 
 [Strings]
-BD                  = "%ProgramData%"
-BIBATA_DIR          = "Bibata-Cursors"
+BD                  = "%SystemRoot%"
+BIBATA_DIR          = "Cursors\Bibata"
+;BD                  = "%ProgramData%"
+;BIBATA_DIR          = "Bibata-Cursors"
 ${strings}
 pointer             = "Pointer.cur"
 help                = "Help.cur"

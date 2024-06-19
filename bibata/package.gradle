@@ -107,8 +107,8 @@ def writeWindowsInstallScripts(Map setupInfo) {
 
 def addSetupInfo(Map args, index, setupInfo) {
     def name = themeName(args)
-    def curDir = winCurDir(args)
-    def srcDir = curDir.replace('Bibata\\', '')
+    def srcDir = winCurDir(args)
+    def curDir = "Cursors\\Bibata\\${srcDir}"
     def fileList = [ 'Pointer.cur',
                      'Help.cur',
                      'Work.ani',
@@ -142,9 +142,9 @@ def addSetupInfo(Map args, index, setupInfo) {
     def schemeNameVar = "SCHEME_NAME${index == 1 ? '' : index}"
 
     setupInfo.fileSets[fileSetName] = "[${fileSetName}]\n${ fileList.join('\n') }"
-    setupInfo.destinationDirs << "${fileSetName} = 16419,\"%BIBATA_DIR%\""
+    setupInfo.destinationDirs << "${fileSetName} = 10,\"%BIBATA_DIR%\""
     setupInfo.schemesReg << "HKCU,\"Control Panel\\Cursors\\Schemes\",\"%${schemeNameVar}%\",0x00020000,\"%BD%\\%${curDirVar}%\\%pointer%,%BD%\\%${curDirVar}%\\%help%,%BD%\\%${curDirVar}%\\%work%,%BD%\\%${curDirVar}%\\%busy%,%BD%\\%${curDirVar}%\\%cross%,%BD%\\%${curDirVar}%\\%text%,%BD%\\%${curDirVar}%\\%handwriting%,%BD%\\%${curDirVar}%\\%unavailable%,%BD%\\%${curDirVar}%\\%vert%,%BD%\\%${curDirVar}%\\%horz%,%BD%\\%${curDirVar}%\\%dgn1%,%BD%\\%${curDirVar}%\\%dgn2%,%BD%\\%${curDirVar}%\\%move%,%BD%\\%${curDirVar}%\\%alternate%,%BD%\\%${curDirVar}%\\%link%,%BD%\\%${curDirVar}%\\%pin%,%BD%\\%${curDirVar}%\\%person%\""
-    setupInfo.strings << "${curDirVar}            = \"Cursors\\${curDir}\"\n" +
+    setupInfo.strings << "${curDirVar}            = \"${curDir}\"\n" +
                          "${schemeNameVar}        = \"${name}\""
 }
 
@@ -152,7 +152,7 @@ def winCurDir(Map args) {
     def tags = [ args.leftHand, args.shape, args.color,
                  args.sizing ? args.sizing : 'Normal',
                  args.outline, args.shadow] - null - ''
-    return "Bibata\\${ tags.join('-') }"
+    return tags.join('-')
 }
 
 task linuxThemeFiles {
