@@ -295,6 +295,7 @@ public final class ConfigFactory {
     //}
 
     @SafeVarargs
+    @SuppressWarnings("varargs")
     static <T> Set<T> setOf(T... values) {
         return (values.length == 0)
                 ? Collections.singleton(null)
