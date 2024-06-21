@@ -9,9 +9,9 @@ import java.util.List;
 
 class ProgressOutput {
 
-    private static final String[] itemSeparators = { ".\n", ";\n\t", ", " };
+    private static final String[] itemSeparators = { ".\n\n", ".\n", ";\n\t", ", " };
 
-    private static final String[] levelSeparators = { ": " };
+    private static final String[] levelSeparators = { "\n\n", ": " };
 
     private static final List<Boolean> firstItems = new ArrayList<>();
 

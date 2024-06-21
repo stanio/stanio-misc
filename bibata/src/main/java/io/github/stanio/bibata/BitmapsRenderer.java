@@ -126,11 +126,13 @@ public class BitmapsRenderer {
 
     private void renderDir(String svgDir, Collection<ThemeConfig> config)
             throws IOException {
+        progress.push("Source dir: " + svgDir);
         try (Stream<Path> svgStream = listSVGFiles(projectDir.resolve(svgDir))) {
             for (Path svg : (Iterable<Path>) svgStream::iterator) {
                 renderSVG(svg, config);
             }
         }
+        progress.pop();
         renderer.saveDeferred();
     }
 
