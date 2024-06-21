@@ -383,9 +383,12 @@ public class BitmapsRenderer {
         }
 
         Set<Integer> resolutions() {
-            if (resolutions.isEmpty()
-                    && outputType == OutputType.WINDOWS_CURSORS) {
-                resolutions.addAll(List.of(32, 48, 64, 96, 128));
+            if (resolutions.isEmpty()) {
+                if (outputType == OutputType.WINDOWS_CURSORS) {
+                    resolutions.addAll(List.of(32, 48, 64, 72, 96, 128));
+                } else if (outputType == OutputType.LINUX_CURSORS) {
+                    resolutions.addAll(List.of(24, 32, 48, 64, 72, 96));
+                }
             }
             return resolutions;
         }
@@ -395,8 +398,8 @@ public class BitmapsRenderer {
                     + " [--source <svg-dir>]... [--name <theme-name>]..."
                     + " [--animations <animations.json>]"
                     + " [--color <color>]... [--color-map <colors.json>]"
-                    + " [--pointer-shadow] [--linux-cursors[=<win-names.json>]]"
-                    + " [--thin-stroke] [--windows-cursors[=<x11-names.json>]]"
+                    + " [--pointer-shadow] [--linux-cursors[=<x11-names.json>]]"
+                    + " [--thin-stroke] [--windows-cursors[=<win-names.json>]]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]... [--all-cursors]");
             out.println();
