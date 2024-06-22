@@ -18,7 +18,7 @@ import java.util.function.Function;
 
 public class DropShadow {
 
-    private static final DropShadow SVG = new DropShadow(true, 3, 12, 6, 0.5f, 0xFF000000);
+    private static final DropShadow SVG = new DropShadow(true, 6, 18, 9, 0.3f, 0xFF000000);
     private static final DropShadow BMP = new DropShadow(false, 6, 18, 9, 0.7f, 0xFF000000);
 
     private final boolean svg;
@@ -65,11 +65,12 @@ public class DropShadow {
     public static DropShadow decode(String paramStr, DropShadow defaultValue) {
         if (paramStr.isBlank()) return defaultValue;
 
+        float distance;
         String[] args = paramStr.split(",", 5);
         return new DropShadow(defaultValue.svg,
                 parseValue(args, 0, defaultValue.blur, Float::valueOf),
-                parseValue(args, 1, defaultValue.dx, Float::valueOf),
-                parseValue(args, 2, defaultValue.dy, Float::valueOf),
+                distance = parseValue(args, 1, defaultValue.dx, Float::valueOf),
+                parseValue(args, 2, distance, Float::valueOf),
                 parseValue(args, 3, defaultValue.opacity, Float::valueOf),
                 parseValue(args, 4, defaultValue.color, Integer::decode));
     }
