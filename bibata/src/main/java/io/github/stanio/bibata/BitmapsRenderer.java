@@ -178,7 +178,7 @@ public class BitmapsRenderer {
             //    continue;
 
             String themeLabel = config.name();
-            if (config.name() != null && !config.sizeScheme().permanent) {
+            if (config.sizeScheme().name != null && !config.sizeScheme().permanent) {
                 themeLabel += " (" + config.sizeScheme() + ")";
             }
             progress.push(themeLabel);
