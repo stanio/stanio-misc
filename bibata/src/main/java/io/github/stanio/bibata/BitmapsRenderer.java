@@ -265,7 +265,7 @@ public class BitmapsRenderer {
         Map<String, String> nameMapping;
         try {
             nameMapping = configFactory
-                    .loadCursorNames(cmdArgs.namesFile, cmdArgs.optionalNames);
+                    .loadCursorNames(cmdArgs.namesFile, cmdArgs.impliedNames);
         } catch (IOException | JsonParseException e) {
             exitMessage(2, "Problem reading cursor names: ", e);
             return;
@@ -319,7 +319,7 @@ public class BitmapsRenderer {
         String animationsFile;
         String buildDir = "themes";
         String namesFile;
-        boolean optionalNames;
+        boolean impliedNames = true;
 
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
@@ -364,10 +364,10 @@ public class BitmapsRenderer {
             outputType = type;
             if (explicitNames.isEmpty()) {
                 this.namesFile = impliedNames;
-                this.optionalNames = true;
+                this.impliedNames = true;
             } else {
                 this.namesFile = explicitNames;
-                this.optionalNames = false;
+                this.impliedNames = false;
             }
         }
 
