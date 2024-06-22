@@ -12,7 +12,7 @@ import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
 class ThemeNames {
 
@@ -57,52 +57,77 @@ class ThemeNames {
     }
 
     static String findPrefix(List<String> names, Supplier<String> supplier) {
-        if (names.isEmpty())
+        String prefix = getPrefix(false, names);
+        String suffix = getPrefix(true, names);
+        if (prefix.isEmpty() && suffix.isEmpty())
             return supplier.get();
+
+        return prefix.equals(suffix) ? prefix : prefix + "*" + suffix;
+    }
+
+    private static String getPrefix(boolean suffix, List<String> names) {
+        if (names.isEmpty())
+            return "";
 
         if (names.size() == 1) {
             String str = names.get(0);
-            return str.isEmpty() ? supplier.get() : str;
+            return str.isEmpty() ? "" : str;
         }
 
         String baseStr = null;
-        String[] base = null;
-        int prefix = -1;
+        String[] baseTokens = null;
+        int commonLength = 0;
 
         for (String str : names) {
             String[] tokens = tokenize(str);
-            if (base == null) {
+            if (baseTokens == null) {
                 baseStr = str;
-                base = tokens;
-                prefix = tokens.length;
+                baseTokens = tokens;
+                commonLength = tokens.length;
                 continue;
             }
 
-            while (!regionMatches(tokens, base, prefix)) {
-                prefix -= 1;
-                if (prefix <= 0)
-                    return supplier.get();
+            while (!regionMatches(tokens, baseTokens, commonLength, suffix)) {
+                commonLength -= 1;
+                if (commonLength <= 0)
+                    return "";
             }
         }
 
-        assert (base != null && prefix > 0 && baseStr != null);
-        int trailing = base[prefix - 1].codePointAt(0);
-        if (!Character.isLetterOrDigit(trailing)) {
-            prefix -= 1;
-        }
-        return (prefix == 0)
-                ? supplier.get()
-                : baseStr.substring(0, Stream.of(base).limit(prefix)
-                                             .mapToInt(String::length).sum());
+        assert (baseTokens != null && commonLength > 0 && baseStr != null);
+        return getPrefix(suffix, baseStr, baseTokens, commonLength);
     }
 
-    private static boolean regionMatches(String[] a, String[] b, int len) {
+    private static String getPrefix(boolean suffix, String baseStr,
+                                    String[] commonTokens, int commonLength) {
+        int endIndex = suffix ? commonTokens.length - commonLength
+                              : commonLength - 1;
+
+        int trailing = commonTokens[endIndex].codePointAt(0); // assert not empty
+        if (!Character.isLetterOrDigit(trailing)) {
+            commonLength -= 1;
+        }
+        if (commonLength == 0) {
+            return "";
+        }
+
+        IntStream commonRange = suffix
+                ? IntStream.range(commonTokens.length - commonLength, commonTokens.length)
+                : IntStream.range(0, commonLength);
+        int baseLength = commonRange.map(i -> commonTokens[i].length()).sum();
+        return suffix ? baseStr.substring(baseStr.length() - baseLength)
+                      : baseStr.substring(0, baseLength);
+    }
+
+    private static boolean regionMatches(String[] a, String[] b, int len, boolean suffix) {
         if (a.length < len || b.length < len)
             return false;
 
-        for (int i = len - 1; i >= 0; i--) {
+        final int fromOff = suffix ? a.length - len : 0;
+        final int toOff = suffix ? b.length - len : 0;
+        for (int i = 0; i < len; i++) {
             // Anticipate case-insensitive file system
-            if (!a[i].equalsIgnoreCase(b[i])) {
+            if (!a[fromOff + i].equalsIgnoreCase(b[toOff + i])) {
                 return false;
             }
         }

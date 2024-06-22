@@ -18,12 +18,12 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.BinaryOperator;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -208,6 +208,8 @@ public final class ConfigFactory {
         return result.toArray(ThemeConfig[]::new);
     }
 
+    private static final Pattern WILDCARD = Pattern.compile("\\*");
+
     private ThemeConfig variant(ThemeConfig source,
                                 String colorName,
                                 SizeScheme sizeScheme,
@@ -221,15 +223,20 @@ public final class ConfigFactory {
             // Use the original/source config with its original name
             return source;
 
-        String name = Stream.of(themeNames.getNameForDir(source.dir()),
-                                colorName,
-                                sizeScheme.permanent ? sizeScheme.toString() : null,
-                                strokeWidth == null ? null : "Thin",
-                                pointerShadow == null ? null : "Shadow")
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.joining("-"));
-        return source.copyWith(name,
-                colors, sizeScheme, strokeWidth, pointerShadow);
+        List<String> tags = new ArrayList<>();
+        String[] prefixSuffix = WILDCARD.split(themeNames.getNameForDir(source.dir()), 2);
+        tags.add(prefixSuffix[0]);
+        tags.addAll(Arrays.asList(colorName,
+                sizeScheme.permanent ? sizeScheme.toString() : "",
+                strokeWidth == null ? "" : "Thin",
+                pointerShadow == null ? "" : "Shadow"));
+        if (prefixSuffix.length > 1) {
+            tags.add(prefixSuffix[1].replace("*", ""));
+        }
+        String name = tags.stream()
+                .filter(Predicate.not(String::isBlank))
+                .collect(Collectors.joining("-"));
+        return source.copyWith(name, colors, sizeScheme, strokeWidth, pointerShadow);
     }
 
     private static void updateResult(List<ThemeConfig> result,
