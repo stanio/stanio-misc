@@ -78,5 +78,5 @@ dependencies {
     //implementation 'com.github.weisj:jsvg:latest.integration'
     implementation 'com.github.weisj:jsvg:1.5.0'
     implementation 'com.jhlabs:filters:2.0.235-1'
-    runtimeOnly    'com.fasterxml.woodstox:woodstox-core:6.6.2'
+    runtimeOnly    'com.fasterxml.woodstox:woodstox-core:7.0.0'
 }
