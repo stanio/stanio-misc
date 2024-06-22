@@ -87,7 +87,7 @@ public class CursorNames {
 
     public String targetName(String sourceName) {
         if (names.isEmpty()) {
-            return sourceName; // Implicit 'allCursors'
+            return sourceName.endsWith("_") ? null : sourceName; // Implicit 'allCursors'
         }
 
         String fileName = names.get(sourceName);
@@ -117,9 +117,10 @@ public class CursorNames {
                                .collect(Collectors.toMap(Function.identity(),
                                                          Function.identity())));
         } else if (!filter.isEmpty()) {
-            names.keySet().retainAll(filter);
             if (allCursors)
                 filter.forEach(it -> put(it, it));
+
+            names.keySet().retainAll(filter);
         }
     }
 
