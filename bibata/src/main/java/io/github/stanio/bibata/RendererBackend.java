@@ -357,6 +357,8 @@ class JSVGImageTranscoder {
                                SVGRenderingHints.VALUE_MASK_CLIP_RENDERING_ACCURACY);
             svg.render(null, g);
 
+            // REVISIT: Move this as a common post-processing in the base
+            // RendererBackend, or even CursorsRenderer, if it is to remain.
             if (dropShadow.map(shadow -> !shadow.isSVG()).orElse(false)) {
                 g.dispose();
 
