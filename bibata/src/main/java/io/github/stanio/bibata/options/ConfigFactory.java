@@ -124,7 +124,7 @@ public final class ConfigFactory {
                                 Collection<String> colorOptions,
                                 Collection<SizeScheme> sizeOptions,
                                 boolean interpolate,
-                                Double thinStroke,
+                                Collection<StrokeWidth> strokeWidths,
                                 DropShadow pointerShadow)
             throws IOException, JsonParseException
     {
@@ -152,7 +152,7 @@ public final class ConfigFactory {
         });
 
         return interpolate(sourceConfigs, colorOptions,
-                sizeOptions, interpolate, thinStroke, pointerShadow);
+                sizeOptions, interpolate, strokeWidths, pointerShadow);
     }
 
     public ThemeConfig[] create(List<String> sourceDirectories,
@@ -160,7 +160,7 @@ public final class ConfigFactory {
                                 Collection<String> colorOptions,
                                 Collection<SizeScheme> sizeOptions,
                                 boolean allVariants,
-                                Double thinStroke,
+                                Collection<StrokeWidth> strokeWidths,
                                 DropShadow pointerShadow) {
         for (int i = 0, n = sourceDirectories.size(); i < n; i++) {
             String dir = sourceDirectories.get(i);
@@ -174,7 +174,7 @@ public final class ConfigFactory {
                 sourceConfigs.add(new ThemeConfig(name, dir, null)));
 
         return interpolate(sourceConfigs,
-                colorOptions, sizeOptions, allVariants, thinStroke,
+                colorOptions, sizeOptions, allVariants, strokeWidths,
                 pointerShadow);
     }
 
@@ -182,14 +182,14 @@ public final class ConfigFactory {
                                       Collection<String> colorOptions,
                                       Collection<SizeScheme> sizeOptions,
                                       boolean allVariants,
-                                      Double thinStroke,
+                                      Collection<StrokeWidth> strokeOptions,
                                       DropShadow pointerShadow)
     {
         List<ThemeConfig> result = new ArrayList<>();
 
         // Minimize source re-transformations by grouping relevant options first.
         List<List<Object>> optionCombinations =
-                cartesianProduct(0, setOf(allVariants, thinStroke),    // [0]
+                cartesianProduct(0, setOf(allVariants, strokeOptions), // [0]
                                     setOf(allVariants, pointerShadow), // [1]
                                     sourceConfigs,                     // [2]
                                     colorOptions,                      // [3]
@@ -200,7 +200,7 @@ public final class ConfigFactory {
             ThemeConfig candidate = variant(source,
                                             (String) combination.get(3),
                                             (SizeScheme) combination.get(4),
-                                            (Double) combination.get(0),
+                                            (StrokeWidth) combination.get(0),
                                             (DropShadow) combination.get(1));
             updateResult(result, candidate, candidate == source);
         }
@@ -213,22 +213,23 @@ public final class ConfigFactory {
     private ThemeConfig variant(ThemeConfig source,
                                 String colorName,
                                 SizeScheme sizeScheme,
-                                Double strokeWidth,
+                                StrokeWidth strokeWidth,
                                 DropShadow pointerShadow) {
         Map<String, String> colors = (colorName == null)
                                      ? source.colors()
                                      : colorRegistry.get(colorName);
-        if (source.hasEqualOptions(colors,
-                sizeScheme, strokeWidth, pointerShadow))
+        Double widthValue = strokeWidth == null ? null : strokeWidth.value;
+        if (source.hasEqualOptions(colors, sizeScheme, widthValue, pointerShadow))
             // Use the original/source config with its original name
             return source;
 
         List<String> tags = new ArrayList<>();
         String[] prefixSuffix = WILDCARD.split(themeNames.getNameForDir(source.dir()), 2);
         tags.add(prefixSuffix[0]);
+        final double baseWidth = 16;
         tags.addAll(Arrays.asList(colorName == null ? "" : colorName,
                 sizeScheme.permanent ? sizeScheme.toString() : "",
-                strokeWidth == null ? "" : "Thin",
+                strokeWidth == null ? "" : strokeWidth.name(baseWidth),
                 pointerShadow == null ? "" : "Shadow"));
         if (prefixSuffix.length > 1) {
             tags.add(prefixSuffix[1].replace("*", ""));
@@ -236,7 +237,7 @@ public final class ConfigFactory {
         String name = tags.stream()
                 .filter(Predicate.not(String::isBlank))
                 .collect(Collectors.joining("-"));
-        return source.copyWith(name, colors, sizeScheme, strokeWidth, pointerShadow);
+        return source.copyWith(name, colors, sizeScheme, widthValue, pointerShadow);
     }
 
     private static void updateResult(List<ThemeConfig> result,
@@ -295,11 +296,17 @@ public final class ConfigFactory {
                       : setOf(value);
     }
 
-    //static <T> Set<T> setOf(Collection<T> values) {
-    //    return values.isEmpty()
-    //            ? Collections.singleton(null)
-    //            : new LinkedHashSet<>(values);
-    //}
+    static <T> Set<T> setOf(boolean includeNull, Collection<T> values) {
+        if (values.isEmpty())
+            return Collections.singleton(null);
+
+        Set<T> set = new LinkedHashSet<>();
+        if (includeNull) {
+            set.add(null);
+        }
+        set.addAll(values);
+        return set;
+    }
 
     @SafeVarargs
     @SuppressWarnings("varargs")

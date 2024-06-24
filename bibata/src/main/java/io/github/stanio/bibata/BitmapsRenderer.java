@@ -38,6 +38,7 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.options.ConfigFactory;
 import io.github.stanio.bibata.options.SizeScheme;
+import io.github.stanio.bibata.options.StrokeWidth;
 import io.github.stanio.bibata.options.ThemeConfig;
 import io.github.stanio.bibata.svg.DropShadow;
 
@@ -252,10 +253,10 @@ public class BitmapsRenderer {
         try {
             if (cmdArgs.sourceDirs.isEmpty()) {
                 renderConfig = configFactory.create(cmdArgs.themeFilter, cmdArgs.colors,
-                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
+                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidths, cmdArgs.pointerShadow);
             } else {
                 renderConfig = configFactory.create(cmdArgs.sourceDirs, cmdArgs.themeNames, cmdArgs.colors,
-                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidth, cmdArgs.pointerShadow);
+                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidths, cmdArgs.pointerShadow);
             }
         } catch (IOException | JsonParseException e) {
             exitMessage(2, "Could not read \"render.json\" configuration: ", e);
@@ -323,7 +324,7 @@ public class BitmapsRenderer {
 
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
-        Double strokeWidth;
+        final List<StrokeWidth> strokeWidths = new ArrayList<>();
         boolean allVariants;
 
         CommandArgs(String... args) {
@@ -348,8 +349,9 @@ public class BitmapsRenderer {
                     .acceptFlag("--all-cursors", () -> allCursors = true)
                     .acceptOptionalArg("--pointer-shadow",
                             val -> pointerShadow = DropShadow.decode(val))
-                    .acceptOptionalArg("--thin-stroke",
-                            val -> strokeWidth = val.isEmpty() ? 12 : Double.parseDouble(val))
+                    .acceptOptionalArg("--thin-stroke", strokeWidths::add,
+                            val -> StrokeWidth.valueOf(val.isEmpty() ? "12" : val))
+                    .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
                     .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptOption("--build-dir", val -> buildDir = val)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
