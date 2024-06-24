@@ -252,11 +252,15 @@ public class BitmapsRenderer {
         ThemeConfig[] renderConfig;
         try {
             if (cmdArgs.sourceDirs.isEmpty()) {
-                renderConfig = configFactory.create(cmdArgs.themeFilter, cmdArgs.colors,
-                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidths, cmdArgs.pointerShadow);
+                renderConfig = configFactory.create(cmdArgs.themeFilter,
+                        cmdArgs.colors, cmdArgs.sizes(),
+                        cmdArgs.strokeWidths, cmdArgs.defaultStrokeAlso(),
+                        cmdArgs.pointerShadow, cmdArgs.noShadowAlso());
             } else {
-                renderConfig = configFactory.create(cmdArgs.sourceDirs, cmdArgs.themeNames, cmdArgs.colors,
-                        cmdArgs.sizes(), cmdArgs.allVariants, cmdArgs.strokeWidths, cmdArgs.pointerShadow);
+                renderConfig = configFactory.create(cmdArgs.sourceDirs, cmdArgs.themeNames,
+                        cmdArgs.colors, cmdArgs.sizes(),
+                        cmdArgs.strokeWidths, cmdArgs.defaultStrokeAlso(),
+                        cmdArgs.pointerShadow, cmdArgs.noShadowAlso());
             }
         } catch (IOException | JsonParseException e) {
             exitMessage(2, "Could not read \"render.json\" configuration: ", e);
@@ -324,7 +328,9 @@ public class BitmapsRenderer {
 
         OutputType outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
+        boolean noShadowAlso;
         final List<StrokeWidth> strokeWidths = new ArrayList<>();
+        boolean defaultStrokeAlso;
         boolean allVariants;
 
         CommandArgs(String... args) {
@@ -349,9 +355,11 @@ public class BitmapsRenderer {
                     .acceptFlag("--all-cursors", () -> allCursors = true)
                     .acceptOptionalArg("--pointer-shadow",
                             val -> pointerShadow = DropShadow.decode(val))
+                    .acceptFlag("--no-shadow-also", () -> noShadowAlso = true)
                     .acceptOptionalArg("--thin-stroke", strokeWidths::add,
                             val -> StrokeWidth.valueOf(val.isEmpty() ? "12" : val))
                     .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
+                    .acceptFlag("--default-stroke-also", () -> defaultStrokeAlso = true)
                     .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptOption("--build-dir", val -> buildDir = val)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
@@ -371,6 +379,14 @@ public class BitmapsRenderer {
                 this.namesFile = explicitNames;
                 this.impliedNames = false;
             }
+        }
+
+        public boolean defaultStrokeAlso() {
+            return allVariants || defaultStrokeAlso;
+        }
+
+        public boolean noShadowAlso() {
+            return allVariants || noShadowAlso;
         }
 
         Set<SizeScheme> sizes() {
@@ -402,8 +418,11 @@ public class BitmapsRenderer {
                     + " [--source <svg-dir>]... [--name <theme-name>]..."
                     + " [--animations <animations.json>]"
                     + " [--color <color>]... [--color-map <colors.json>]"
-                    + " [--pointer-shadow] [--linux-cursors[=<x11-names.json>]]"
-                    + " [--thin-stroke] [--windows-cursors[=<win-names.json>]]"
+                    + " [--windows-cursors[=<win-names.json>]]"
+                    + " [--linux-cursors[=<x11-names.json>]]"
+                    + " [--pointer-shadow] [--no-shadow-also]"
+                    + " [--stroke-width=<width>[:<name>]] [--default-stroke-also]"
+                    + " [--thin-stroke] [--all-variants]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]... [--all-cursors]");
             out.println();

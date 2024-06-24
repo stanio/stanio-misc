@@ -123,9 +123,10 @@ public final class ConfigFactory {
     public ThemeConfig[] create(Collection<String> themeFilter,
                                 Collection<String> colorOptions,
                                 Collection<SizeScheme> sizeOptions,
-                                boolean interpolate,
                                 Collection<StrokeWidth> strokeWidths,
-                                DropShadow pointerShadow)
+                                boolean defaultStrokeAlso,
+                                DropShadow pointerShadow,
+                                boolean noShadowAlso)
             throws IOException, JsonParseException
     {
         List<ThemeConfig> sourceConfigs =
@@ -151,17 +152,18 @@ public final class ConfigFactory {
                     .findPrefix(nameList, () -> fileName(dir)));
         });
 
-        return interpolate(sourceConfigs, colorOptions,
-                sizeOptions, interpolate, strokeWidths, pointerShadow);
+        return interpolate(sourceConfigs, colorOptions, sizeOptions,
+                strokeWidths, defaultStrokeAlso, pointerShadow, noShadowAlso);
     }
 
     public ThemeConfig[] create(List<String> sourceDirectories,
                                 List<String> baseNames,
                                 Collection<String> colorOptions,
                                 Collection<SizeScheme> sizeOptions,
-                                boolean allVariants,
                                 Collection<StrokeWidth> strokeWidths,
-                                DropShadow pointerShadow) {
+                                boolean defaultStrokeAlso,
+                                DropShadow pointerShadow,
+                                boolean noShadowAlso) {
         for (int i = 0, n = sourceDirectories.size(); i < n; i++) {
             String dir = sourceDirectories.get(i);
             String name = i < baseNames.size() ? baseNames.get(i)
@@ -173,24 +175,24 @@ public final class ConfigFactory {
         themeNames.forEach((dir, name) ->
                 sourceConfigs.add(new ThemeConfig(name, dir, null)));
 
-        return interpolate(sourceConfigs,
-                colorOptions, sizeOptions, allVariants, strokeWidths,
-                pointerShadow);
+        return interpolate(sourceConfigs, colorOptions, sizeOptions,
+                strokeWidths, defaultStrokeAlso, pointerShadow, noShadowAlso);
     }
 
     private ThemeConfig[] interpolate(Collection<ThemeConfig> sourceConfigs,
                                       Collection<String> colorOptions,
                                       Collection<SizeScheme> sizeOptions,
-                                      boolean allVariants,
                                       Collection<StrokeWidth> strokeOptions,
-                                      DropShadow pointerShadow)
+                                      boolean defaultStrokeAlso,
+                                      DropShadow pointerShadow,
+                                      boolean noShadowAlso)
     {
         List<ThemeConfig> result = new ArrayList<>();
 
         // Minimize source re-transformations by grouping relevant options first.
         List<List<Object>> optionCombinations =
-                cartesianProduct(0, setOf(allVariants, strokeOptions), // [0]
-                                    setOf(allVariants, pointerShadow), // [1]
+                cartesianProduct(0, setOf(defaultStrokeAlso, strokeOptions), // [0]
+                                    setOf(noShadowAlso, pointerShadow),      // [1]
                                     sourceConfigs,                     // [2]
                                     colorOptions,                      // [3]
                                     sizeOptions);                      // [4]
