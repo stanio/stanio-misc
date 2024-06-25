@@ -8,26 +8,33 @@ import java.util.Objects;
 
 public class StrokeWidth {
 
-    final double value;
+    public static final double BASE_WIDTH = 16; // stanio/Bibata_Cursor
+
+    final Double value;
 
     final String name;
 
-    public StrokeWidth(double value, String name) {
-        this.value = value;
-        this.name = name;
+    public StrokeWidth(Double value, String name) {
+        this.value = Objects.requireNonNull(value, "null value");
+        this.name = (name == null) ? "" : name;
     }
 
     public static StrokeWidth valueOf(String str) {
         String[] valueName = str.split(":", 2);
-        return new StrokeWidth(Double.parseDouble(valueName[0]),
+        return new StrokeWidth(Double.valueOf(valueName[0]),
                                valueName.length > 1 ? valueName[1] : null);
     }
 
-    public String name(double baseWidth) {
-        if (name == null) {
-            return (value < baseWidth) ? "Thin" : "Thick";
+    public String name(double baseWidth, String baseName) {
+        if (!name.isEmpty())
+            return name;
+
+        if (value < baseWidth) {
+            return "Thin";
         }
-        return name;
+        return (value > baseWidth)
+                ? "Thick"
+                  : baseName;
     }
 
     @Override
@@ -49,6 +56,11 @@ public class StrokeWidth {
         StrokeWidth other = (StrokeWidth) obj;
         return Double.doubleToLongBits(value) == Double.doubleToLongBits(other.value)
                 && Objects.equals(name, other.name);
+    }
+
+    @Override
+    public String toString() {
+        return "StrokeWidth(" + value + (name.isEmpty() ? "" : "," + name) + ")";
     }
 
 }

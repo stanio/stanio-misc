@@ -15,11 +15,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.BinaryOperator;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -40,8 +43,9 @@ public final class ConfigFactory {
     private final Path configFile;
     private final ThemeNames themeNames = new ThemeNames();
     private final ColorRegistry colorRegistry;
+    private final double baseStrokeWidth;
 
-    public ConfigFactory(Path projectPath) {
+    public ConfigFactory(Path projectPath, double baseStrokeWidth) {
         if (Files.isDirectory(projectPath)) {
             baseDir = projectPath;
             configFile = projectPath.resolve("render.json");
@@ -50,6 +54,7 @@ public final class ConfigFactory {
             baseDir = getParent(projectPath);
         }
         colorRegistry = new ColorRegistry();
+        this.baseStrokeWidth = baseStrokeWidth;
     }
 
     @SuppressWarnings("resource")
@@ -191,8 +196,8 @@ public final class ConfigFactory {
 
         // Minimize source re-transformations by grouping relevant options first.
         List<List<Object>> optionCombinations =
-                cartesianProduct(0, setOf(defaultStrokeAlso, strokeOptions), // [0]
-                                    setOf(noShadowAlso, pointerShadow),      // [1]
+                cartesianProduct(0, strokeWidths(strokeOptions, defaultStrokeAlso), // [0]
+                                    setOf(noShadowAlso, pointerShadow), // [1]
                                     sourceConfigs,                     // [2]
                                     colorOptions,                      // [3]
                                     sizeOptions);                      // [4]
@@ -202,7 +207,7 @@ public final class ConfigFactory {
             ThemeConfig candidate = variant(source,
                                             (String) combination.get(3),
                                             (SizeScheme) combination.get(4),
-                                            (StrokeWidth) combination.get(0),
+                                            (Double) combination.get(0),
                                             (DropShadow) combination.get(1));
             updateResult(result, candidate, candidate == source);
         }
@@ -210,28 +215,68 @@ public final class ConfigFactory {
         return result.toArray(ThemeConfig[]::new);
     }
 
+    private Map<Double, String> strokeNames = Collections.emptyMap();
+
+    private Collection<Double> strokeWidths(Collection<StrokeWidth> strokeOptions,
+                                            boolean defaultStrokeAlso) {
+        Map<Double, String> widthNames = new HashMap<>();
+        Set<String> allNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        if (defaultStrokeAlso) {
+            allNames.add("");
+            widthNames.put(null, "");
+        }
+
+        strokeOptions.forEach(item -> {
+            String name = widthNames.get(item.value);
+            if (name == null && item.value == baseStrokeWidth) {
+                name = widthNames.get(null);
+            }
+            if (name != null && (!name.isEmpty() || item.name.isEmpty()))
+                return;
+
+            name = item.name(baseStrokeWidth, "");
+            for (int i = 2; !allNames.add(name); i++) {
+                name = item.name(baseStrokeWidth, "Stroke") + i;
+            }
+            widthNames.put(item.value, name);
+        });
+
+        strokeNames = widthNames;
+
+        List<Double> widths = new ArrayList<>(widthNames.keySet());
+        widths.sort(Comparator.nullsFirst(Comparator.reverseOrder()));
+        return widths;
+    }
+
+    public static void main(String[] args) throws Exception {
+        List<Double> foo = new ArrayList<>();
+        foo.add(1.0);
+        foo.add(Double.NaN);
+        foo.add(null);
+        foo.sort(Comparator.nullsFirst(Comparator.reverseOrder()));
+        System.out.println(foo);
+    }
+
     private static final Pattern WILDCARD = Pattern.compile("\\*");
 
     private ThemeConfig variant(ThemeConfig source,
                                 String colorName,
                                 SizeScheme sizeScheme,
-                                StrokeWidth strokeWidth,
+                                Double strokeWidth,
                                 DropShadow pointerShadow) {
         Map<String, String> colors = (colorName == null)
                                      ? source.colors()
                                      : colorRegistry.get(colorName);
-        Double widthValue = strokeWidth == null ? null : strokeWidth.value;
-        if (source.hasEqualOptions(colors, sizeScheme, widthValue, pointerShadow))
+        if (source.hasEqualOptions(colors, sizeScheme, strokeWidth, pointerShadow))
             // Use the original/source config with its original name
             return source;
 
         List<String> tags = new ArrayList<>();
         String[] prefixSuffix = WILDCARD.split(themeNames.getNameForDir(source.dir()), 2);
         tags.add(prefixSuffix[0]);
-        final double baseWidth = 16;
         tags.addAll(Arrays.asList(colorName == null ? "" : colorName,
                 sizeScheme.permanent ? sizeScheme.toString() : "",
-                strokeWidth == null ? "" : strokeWidth.name(baseWidth),
+                strokeNames.get(strokeWidth),
                 pointerShadow == null ? "" : "Shadow"));
         if (prefixSuffix.length > 1) {
             tags.add(prefixSuffix[1].replace("*", ""));
@@ -239,7 +284,7 @@ public final class ConfigFactory {
         String name = tags.stream()
                 .filter(Predicate.not(String::isBlank))
                 .collect(Collectors.joining("-"));
-        return source.copyWith(name, colors, sizeScheme, widthValue, pointerShadow);
+        return source.copyWith(name, colors, sizeScheme, strokeWidth, pointerShadow);
     }
 
     private static void updateResult(List<ThemeConfig> result,

@@ -73,6 +73,11 @@ public class BitmapsRenderer {
         renderer = new CursorRenderer();
     }
 
+    public BitmapsRenderer withBaseStrokeWidth(Double width) {
+        renderer.setBaseStrokeWidth(width);
+        return this;
+    }
+
     public BitmapsRenderer withResolutions(Collection<Integer> resolutions) {
         if (resolutions.isEmpty()) {
             this.resolutions = new int[] { -1 };
@@ -234,7 +239,8 @@ public class BitmapsRenderer {
             return;
         }
 
-        ConfigFactory configFactory = new ConfigFactory(cmdArgs.projectPath.get());
+        ConfigFactory configFactory = new ConfigFactory(cmdArgs.projectPath.get(),
+                                                        cmdArgs.baseStrokeWidth);
         try {
             configFactory.loadColors(cmdArgs.colorsFile);
         } catch (IOException | JsonParseException e) {
@@ -279,6 +285,7 @@ public class BitmapsRenderer {
         try {
             Path projectDir = configFactory.baseDir();
             new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
+                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
@@ -330,6 +337,7 @@ public class BitmapsRenderer {
         DropShadow pointerShadow;
         boolean noShadowAlso;
         final List<StrokeWidth> strokeWidths = new ArrayList<>();
+        double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
         boolean defaultStrokeAlso;
         boolean allVariants;
 
@@ -356,6 +364,8 @@ public class BitmapsRenderer {
                     .acceptOptionalArg("--pointer-shadow",
                             val -> pointerShadow = DropShadow.decode(val))
                     .acceptFlag("--no-shadow-also", () -> noShadowAlso = true)
+                    .acceptOption("--base-stroke-width",
+                            val -> baseStrokeWidth = val, Double::valueOf)
                     .acceptOptionalArg("--thin-stroke", strokeWidths::add,
                             val -> StrokeWidth.valueOf(val.isEmpty() ? "12" : val))
                     .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
@@ -422,6 +432,7 @@ public class BitmapsRenderer {
                     + " [--linux-cursors[=<x11-names.json>]]"
                     + " [--pointer-shadow] [--no-shadow-also]"
                     + " [--stroke-width=<width>[:<name>]] [--default-stroke-also]"
+                    + " [--base-stroke-width <width>]"
                     + " [--thin-stroke] [--all-variants]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]... [--all-cursors]");

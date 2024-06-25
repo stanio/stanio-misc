@@ -18,6 +18,7 @@ import java.awt.Point;
 
 import io.github.stanio.bibata.BitmapsRenderer.OutputType;
 import io.github.stanio.bibata.CursorNames.Animation;
+import io.github.stanio.bibata.options.StrokeWidth;
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGSizing;
 import io.github.stanio.bibata.svg.SVGTransformer;
@@ -69,6 +70,7 @@ final class CursorRenderer {
     private volatile DocumentColors colorTheme;
     private volatile SVGSizing svgSizing;
     private volatile SVGSizingTool sizingTool;
+    double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
     private double anchorOffset;
 
     // REVISIT: targetCanvasFactor?
@@ -92,6 +94,10 @@ final class CursorRenderer {
         this.outputType = type;
     }
 
+    public void setBaseStrokeWidth(Double width) {
+        this.baseStrokeWidth = (width == null) ? StrokeWidth.BASE_WIDTH : width;
+    }
+
     public void setPointerShadow(DropShadow shadow) {
         if (Objects.equals(shadow,
                 variantTransformer.dropShadow().orElse(null)))
@@ -113,9 +119,7 @@ final class CursorRenderer {
         variantTransformer.setStrokeWidth(width);
         resetFile();
 
-        final double baseWidth = 16;
-        anchorOffset = (width == null) ? 0
-                                       : (width - baseWidth) / 2;
+        anchorOffset = (width == null) ? 0 : (width - baseStrokeWidth) / 2;
     }
 
     public boolean hasThinOutline() {
