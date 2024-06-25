@@ -65,7 +65,7 @@ public class SVGTransformer {
 
     private Optional<DropShadow> dropShadow = Optional.empty();
     private boolean svg11Compat;
-    private Optional<Number> strokeWidth = Optional.empty();
+    private Optional<Double> strokeWidth = Optional.empty();
 
     private Map<String, Transformer> transformers = new HashMap<>();
 
@@ -86,7 +86,7 @@ public class SVGTransformer {
         }
     }
 
-    public Optional<Number> strokeWidth() {
+    public Optional<Double> strokeWidth() {
         return strokeWidth;
     }
 

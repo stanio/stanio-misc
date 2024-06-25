@@ -22,6 +22,7 @@ public final class SizeScheme {
     // REVISIT: Better term?  Applies to Xcursors sizing, but
     // used as a naming hint also
     public final boolean permanent;
+    public final double nominalSize;
 
     private SizeScheme(String name, double canvasSize) {
         this(name, canvasSize, false);
@@ -31,6 +32,7 @@ public final class SizeScheme {
         this.name = name;
         this.canvasSize = canvasSize;
         this.permanent = permanent;
+        this.nominalSize = permanent ? 1 : 1 / canvasSize;
     }
 
     public boolean isSource() {

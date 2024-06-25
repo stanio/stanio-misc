@@ -66,20 +66,18 @@ public class SVGSizingTool {
     private int viewBoxSize;
     private Path hotspotsFile;
     private Map<String, Map<Integer, String>> adjustedHotspots;
-    private double anchorOffset;
 
     SVGSizingTool(int viewBoxSize) {
         this(viewBoxSize, Path.of("cursor-hotspots-" + viewBoxSize + ".json"));
     }
 
     SVGSizingTool(int viewBoxSize, Path hotspotsFile) {
-        this(viewBoxSize, hotspotsFile, 0);
-    }
-
-    SVGSizingTool(int viewBoxSize, Path hotspotsFile, double anchorOffset) {
         this.viewBoxSize = viewBoxSize;
         this.hotspotsFile = hotspotsFile;
-        this.anchorOffset = anchorOffset;
+    }
+
+    public int canvasSize() {
+        return viewBoxSize;
     }
 
     private Map<String, Map<Integer, String>>
@@ -125,10 +123,10 @@ public class SVGSizingTool {
     private void updateSVG(Path svg, int targetSize) throws IOException {
         SVGSizing sizing = SVGSizing.forFile(svg);
         String cursorName = svg.getFileName().toString().replaceFirst("\\.svg$", "");
-        applySizing(cursorName, sizing, targetSize);
+        applySizing(cursorName, sizing, targetSize, 0);
     }
 
-    public Point applySizing(String cursorName, SVGSizing sizing, int targetSize)
+    public Point applySizing(String cursorName, SVGSizing sizing, int targetSize, double anchorOffset)
             throws IOException {
         Point hotspot = sizing.apply(targetSize, viewBoxSize, anchorOffset);
 

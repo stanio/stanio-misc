@@ -73,8 +73,9 @@ public class BitmapsRenderer {
         renderer = new CursorRenderer();
     }
 
-    public BitmapsRenderer withBaseStrokeWidth(Double width) {
+    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth) {
         renderer.setBaseStrokeWidth(width);
+        renderer.setMinStrokeWidth(minWidth);
         return this;
     }
 
@@ -191,7 +192,7 @@ public class BitmapsRenderer {
 
             renderer.setStrokeWidth(config.strokeWidth());
             renderer.setPointerShadow(config.pointerShadow());
-            renderer.applyColors(config.colors());
+            renderer.setColors(config.colors());
             renderer.setAnimation(animation, frameNum);
             renderSVG(config, cursorName, animation);
 
@@ -210,7 +211,7 @@ public class BitmapsRenderer {
         }
         renderer.setOutDir(outDir);
 
-        renderer.setCanvasSize(scheme.canvasSize, scheme.permanent);
+        renderer.setCanvasSize(scheme);
 
         for (int res : resolutions(config)) {
             if (animation != null
@@ -285,7 +286,7 @@ public class BitmapsRenderer {
         try {
             Path projectDir = configFactory.baseDir();
             new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
-                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth)
+                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth, cmdArgs.minStrokeWidth)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
@@ -338,6 +339,7 @@ public class BitmapsRenderer {
         boolean noShadowAlso;
         final List<StrokeWidth> strokeWidths = new ArrayList<>();
         double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
+        double minStrokeWidth;
         boolean defaultStrokeAlso;
         boolean allVariants;
 
@@ -369,6 +371,8 @@ public class BitmapsRenderer {
                     .acceptOptionalArg("--thin-stroke", strokeWidths::add,
                             val -> StrokeWidth.valueOf(val.isEmpty() ? "12" : val))
                     .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
+                    .acceptOption("--min-stroke-width",
+                            val -> minStrokeWidth = Double.parseDouble(val))
                     .acceptFlag("--default-stroke-also", () -> defaultStrokeAlso = true)
                     .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptOption("--build-dir", val -> buildDir = val)
@@ -432,7 +436,7 @@ public class BitmapsRenderer {
                     + " [--linux-cursors[=<x11-names.json>]]"
                     + " [--pointer-shadow] [--no-shadow-also]"
                     + " [--stroke-width=<width>[:<name>]] [--default-stroke-also]"
-                    + " [--base-stroke-width <width>]"
+                    + " [--base-stroke-width <width>] [--min-stroke-width <width>]"
                     + " [--thin-stroke] [--all-variants]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]... [--all-cursors]");

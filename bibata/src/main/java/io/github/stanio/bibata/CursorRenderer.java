@@ -8,9 +8,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.w3c.dom.Document;
 
@@ -18,6 +20,7 @@ import java.awt.Point;
 
 import io.github.stanio.bibata.BitmapsRenderer.OutputType;
 import io.github.stanio.bibata.CursorNames.Animation;
+import io.github.stanio.bibata.options.SizeScheme;
 import io.github.stanio.bibata.options.StrokeWidth;
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGSizing;
@@ -67,14 +70,16 @@ final class CursorRenderer {
 
     private Path outDir;
 
+    private Optional<Double> strokeWidth = Optional.empty();
+    private Map<String, String> colorMap = Collections.emptyMap();
+    private SizeScheme canvasSizing = SizeScheme.SOURCE;
+
     private volatile DocumentColors colorTheme;
     private volatile SVGSizing svgSizing;
     private volatile SVGSizingTool sizingTool;
     double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
+    double minStrokeWidth ;
     private double anchorOffset;
-
-    // REVISIT: targetCanvasFactor?
-    private float drawingFactor;
 
     private final Map<Path, CursorBuilder> deferredFrames = new HashMap<>();
     private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
@@ -98,13 +103,17 @@ final class CursorRenderer {
         this.baseStrokeWidth = (width == null) ? StrokeWidth.BASE_WIDTH : width;
     }
 
+    public void setMinStrokeWidth(double width) {
+        this.minStrokeWidth = width;
+    }
+
     public void setPointerShadow(DropShadow shadow) {
         if (Objects.equals(shadow,
                 variantTransformer.dropShadow().orElse(null)))
             return;
 
         variantTransformer.setPointerShadow(shadow);
-        resetFile();
+        resetDocument();
     }
 
     public boolean hasPointerShadow() {
@@ -112,14 +121,7 @@ final class CursorRenderer {
     }
 
     public void setStrokeWidth(Double width) {
-        if (Objects.equals(width,
-                variantTransformer.strokeWidth().orElse(null)))
-            return;
-
-        variantTransformer.setStrokeWidth(width);
-        resetFile();
-
-        anchorOffset = (width == null) ? 0 : (width - baseStrokeWidth) / 2;
+        strokeWidth = Optional.ofNullable(width);
     }
 
     public boolean hasThinOutline() {
@@ -137,30 +139,18 @@ final class CursorRenderer {
         animation = null;
         frameNum = backend.frameNum = staticFrame;
         currentFrames = null;
-        colorTheme = null;
-        svgSizing = null;
+        resetDocument();
         sizingTool = null;
         outputSet = false;
     }
 
-    private void initDocument() {
-        backend.setDocument(variantTransformer
-                .transformDocument(sourceDocument));
-        backend.fromDocument(svg -> {
-            colorTheme = DocumentColors.forDocument(svg);
-            svgSizing = SVGSizing.forDocument(svg);
-            return null;
-        });
+    private void resetDocument() {
+        colorTheme = null;
+        svgSizing = null;
     }
 
-    public void applyColors(Map<String, String> colorMap) {
-        if (colorTheme == null) {
-            initDocument();
-        }
-        backend.fromDocument(svg -> {
-            colorTheme.apply(colorMap);
-            return null;
-        });
+    public void setColors(Map<String, String> colorMap) {
+        this.colorMap = colorMap;
     }
 
     public void setAnimation(Animation animation, Integer frameNum) {
@@ -174,11 +164,54 @@ final class CursorRenderer {
         outputSet = false;
     }
 
-    public void setCanvasSize(double factor, boolean permanent) {
-        int viewBoxSize = (int) Math.round(sourceSize * factor);
-        sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
-                new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json"), anchorOffset));
-        drawingFactor = permanent ? 1 : (float) (1 / factor);
+    public void setCanvasSize(SizeScheme sizeScheme) {
+        this.canvasSizing = sizeScheme;
+    }
+
+    private void prepareDocument(int targetSize) throws IOException {
+        /* setCanvasSize */ {
+            // REVISIT: Use just the canvasSize factor for initializing SVGSizingTool.
+            // Individual sources may have different "sourceSize".
+            int viewBoxSize = (int) Math.round(sourceSize * canvasSizing.canvasSize);
+            sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
+                    new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json")));
+        }
+
+        Double actualStrokeWidth; {
+            double hairWidth;
+            if (minStrokeWidth > 0 && strokeWidth.orElse(baseStrokeWidth).doubleValue()
+                    < (hairWidth = sizingTool.canvasSize() * minStrokeWidth / targetSize)) {
+                actualStrokeWidth = hairWidth;
+            } else {
+                actualStrokeWidth = strokeWidth.orElse(null);
+            }
+        }
+
+        anchorOffset = 0;
+        if (actualStrokeWidth != null) {
+            anchorOffset = (actualStrokeWidth - baseStrokeWidth) / 2;
+        }
+
+        boolean resetDocument;
+        if (!Objects.equals(actualStrokeWidth,
+                variantTransformer.strokeWidth().orElse(null))) {
+            variantTransformer.setStrokeWidth(actualStrokeWidth);
+            resetDocument = true;
+        } else {
+            resetDocument = false;
+        }
+
+        // initDocument
+        if (resetDocument || colorTheme == null || svgSizing == null) {
+            backend.setDocument(variantTransformer
+                    .transformDocument(sourceDocument));
+            backend.fromDocument(svg -> {
+                svgSizing = SVGSizing.forDocument(svg);
+                colorTheme = DocumentColors.forDocument(svg);
+                return null;
+            });
+        }
+        colorTheme.apply(colorMap);
     }
 
     private void setUpOutput() throws IOException {
@@ -206,10 +239,11 @@ final class CursorRenderer {
     }
 
     private CursorBuilder newCursorBuilder() {
-        return CursorBuilder.newInstance(outputType, animation, drawingFactor);
+        return CursorBuilder.newInstance(outputType, animation, (float) canvasSizing.nominalSize);
     }
 
     public void renderTargetSize(int size) throws IOException {
+        prepareDocument(size);
         setUpOutput();
 
         Point hotspot = applySizing(size);
@@ -244,16 +278,13 @@ final class CursorRenderer {
     }
 
     private Point applySizing(int targetSize) {
-        if (svgSizing == null) {
-            initDocument();
-        }
         try {
             return backend.fromDocument(svg -> {
                 try {
                     // REVISIT: Implement "reset sizing" to remove previous alignments,
                     // and/or provide flag whether to apply alignments.
                     return sizingTool.applySizing(cursorName, svgSizing,
-                            targetSize > 0 ? targetSize : sourceSize);
+                            targetSize > 0 ? targetSize : sourceSize, anchorOffset);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
