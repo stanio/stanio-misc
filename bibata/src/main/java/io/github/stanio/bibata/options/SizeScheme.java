@@ -13,30 +13,22 @@ public final class SizeScheme {
 
     public static final SizeScheme SOURCE = new SizeScheme(null, 1.0);
     public static final SizeScheme R = new SizeScheme(null, 1.5);
-    public static final SizeScheme N = new SizeScheme("Normal", 1.5, true);
-    public static final SizeScheme L = new SizeScheme("Large", 1.25, true);
-    public static final SizeScheme XL = new SizeScheme("Extra-Large", 1.0, true);
+    public static final SizeScheme N = new SizeScheme("Normal", 1.5);
+    public static final SizeScheme L = new SizeScheme("Large", 1.25);
+    public static final SizeScheme XL = new SizeScheme("Extra-Large", 1.0);
 
     public final String name;
     public final double canvasSize;
-    // REVISIT: Better term?  Applies to Xcursors sizing, but
-    // used as a naming hint also
-    public final boolean permanent;
     public final double nominalSize;
 
-    private SizeScheme(String name, double canvasSize) {
-        this(name, canvasSize, false);
+    public SizeScheme(String name, double canvasSize) {
+        this(name, canvasSize, 1.0);
     }
 
-    private SizeScheme(String name, double canvasSize, boolean permanent) {
+    public SizeScheme(String name, double canvasSize, double nominalSize) {
         this.name = name;
         this.canvasSize = canvasSize;
-        this.permanent = permanent;
-        this.nominalSize = permanent ? 1 : 1 / canvasSize;
-    }
-
-    public boolean isSource() {
-        return canvasSize == 1.0;
+        this.nominalSize = nominalSize;
     }
 
     public static SizeScheme valueOf(String str) {
@@ -54,29 +46,40 @@ public final class SizeScheme {
             return XL;
 
         default:
-            // Syntax: [/] <float> [: <name>]
-            boolean permanent = !str.startsWith("/");
-            return valueOf(permanent ? str : str.substring(1), permanent);
-        }
-    }
+            // <canvasSize>       ->  <canvasSize>/1
+            // '/' <nominalSize>  ->  <nominalSize>/<nominalSize>
+            // <canvasSize> '/' <nominalSize>
+            // [':' <name>]
+            String[] args;
+            String name;
 
-    private static SizeScheme valueOf(String str, boolean permanent) {
-        int colonIndex = str.indexOf(':');
-        String name = (colonIndex > 0) && (colonIndex < str.length() - 1)
-                      ? str.substring(colonIndex + 1)
-                      : null;
-        double size = Double.parseDouble(colonIndex > 0
-                                         ? str.substring(0, colonIndex)
-                                         : str);
-        if (permanent || name != null || size != 1.0) {
-            return new SizeScheme(name, size, permanent);
+            int colonIndex = str.indexOf(':');
+            if (colonIndex > 0 && colonIndex < str.length() - 1) {
+                name = str.substring(colonIndex + 1);
+                args = str.substring(0, colonIndex).split("/", 2);
+            } else {
+                name = null;
+                args = str.split("/", 2);
+            }
+
+            double canvasFactor = args[0].isBlank() ? 0 : Double.parseDouble(args[0]);
+            double nominalFactor = (args.length == 1) ? 0 : Double.parseDouble(args[1]);
+            if (nominalFactor == 0) {
+                nominalFactor = 1;
+            }
+            if (canvasFactor == 0) {
+                canvasFactor = nominalFactor;
+            }
+            if (name == null && canvasFactor == 1.0 && nominalFactor == 1.0) {
+                return SOURCE;
+            }
+            return new SizeScheme(name, canvasFactor, nominalFactor);
         }
-        return SOURCE;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, canvasSize, permanent);
+        return Objects.hash(name, canvasSize, nominalSize);
     }
 
     @Override
@@ -84,22 +87,20 @@ public final class SizeScheme {
         if (this == obj) {
             return true;
         }
-        if (obj == null) {
-            return false;
+        if (obj instanceof SizeScheme) {
+            SizeScheme other = (SizeScheme) obj;
+            return doubleToLongBits(canvasSize) == doubleToLongBits(other.canvasSize)
+                    && doubleToLongBits(nominalSize) == doubleToLongBits(other.nominalSize)
+                    && Objects.equals(name, other.name);
         }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        SizeScheme other = (SizeScheme) obj;
-        return doubleToLongBits(canvasSize) ==
-                        doubleToLongBits(other.canvasSize)
-                && Objects.equals(name, other.name)
-                && permanent == other.permanent;
+        return false;
     }
 
     @Override
     public String toString() {
-        return (name == null) ? "x" + canvasSize : name;
+        return (name == null)
+                ? canvasSize + "/" + nominalSize
+                : name + "(" + canvasSize + "/" + nominalSize + ")";
     }
 
 }

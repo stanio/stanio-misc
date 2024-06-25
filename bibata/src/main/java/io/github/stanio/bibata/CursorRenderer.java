@@ -239,7 +239,8 @@ final class CursorRenderer {
     }
 
     private CursorBuilder newCursorBuilder() {
-        return CursorBuilder.newInstance(outputType, animation, (float) canvasSizing.nominalSize);
+        return CursorBuilder.newInstance(outputType,
+                animation, 1 / (float) canvasSizing.nominalSize);
     }
 
     public void renderTargetSize(int size) throws IOException {

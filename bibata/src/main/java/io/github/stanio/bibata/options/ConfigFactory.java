@@ -275,7 +275,7 @@ public final class ConfigFactory {
         String[] prefixSuffix = WILDCARD.split(themeNames.getNameForDir(source.dir()), 2);
         tags.add(prefixSuffix[0]);
         tags.addAll(Arrays.asList(colorName == null ? "" : colorName,
-                sizeScheme.permanent ? sizeScheme.toString() : "",
+                sizeScheme.name == null ? "" : sizeScheme.name,
                 strokeNames.get(strokeWidth),
                 pointerShadow == null ? "" : "Shadow"));
         if (prefixSuffix.length > 1) {

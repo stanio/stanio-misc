@@ -184,11 +184,7 @@ public class BitmapsRenderer {
             //        && !config.cursors().contains(cursorName))
             //    continue;
 
-            String themeLabel = config.name();
-            if (config.sizeScheme().name != null && !config.sizeScheme().permanent) {
-                themeLabel += " (" + config.sizeScheme() + ")";
-            }
-            progress.push(themeLabel);
+            progress.push(config.name());
 
             renderer.setStrokeWidth(config.strokeWidth());
             renderer.setPointerShadow(config.pointerShadow());
@@ -223,7 +219,8 @@ public class BitmapsRenderer {
             if (res > 0) {
                 progress.next(res);
             }
-            renderer.renderTargetSize(res);
+            renderer.renderTargetSize((int)
+                    Math.round(res * scheme.nominalSize));
         }
 
         renderer.saveCurrent();
