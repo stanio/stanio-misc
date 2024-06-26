@@ -1,3 +1,7 @@
+/*
+ * Defines tasks for generating cursor theme/scheme setup files
+ */
+
 ext {
     themeDescription = [
         shapes : [
@@ -19,7 +23,7 @@ ext {
 def themeComment(Map args) {
     def comment = "${themeDescription.colors[args.color]} and ${themeDescription.shapes[args.shape]}"
     if (args.leftHand) comment += ', left-handed'
-    if (args.outline) comment += ', thin-outline'
+    if (args.outline) comment += ", ${args.outline.toLowerCase()}-outline"
     if (args.shadow) comment += ' with pointer shadow'
     //if (args.sizing) comment += " (${ sizing.toLowerCase() })"
     return comment + ' Bibata cursors'
@@ -30,7 +34,7 @@ def themeName(Map args) {
     if (args.leftHand) name += " Left-Handed"
     if (args.sizing == 'Extra-Large') name += ' [x-large]'
     else if (args.sizing) name += " [${ args.sizing.toLowerCase() }]"
-    def tags = [ args.outline ? 'thin' : null,
+    def tags = [ args.outline ? args.outline.toLowerCase() : null,
                  args.shadow ? 'shadow' : null ] - null - ''
     return tags.empty ? name : name + " (${ tags.join(', ') })"
 }
@@ -45,10 +49,10 @@ task windowsInstallScripts {
     doLast {
         cartesianProduct(0, themeShapes.split(',') as List,
                             themeColors.split(',') as List,
-                            leftHandOpts.split(',') as List).each { row ->
-            def args = [ shape: row[0],
-                         color: row[1],
-                         leftHand: row[2] ]
+                            leftHandOpts.split(',') as List).each { group ->
+            def args = [ shape: group[0],
+                         color: group[1],
+                         leftHand: group[2] ]
 
             def themeIndex = 1
             def setupInfo = [
@@ -59,16 +63,14 @@ task windowsInstallScripts {
                 schemesReg: [],
                 strings: []
             ]
-            windowsSizes.split(',').each { schemeSize ->
-                args << [ sizing: schemeSize,
-                          outline: null,
+
+            cartesianProduct(0, windowsSizes.split(',') as List,
+                                strokeWidths.split(',') as List).each { opts ->
+                args << [ sizing: opts[0],
+                          outline: opts[1],
                           shadow: null ]
 
                 addSetupInfo(args, themeIndex++, setupInfo)
-                if (args.sizing != 'Extra-Large')
-                    addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
-
-                addSetupInfo(args << [outline: 'Thin', shadow: null], themeIndex++, setupInfo)
                 if (args.sizing != 'Extra-Large')
                     addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
             }
@@ -165,18 +167,17 @@ task linuxThemeFiles {
     doLast {
         cartesianProduct(0, themeShapes.split(',') as List,
                             themeColors.split(',') as List,
-                            leftHandOpts.split(',') as List).each { row ->
+                            leftHandOpts.split(',') as List,
+                            strokeWidths.split(',') as List).each { row ->
             def args = [ shape: row[0],
                          color: row[1],
                          leftHand: row[2],
                          sizing: null,
-                         outline: null,
+                         outline: row[3],
                          shadow: null ]
 
             writeLinuxThemeFiles(args)
-            writeLinuxThemeFiles(args << [outline: 'Thin'])
             writeLinuxThemeFiles(args << [shadow: 'Shadow'])
-            writeLinuxThemeFiles(args << [outline: null])
         }
     }
 }
