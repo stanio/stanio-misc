@@ -93,6 +93,7 @@ final class CursorRenderer {
         this.variantTransformer = new SVGTransformer();
         this.backend = RendererBackend.newInstance();
         loadTransformer.setSVG11Compat(backend.needSVG11Compat());
+        variantTransformer.setBaseStrokeWidth(baseStrokeWidth);
     }
 
     public void setOutputType(OutputType type) {
@@ -101,6 +102,7 @@ final class CursorRenderer {
 
     public void setBaseStrokeWidth(Double width) {
         this.baseStrokeWidth = (width == null) ? StrokeWidth.BASE_WIDTH : width;
+        variantTransformer.setBaseStrokeWidth(baseStrokeWidth);
     }
 
     public void setMinStrokeWidth(double width) {

@@ -66,6 +66,7 @@ public class SVGTransformer {
     private Optional<DropShadow> dropShadow = Optional.empty();
     private boolean svg11Compat;
     private Optional<Double> strokeWidth = Optional.empty();
+    private double baseStrokeWidth = 16.0;
 
     private Map<String, Transformer> transformers = new HashMap<>();
 
@@ -95,6 +96,14 @@ public class SVGTransformer {
         Transformer tr;
         if (width != null
                 && (tr = transformers.get("thinStroke")) != null) {
+            setStrokeParameters(tr);
+        }
+    }
+
+    public void setBaseStrokeWidth(double baseWidth) {
+        baseStrokeWidth = baseWidth;
+        Transformer tr;
+        if ((tr = transformers.get("thinStroke")) != null) {
             setStrokeParameters(tr);
         }
     }
@@ -130,6 +139,7 @@ public class SVGTransformer {
     }
 
     private void setStrokeParameters(Transformer transformer) {
+        transformer.setParameter("base-width", baseStrokeWidth);
         transformer.setParameter("new-width", strokeWidth.get());
     }
 
