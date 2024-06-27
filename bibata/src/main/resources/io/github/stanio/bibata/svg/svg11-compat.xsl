@@ -72,7 +72,24 @@
     </xsl:copy>
   </xsl:template>
 
-  <!-- REVISIT: <feDropShadow> -->
+  <xsl:template match="svg:feDropShadow">
+    <!-- https://www.w3.org/TR/filter-effects-1/#feDropShadowElement -->
+    <feGaussianBlur in="{@in}" stdDeviation="{@stdDeviation}"/>
+    <xsl:text>&#xA;</xsl:text>
+    <feOffset dx="{@dx}" dy="{@dy}" result="offsetBlur"/>
+    <xsl:text>&#xA;</xsl:text>
+    <feFlood flood-color="{@flood-color}" flood-opacity="{@flood-opacity}"/>
+    <xsl:text>&#xA;</xsl:text>
+    <feComposite in2="offsetBlur" operator="in"/>
+    <xsl:text>&#xA;</xsl:text>
+    <feMerge>
+      <feMergeNode/>
+      <!-- Simulate ternary operator: 0 div 0 = NaN and produces empty substring()
+           result: https://www.w3.org/TR/xpath-10/#function-substring (unusual cases) -->
+      <feMergeNode in="{concat( substring(@in, boolean(normalize-space(@in)) div 0),
+                                substring('SourceGraphic', not(normalize-space(@in)) div 0) )}"/>
+    </feMerge>
+  </xsl:template>
 
   <!-- Identity copy -->
   <xsl:template match="@*|node()">

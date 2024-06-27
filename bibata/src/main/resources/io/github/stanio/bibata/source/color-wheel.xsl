@@ -10,6 +10,8 @@
     xmlns:svg="http://www.w3.org/2000/svg"
     extension-element-prefixes="ColorWheel"
     exclude-result-prefixes="svg">
+  <!-- https://loading.io/spinner/wedges/-pie-wedge-pizza-circle-round-rotate -->
+  <!-- https://github.com/ful1e5/Bibata_Cursor/blob/v2.0.4/svg/original/wait.svg -->
 
   <xsl:param name="colorWheel" />
 
