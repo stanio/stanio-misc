@@ -221,7 +221,7 @@ public final class ConfigFactory {
                                             boolean defaultStrokeAlso) {
         Map<Double, String> widthNames = new HashMap<>();
         Set<String> allNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        if (defaultStrokeAlso) {
+        if (defaultStrokeAlso || strokeOptions.isEmpty()) {
             allNames.add("");
             widthNames.put(null, "");
         }
