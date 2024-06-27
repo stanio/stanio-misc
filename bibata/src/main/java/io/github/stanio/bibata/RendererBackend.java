@@ -50,9 +50,10 @@ import org.apache.batik.transcoder.TranscoderOutput;
 
 import com.github.weisj.jsvg.SVGDocument;
 import com.github.weisj.jsvg.SVGRenderingHints;
-import com.github.weisj.jsvg.parser.LoaderContext;
+import com.github.weisj.jsvg.parser.DefaultParserProvider;
 import com.github.weisj.jsvg.parser.NodeSupplier;
 import com.github.weisj.jsvg.parser.StaxSVGLoader;
+import com.github.weisj.jsvg.parser.SynchronousResourceLoader;
 import com.jhlabs.image.ShadowFilter;
 
 import io.github.stanio.batik.DynamicImageTranscoder;
@@ -315,9 +316,8 @@ class JSVGImageTranscoder {
     private SVGDocument getSVG() {
         SVGDocument svg;
         try (InputStream input = DOMInput.fakeStream(document())) {
-            LoaderContext loaderContext = LoaderContext.createDefault();
-            //loaderContext.elementLoader().enableLoadingExternalElements(true);
-            svg = svgLoader().load(input, loaderContext);
+            svg = svgLoader().load(input, new DefaultParserProvider(),
+                                          new SynchronousResourceLoader());
         } catch (IOException | XMLStreamException e) {
             throw new IllegalStateException(e);
         }
