@@ -15,8 +15,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -81,17 +79,27 @@ public class CursorNames {
         fileNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
     }
 
-    public void includeAll(boolean all) {
-        allCursors = all;
+    public void init(Map<String, String> names,
+                     boolean allCursors,
+                     Collection<String> filter) {
+        this.names.clear();
+        this.fileNames.clear();
+        names.forEach(this::put);
+
+        this.allCursors = allCursors || names.isEmpty();
+
+        if (!filter.isEmpty()) {
+            if (this.allCursors)
+                filter.forEach(it -> put(it, it));
+
+            this.names.keySet().retainAll(filter);
+            this.allCursors = false;
+        }
     }
 
     public String targetName(String sourceName) {
-        if (names.isEmpty()) {
-            return sourceName.endsWith("_") ? null : sourceName; // Implicit 'allCursors'
-        }
-
         String fileName = names.get(sourceName);
-        if (fileName == null && allCursors) {
+        if (fileName == null && allCursors && !sourceName.endsWith("_")) {
             fileName = put(sourceName, sourceName);
         }
         return fileName;
@@ -105,23 +113,6 @@ public class CursorNames {
             }
             return actualTarget;
         });
-    }
-
-    public void putAll(Map<String, String> names) {
-        names.forEach(this::put);
-    }
-
-    public void filter(Collection<String> filter) {
-        if (names.isEmpty()) {
-            names.putAll(filter.stream()
-                               .collect(Collectors.toMap(Function.identity(),
-                                                         Function.identity())));
-        } else if (!filter.isEmpty()) {
-            if (allCursors)
-                filter.forEach(it -> put(it, it));
-
-            names.keySet().retainAll(filter);
-        }
     }
 
 }

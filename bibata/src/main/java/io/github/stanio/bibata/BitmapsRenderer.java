@@ -92,9 +92,7 @@ public class BitmapsRenderer {
     public BitmapsRenderer cursorNames(Map<String, String> names,
                                        boolean allCursors,
                                        Collection<String> filter) {
-        cursorNames.putAll(names);
-        cursorNames.includeAll(allCursors);
-        cursorNames.filter(filter);
+        cursorNames.init(names, allCursors, filter);
         return this;
     }
 
