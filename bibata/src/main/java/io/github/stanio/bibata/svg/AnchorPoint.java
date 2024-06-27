@@ -39,7 +39,8 @@ public class AnchorPoint {
                                     TOP = "top",
                                     RIGHT = "right",
                                     BOTTOM = "bottom",
-                                    LEFT = "left";
+                                    LEFT = "left",
+                                    HALF = "half";
 
         /** {@value #CENTER} {@value #CENTER} */
         static final Bias DEFAULT = new Bias(CENTER, CENTER);
@@ -62,8 +63,13 @@ public class AnchorPoint {
         private final String biasY;
         private final double sigX;
         private final double sigY;
+        private final double amount;
 
         private Bias(String biasX, String biasY) {
+            this(biasX, biasY, 1.0);
+        }
+
+        private Bias(String biasX, String biasY, double amount) {
             this.biasX = biasX;
             this.biasY = biasY;
 
@@ -79,6 +85,7 @@ public class AnchorPoint {
             case BOTTOM: this.sigY =  1; break;
             default: throw new IllegalArgumentException("biasY: " + biasY);
             }
+            this.amount = amount;
         }
 
         public static Bias valueOf(String spec) {
@@ -107,11 +114,17 @@ public class AnchorPoint {
                 tokens.remove(CENTER);
             }
 
+            double amount = tokens.remove(HALF) ? 0.5 : 1.0;
+
             if (!tokens.isEmpty()) {
                 throw new IllegalArgumentException(
                         "Invalid bias specification: \"" + spec + "\"");
             }
-            return Objects.requireNonNull(valueMap.get(biasX).get(biasY));
+
+            if (amount == 1.0) {
+                return Objects.requireNonNull(valueMap.get(biasX).get(biasY));
+            }
+            return new Bias(biasX, biasY, amount);
         }
 
         /**
@@ -121,7 +134,7 @@ public class AnchorPoint {
          * @see     Math#signum(double)
          */
         public double sigX() {
-            return sigX;
+            return sigX * amount;
         }
 
         /**
@@ -131,7 +144,7 @@ public class AnchorPoint {
          * @see     Math#signum(double)
          */
         public double sigY() {
-            return sigY;
+            return sigY * amount;
         }
 
         @Override

@@ -189,7 +189,7 @@ final class CursorRenderer {
 
         anchorOffset = 0;
         if (actualStrokeWidth != null) {
-            anchorOffset = (actualStrokeWidth - baseStrokeWidth) / 2;
+            anchorOffset = (actualStrokeWidth - baseStrokeWidth);
         }
 
         boolean resetDocument;
