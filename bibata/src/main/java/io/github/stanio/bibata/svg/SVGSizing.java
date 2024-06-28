@@ -126,7 +126,7 @@ public class SVGSizing {
             throws IOException {
         return updateOffsets(targetSize, viewBoxSize, anchorOffset, (viewBoxOrigin, childOffsets) -> {
             Path resolvedSource = resolveLinks(sourceFile);
-            Path tempFile = Files.createTempFile(resolvedSource.getParent(),
+            Path tempFile = Files.createTempFile(parentPath(resolvedSource),
                     svgFile.getFileName() + "-", null);
 
             XMLReader parent = (sourceBuffer != null)
@@ -229,6 +229,11 @@ public class SVGSizing {
             target = target.resolveSibling(Files.readSymbolicLink(target));
         }
         return target;
+    }
+
+    private static Path parentPath(Path path) {
+        Path parent = path.getParent();
+        return (parent != null) ? parent : path.getFileSystem().getPath("");
     }
 
     @Override
