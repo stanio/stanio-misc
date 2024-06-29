@@ -6,12 +6,18 @@ package io.github.stanio.bibata.svg;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.awt.geom.Point2D;
+
+import io.github.stanio.bibata.svg.AnchorPoint.Bias.Mode;
 
 /**
  * Encapsulates point coordinates (x,y) and an associated <i>bias</i>.
@@ -21,7 +27,7 @@ import java.awt.geom.Point2D;
  *     &lt;path class="align-anchor <strong>bias-top-right</strong>" d="m <var>#,#</var> ..." /></code></pre>
  * <p>
  * The <i>bias</i> is extracted from class name prefixed with {@code bias-*}
- * (w/o the asterisks).  The name further contains one or two tokens separated
+ * (w/o the asterisks).  The name further contains one or more tokens separated
  * with {@code -} (hyphen):
  * <pre>
  * <code>&lt;bias> =
@@ -35,57 +41,48 @@ public class AnchorPoint {
 
     public static class Bias {
 
+        enum Mode { STROKE_ONLY, EXPAND_FILL, ALWAYS }
+
         private static final String CENTER = "center",
-                                    TOP = "top",
-                                    RIGHT = "right",
-                                    BOTTOM = "bottom",
-                                    LEFT = "left",
-                                    HALF = "half";
+                                    HALF = "half",
+                                    REVERSE = "reverse",
+                                    ALWAYS = "always";
+
+        private static final Pattern
+                TOP = Pattern.compile("(t(?:op|(\\d+)))"),
+                RIGHT = Pattern.compile("(r(?:ight|(\\d+)))"),
+                BOTTOM = Pattern.compile("(b(?:ottom|(\\d+)))"),
+                LEFT = Pattern.compile("(l(?:eft|(\\d+)))");
 
         /** {@value #CENTER} {@value #CENTER} */
-        static final Bias DEFAULT = new Bias(CENTER, CENTER);
+        static final Bias DEFAULT = new Bias(0, 0);
 
         private static final Pattern SEP =
                 Pattern.compile("(?x) \\s+ (?: - \\s*)? | - \\s*");
 
-        private static final Map<String, Map<String, Bias>>
-                valueMap = Map.of(LEFT, Map.of(TOP, new Bias(LEFT, TOP),
-                                               CENTER, new Bias(LEFT, CENTER),
-                                               BOTTOM, new Bias(LEFT, BOTTOM)),
-                                  CENTER, Map.of(TOP, new Bias(CENTER, TOP),
-                                                 CENTER, DEFAULT,
-                                                 BOTTOM, new Bias(CENTER, BOTTOM)),
-                                  RIGHT, Map.of(TOP, new Bias(RIGHT, TOP),
-                                                CENTER, new Bias(RIGHT, CENTER),
-                                                BOTTOM, new Bias(RIGHT, BOTTOM)));
+        private static final Map<Double, Map<Double, Bias>>
+                valueMap = Map.of(-1.0, Map.of(-1.0, new Bias(-1,-1),
+                                                0.0, new Bias(-1, 0),
+                                                1.0, new Bias(-1, 1)),
+                                   0.0, Map.of(-1.0, new Bias( 0,-1),
+                                                0.0, DEFAULT,
+                                                1.0, new Bias( 0, 1)),
+                                   1.0, Map.of(-1.0, new Bias( 1,-1),
+                                                0.0, new Bias( 1, 0),
+                                                1.0, new Bias( 1, 1)));
 
-        private final String biasX;
-        private final String biasY;
-        private final double sigX;
-        private final double sigY;
-        private final double amount;
+        private final double dX;
+        private final double dY;
+        private final Mode mode;
 
-        private Bias(String biasX, String biasY) {
-            this(biasX, biasY, 1.0);
+        private Bias(double biasX, double biasY) {
+            this(biasX, biasY, Mode.STROKE_ONLY);
         }
 
-        private Bias(String biasX, String biasY, double amount) {
-            this.biasX = biasX;
-            this.biasY = biasY;
-
-            switch (biasX) {
-            case LEFT:   this.sigX = -1; break;
-            case CENTER: this.sigX =  0; break;
-            case RIGHT:  this.sigX =  1; break;
-            default: throw new IllegalArgumentException("biasX: " + biasX);
-            }
-            switch (biasY) {
-            case TOP:    this.sigY = -1; break;
-            case CENTER: this.sigY =  0; break;
-            case BOTTOM: this.sigY =  1; break;
-            default: throw new IllegalArgumentException("biasY: " + biasY);
-            }
-            this.amount = amount;
+        private Bias(double x, double y, Mode mode) {
+            this.dX = x;
+            this.dY = y;
+            this.mode = mode;
         }
 
         public static Bias valueOf(String spec) {
@@ -94,37 +91,63 @@ public class AnchorPoint {
             if (tokens.size() == 1 && tokens.get(0).isEmpty())
                 return DEFAULT;
 
-            String biasX;
-            if (tokens.remove(LEFT)) {
-                biasX = LEFT;
-            } else if (tokens.remove(RIGHT)) {
-                biasX = RIGHT;
+            Optional<Matcher> m;
+
+            double biasX;
+            if ((m = remove(LEFT, tokens)).isPresent()
+                    || (m = remove(RIGHT, tokens)).isPresent()) {
+                biasX = biasAmount(m.get());
             } else {
-                biasX = CENTER;
+                biasX = 0.0;
                 tokens.remove(CENTER);
             }
 
-            String biasY;
-            if (tokens.remove(TOP)) {
-                biasY = TOP;
-            } else if (tokens.remove(BOTTOM)) {
-                biasY = BOTTOM;
+            double biasY;
+            if ((m = remove(TOP, tokens)).isPresent()
+                    || (m = remove(BOTTOM, tokens)).isPresent()) {
+                biasY = biasAmount(m.get());
             } else {
-                biasY = CENTER;
+                biasY = 0.0;
                 tokens.remove(CENTER);
             }
 
-            double amount = tokens.remove(HALF) ? 0.5 : 1.0;
+            Mode mode;
+            if (tokens.remove(HALF)) {
+                biasX /= 2;
+                biasY /= 2;
+                // "always" implied for historical reasons.  "reverse"
+                // overrides it.  If you want "stroke-only" instead, use
+                // f.e. "top-right-half" -> "t50-r50".
+                mode = Mode.ALWAYS;
+            } else {
+                mode = Mode.STROKE_ONLY;
+            }
+
+            if (tokens.remove(REVERSE)) {
+                mode = Mode.EXPAND_FILL;
+                biasX = -biasX;
+                biasY = -biasY;
+            } else if (tokens.remove(ALWAYS)) {
+                mode = Mode.ALWAYS;
+            }
+
 
             if (!tokens.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "Invalid bias specification: \"" + spec + "\"");
+                        "Invalid bias specification: \"" + spec
+                                + "\" (" + String.join("-", tokens) + "?)");
             }
 
-            if (amount == 1.0) {
-                return Objects.requireNonNull(valueMap.get(biasX).get(biasY));
+            Bias pooled = null;
+            if (mode == Mode.STROKE_ONLY) {
+                pooled = valueMap.getOrDefault(biasX,
+                        Collections.emptyMap()).get(biasY);
             }
-            return new Bias(biasX, biasY, amount);
+            return (pooled != null) ? pooled : new Bias(biasX, biasY, mode);
+        }
+
+        public Mode mode() {
+            return mode;
         }
 
         /**
@@ -133,8 +156,8 @@ public class AnchorPoint {
          * @return  {@code -1.0}, {@code 0}, or {@code 1.0}
          * @see     Math#signum(double)
          */
-        public double sigX() {
-            return sigX * amount;
+        public double dX() {
+            return dX;
         }
 
         /**
@@ -143,13 +166,50 @@ public class AnchorPoint {
          * @return  {@code -1.0}, {@code 0}, or {@code 1.0}
          * @see     Math#signum(double)
          */
-        public double sigY() {
-            return sigY * amount;
+        public double dY() {
+            return dY;
         }
 
         @Override
         public String toString() {
-            return "Bias(" + biasX + ", " + biasY + ")";
+            return "Bias(" + dX + ", " + dY + ", " + mode.toString()
+                    .toLowerCase(Locale.ROOT).replace('_', '-') + ")";
+        }
+
+        private static double biasAmount(Matcher token) {
+            String direction = token.group(1);
+            String value = token.group(2);
+
+            double amount;
+            if (value == null) {
+                amount = 1.0;
+            } else {
+                amount = Integer.parseInt(value)
+                        / Math.pow(10, Math.max(2, value.length() - 1));
+            }
+
+            switch (direction.charAt(0)) {
+            case 't':
+            case 'l':
+                return -amount;
+            case 'b':
+            case 'r':
+                return amount;
+            default:
+                throw new IllegalStateException("Unrecognized bias token: " + token.group());
+            }
+        }
+
+        private static Optional<Matcher> remove(Pattern regex, List<String> list) {
+            Matcher m = regex.matcher("");
+            for (Iterator<String> iter = list.iterator(); iter.hasNext(); ) {
+                String item = iter.next();
+                if (m.reset(item).matches()) {
+                    iter.remove();
+                    return Optional.of(m);
+                }
+            }
+            return Optional.empty();
         }
 
     } // class Bias
@@ -199,8 +259,15 @@ public class AnchorPoint {
     }
 
     public Point2D pointWithOffset(double offset) {
-        return new Point2D.Double(x + bias.sigX() * offset,
-                                  y + bias.sigY() * offset);
+        return pointWithOffset(offset, Mode.STROKE_ONLY);
+    }
+
+    public Point2D pointWithOffset(double offset, Bias.Mode mode) {
+        if (mode == bias.mode() || bias.mode() == Mode.ALWAYS) {
+            return new Point2D.Double(x + bias.dX() * offset,
+                                      y + bias.dY() * offset);
+        }
+        return point();
     }
 
     @Override
