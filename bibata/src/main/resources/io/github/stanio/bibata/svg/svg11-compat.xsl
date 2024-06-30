@@ -19,45 +19,53 @@
 
   <xsl:template match="@href[parent::*[namespace-uri()='http://www.w3.org/2000/svg']
                              and not(../@xlink:href)]">
-    <xsl:copy />
     <xsl:attribute name="href" namespace="http://www.w3.org/1999/xlink">
       <xsl:value-of select="." />
     </xsl:attribute>
   </xsl:template>
 
   <!-- REVISIT: lower-case(@paint-order) -->
-  <xsl:template match="svg:*[contains(normalize-space(@paint-order), 'stroke fill')]">
-    <xsl:choose>
-      <xsl:when test="@id">
-        <xsl:call-template name="stroke-under-fill">
-          <xsl:with-param name="id" select="@id" />
-        </xsl:call-template>
-      </xsl:when>
-      <xsl:otherwise>
-        <xsl:call-template name="stroke-under-fill">
-          <xsl:with-param name="id" select="generate-id()" />
-        </xsl:call-template>
-      </xsl:otherwise>
-    </xsl:choose>
-  </xsl:template>
-
-  <xsl:template name="stroke-under-fill">
-    <xsl:param name="id" />
-    <g originalPaintOrder="{@paint-order}">
-      <xsl:apply-templates select="@*[name() = 'mask' or name() = 'clip-path']" />
-      <xsl:text>&#xA;</xsl:text>
-      <use href="#{$id}" xlink:href="#{$id}">
-        <xsl:copy-of select="@*[starts-with(name(), 'stroke')]" />
-      </use>
+  <xsl:template match="svg:*[ normalize-space(@paint-order) = 'stroke'
+              or contains(substring-after(@paint-order, 'stroke'), 'fill') ]">
+    <!-- <xsl:variable name="id" select="generate-id()" /> -->
+    <g>
+      <xsl:copy-of select="@id" />
+      <xsl:apply-templates select="@*[ name() = 'filter'
+                                       or name() = 'mask'
+                                       or name() = 'clip-path' ]" />
       <xsl:text>&#xA;</xsl:text>
       <xsl:copy>
-        <xsl:attribute name="id">
-          <xsl:value-of select="$id" />
+        <xsl:apply-templates select="@*[not(name() = 'id'
+                                            or name() = 'filter'
+                                            or name() = 'mask'
+                                            or name() = 'clip-path')]" />
+        <xsl:attribute name="fill">
+          <xsl:value-of select="@stroke" />
         </xsl:attribute>
-        <xsl:apply-templates select="node()|@*[not(starts-with(name(), 'stroke')
-                                                   or name() = 'paint-order'
-                                                   or name() = 'mask'
-                                                   or name() = 'clip-path')]" />
+        <xsl:attribute name="class">
+          <xsl:value-of select="@class" />
+          <xsl:text> outer-stroke</xsl:text>
+        </xsl:attribute>
+        <xsl:apply-templates />
+      </xsl:copy>
+      <xsl:text>&#xA;</xsl:text>
+      <xsl:copy>
+        <!-- <xsl:attribute name="id">
+          <xsl:value-of select="$id" />
+        </xsl:attribute> -->
+        <xsl:apply-templates select="@*[not(name() = 'id'
+                                            or name() = 'filter'
+                                            or name() = 'mask'
+                                            or name() = 'clip-path')]" />
+        <xsl:attribute name="stroke">
+          <xsl:value-of select="@fill" />
+        </xsl:attribute>
+        <xsl:attribute name="stroke-width">0</xsl:attribute>
+        <xsl:attribute name="class">
+          <xsl:value-of select="@class" />
+          <xsl:text> expand-fill-stroke</xsl:text>
+        </xsl:attribute>
+        <xsl:apply-templates />
       </xsl:copy>
       <xsl:text>&#xA;</xsl:text>
     </g>
