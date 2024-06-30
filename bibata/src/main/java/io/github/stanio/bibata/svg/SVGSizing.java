@@ -53,6 +53,8 @@ public class SVGSizing {
     private static final SVGTransformer identityTransformer = new SVGTransformer();
     private static Supplier<SVGTransformer> svgTransformer = () -> identityTransformer;
 
+    public boolean expandFill;
+
     private final Path sourceFile;
     private final SAXReplayBuffer sourceBuffer;
     private final Document sourceDOM;
@@ -196,25 +198,29 @@ public class SVGSizing {
         Point alignedHotspot;
         {
             Dimension targetDimension = new Dimension(targetSize, targetSize);
+            final AnchorPoint.Bias.Mode
+                    offsetMode = (expandFill && anchorOffset < 0)
+                                 ? AnchorPoint.Bias.Mode.EXPAND_FILL
+                                 : AnchorPoint.Bias.Mode.STROKE_ONLY;
 
             Rectangle2D viewBox = new Rectangle2D.Double(0, 0, viewBoxSize, viewBoxSize);
             adjustViewBoxOrigin(viewBox,alignToGrid(metadata.rootAnchor
-                    .pointWithOffset(anchorOffset), targetDimension, viewBox));
+                    .pointWithOffset(anchorOffset, offsetMode), targetDimension, viewBox));
             viewBoxOrigin = new Point2D.Double(viewBox.getX(), viewBox.getY());
 
             objectOffsets = new HashMap<>(metadata.childAnchors.size());
             metadata.childAnchors.forEach((elementPath, anchor) -> {
                 objectOffsets.put(elementPath, alignToGrid(anchor
-                        .pointWithOffset(anchorOffset), targetDimension, viewBox));
+                        .pointWithOffset(anchorOffset, offsetMode), targetDimension, viewBox));
             });
 
-            Point2D hotspot = metadata.hotspot.pointWithOffset(anchorOffset);
+            Point2D hotspot = metadata.hotspot.pointWithOffset(anchorOffset, offsetMode);
             Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
-            int x = (int) (metadata.hotspot.bias().sigX() < 0
+            int x = (int) (metadata.hotspot.bias().dX() > 0
                            ? Math.round(offsetHotspot.getX())
                            : offsetHotspot.getX());
-            int y = (int) (metadata.hotspot.bias().sigY() < 0
+            int y = (int) (metadata.hotspot.bias().dY() > 0
                            ? Math.round(offsetHotspot.getY())
                            : offsetHotspot.getY());
             alignedHotspot = new Point(x, y);

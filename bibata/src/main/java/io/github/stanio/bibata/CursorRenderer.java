@@ -78,7 +78,8 @@ final class CursorRenderer {
     private volatile SVGSizing svgSizing;
     private volatile SVGSizingTool sizingTool;
     double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
-    double minStrokeWidth ;
+    double minStrokeWidth;
+    boolean expandFill;
     private double anchorOffset;
 
     private final Map<Path, CursorBuilder> deferredFrames = new HashMap<>();
@@ -107,6 +108,11 @@ final class CursorRenderer {
 
     public void setMinStrokeWidth(double width) {
         this.minStrokeWidth = width;
+    }
+
+    public void setExpandFill(boolean expand) {
+        this.expandFill = expand;
+        variantTransformer.setExpandFill(expand);
     }
 
     public void setPointerShadow(DropShadow shadow) {
@@ -209,6 +215,7 @@ final class CursorRenderer {
                     .transformDocument(sourceDocument));
             backend.fromDocument(svg -> {
                 svgSizing = SVGSizing.forDocument(svg);
+                svgSizing.expandFill = expandFill;
                 colorTheme = DocumentColors.forDocument(svg);
                 return null;
             });

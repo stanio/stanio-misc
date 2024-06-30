@@ -73,9 +73,10 @@ public class BitmapsRenderer {
         renderer = new CursorRenderer();
     }
 
-    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth) {
+    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth, boolean expandFill) {
         renderer.setBaseStrokeWidth(width);
         renderer.setMinStrokeWidth(minWidth);
+        renderer.setExpandFill(expandFill);
         return this;
     }
 
@@ -281,7 +282,7 @@ public class BitmapsRenderer {
         try {
             Path projectDir = configFactory.baseDir();
             new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
-                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth, cmdArgs.minStrokeWidth)
+                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth, cmdArgs.minStrokeWidth, cmdArgs.expandFill)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
@@ -335,6 +336,7 @@ public class BitmapsRenderer {
         final List<StrokeWidth> strokeWidths = new ArrayList<>();
         double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
         double minStrokeWidth;
+        boolean expandFill;
         boolean defaultStrokeAlso;
         boolean allVariants;
 
@@ -368,6 +370,7 @@ public class BitmapsRenderer {
                     .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
                     .acceptOption("--min-stroke-width",
                             val -> minStrokeWidth = Double.parseDouble(val))
+                    .acceptFlag("--expand-fill", () -> expandFill = true)
                     .acceptFlag("--default-stroke-also", () -> defaultStrokeAlso = true)
                     .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptOption("--build-dir", val -> buildDir = val)

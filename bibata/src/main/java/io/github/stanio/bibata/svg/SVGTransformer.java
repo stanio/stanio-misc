@@ -14,6 +14,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import javax.xml.XMLConstants;
 import javax.xml.transform.OutputKeys;
@@ -67,6 +68,7 @@ public class SVGTransformer {
     private boolean svg11Compat;
     private Optional<Double> strokeWidth = Optional.empty();
     private double baseStrokeWidth = 16.0;
+    private boolean expandFill;
 
     private Map<String, Transformer> transformers = new HashMap<>();
 
@@ -80,11 +82,8 @@ public class SVGTransformer {
 
     public void setPointerShadow(DropShadow shadow) {
         this.dropShadow = Optional.ofNullable(shadow);
-        Transformer tr;
-        if (shadow != null
-                && (tr = transformers.get("dropShadow")) != null) {
-            setShadowParameters(tr);
-        }
+        ifPresent(transformers.get("dropShadow"),
+                  this::setShadowParameters);
     }
 
     public Optional<Double> strokeWidth() {
@@ -93,19 +92,25 @@ public class SVGTransformer {
 
     public void setStrokeWidth(Double width) {
         strokeWidth = Optional.ofNullable(width);
-        Transformer tr;
-        if (width != null
-                && (tr = transformers.get("thinStroke")) != null) {
-            setStrokeParameters(tr);
-        }
+        ifPresent(transformers.get("thinStroke"),
+                  this::setStrokeParameters);
     }
 
     public void setBaseStrokeWidth(double baseWidth) {
         baseStrokeWidth = baseWidth;
-        Transformer tr;
-        if ((tr = transformers.get("thinStroke")) != null) {
-            setStrokeParameters(tr);
-        }
+        ifPresent(transformers.get("thinStroke"),
+                  this::setStrokeParameters);
+    }
+
+    public void setExpandFill(boolean expandFill) {
+        this.expandFill = expandFill;
+        ifPresent(transformers.get("thinStroke"),
+                  this::setStrokeParameters);
+    }
+
+    private static <T> void ifPresent(T value, Consumer<T> consumer) {
+        if (value != null)
+            consumer.accept(value);
     }
 
     static Transformer identityTransformer() {
@@ -121,6 +126,8 @@ public class SVGTransformer {
     }
 
     private void setShadowParameters(Transformer transformer) {
+        if (dropShadow.isEmpty()) return;
+
         DropShadow shadow = dropShadow.get();
         transformer.setParameter("shadow-blur", shadow.blur);
         transformer.setParameter("shadow-dx", shadow.dx);
@@ -139,8 +146,11 @@ public class SVGTransformer {
     }
 
     private void setStrokeParameters(Transformer transformer) {
+        if (strokeWidth.isEmpty()) return;
+
         transformer.setParameter("base-width", baseStrokeWidth);
         transformer.setParameter("new-width", strokeWidth.get());
+        transformer.setParameter("expand-fill", expandFill);
     }
 
     private Transformer svg11Transformer() {
@@ -204,7 +214,10 @@ public class SVGTransformer {
         Transformer transformer;
         try {
             TransformerFactory tf = TransformerFactory.newInstance();
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            // Allow extension functions.
+            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
+            // REVISIT: Do we want to restrict access here?
+            tf.setURIResolver((href, base) -> null);
             transformer = sheet.isEmpty() ? tf.newTransformer()
                                           : tf.newTransformer(sheet.get());
         } catch (TransformerConfigurationException e) {
