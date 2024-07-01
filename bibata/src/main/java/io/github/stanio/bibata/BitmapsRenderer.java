@@ -73,10 +73,10 @@ public class BitmapsRenderer {
         renderer = new CursorRenderer();
     }
 
-    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth, boolean expandFill) {
+    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit) {
         renderer.setBaseStrokeWidth(width);
         renderer.setMinStrokeWidth(minWidth);
-        renderer.setExpandFill(expandFill);
+        renderer.setExpandFillBase(expandFillLimit);
         return this;
     }
 
@@ -282,7 +282,8 @@ public class BitmapsRenderer {
         try {
             Path projectDir = configFactory.baseDir();
             new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
-                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth, cmdArgs.minStrokeWidth, cmdArgs.expandFill)
+                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth,
+                            cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .buildCursors(cmdArgs.outputType)
@@ -336,7 +337,7 @@ public class BitmapsRenderer {
         final List<StrokeWidth> strokeWidths = new ArrayList<>();
         double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
         double minStrokeWidth;
-        boolean expandFill;
+        Double expandFillLimit;
         boolean defaultStrokeAlso;
         boolean allVariants;
 
@@ -370,7 +371,8 @@ public class BitmapsRenderer {
                     .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
                     .acceptOption("--min-stroke-width",
                             val -> minStrokeWidth = Double.parseDouble(val))
-                    .acceptFlag("--expand-fill", () -> expandFill = true)
+                    .acceptOptionalArg("--expand-fill",
+                            val -> expandFillLimit = val.isEmpty() ? 0.0 : Double.valueOf(val))
                     .acceptFlag("--default-stroke-also", () -> defaultStrokeAlso = true)
                     .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptOption("--build-dir", val -> buildDir = val)
@@ -435,6 +437,7 @@ public class BitmapsRenderer {
                     + " [--pointer-shadow] [--no-shadow-also]"
                     + " [--stroke-width=<width>[:<name>]] [--default-stroke-also]"
                     + " [--base-stroke-width <width>] [--min-stroke-width <width>]"
+                    + " [--expand-fill=<base-width>]"
                     + " [--thin-stroke] [--all-variants]"
                     + " [-s <size-scheme>]... [-r <target-size>]..."
                     + " [-t <theme>]... [-f <cursor>]... [--all-cursors]");

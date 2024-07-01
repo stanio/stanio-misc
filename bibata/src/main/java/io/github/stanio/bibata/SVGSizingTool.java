@@ -29,6 +29,7 @@ import java.awt.Point;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 
+import io.github.stanio.bibata.options.StrokeWidth;
 import io.github.stanio.bibata.svg.DropShadow;
 import io.github.stanio.bibata.svg.SVGSizing;
 import io.github.stanio.bibata.svg.SVGTransformer;
@@ -123,12 +124,13 @@ public class SVGSizingTool {
     private void updateSVG(Path svg, int targetSize) throws IOException {
         SVGSizing sizing = SVGSizing.forFile(svg);
         String cursorName = svg.getFileName().toString().replaceFirst("\\.svg$", "");
-        applySizing(cursorName, sizing, targetSize, 0);
+        applySizing(cursorName, sizing, targetSize, 0, 0);
     }
 
-    public Point applySizing(String cursorName, SVGSizing sizing, int targetSize, double anchorOffset)
+    public Point applySizing(String cursorName, SVGSizing sizing,
+            int targetSize, double anchorOffset, double baseOffset)
             throws IOException {
-        Point hotspot = sizing.apply(targetSize, viewBoxSize, anchorOffset);
+        Point hotspot = sizing.apply(targetSize, viewBoxSize, anchorOffset, baseOffset);
 
         if (cursorName.startsWith("wait-")) {
             cursorName = "wait";
@@ -217,7 +219,9 @@ public class SVGSizingTool {
             SVGTransformer svgTransformer = new SVGTransformer();
             svgTransformer.setSVG11Compat(cmdArgs.svg11Compat);
             svgTransformer.setPointerShadow(cmdArgs.pointerShadow);
-            svgTransformer.setStrokeWidth(cmdArgs.strokeWidth);
+            if (cmdArgs.strokeWidth != null) {
+                svgTransformer.setStrokeDiff(cmdArgs.strokeWidth - StrokeWidth.BASE_WIDTH);
+            }
             SVGSizing.setFileSourceTransformer(() -> svgTransformer);
 
             new SVGSizingTool(cmdArgs.viewBoxSize)

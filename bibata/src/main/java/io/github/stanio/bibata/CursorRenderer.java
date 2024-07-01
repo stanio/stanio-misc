@@ -79,8 +79,9 @@ final class CursorRenderer {
     private volatile SVGSizingTool sizingTool;
     double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
     double minStrokeWidth;
-    boolean expandFill;
-    private double anchorOffset;
+    Optional<Double> expandFillBase = Optional.empty();
+    private double strokeOffset;
+    private double fillOffset;
 
     private final Map<Path, CursorBuilder> deferredFrames = new HashMap<>();
     private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
@@ -104,15 +105,15 @@ final class CursorRenderer {
     public void setBaseStrokeWidth(Double width) {
         this.baseStrokeWidth = (width == null) ? StrokeWidth.BASE_WIDTH : width;
         variantTransformer.setBaseStrokeWidth(baseStrokeWidth);
+        resetDocument();
     }
 
     public void setMinStrokeWidth(double width) {
         this.minStrokeWidth = width;
     }
 
-    public void setExpandFill(boolean expand) {
-        this.expandFill = expand;
-        variantTransformer.setExpandFill(expand);
+    public void setExpandFillBase(Double rebaseWidth) {
+        this.expandFillBase = Optional.ofNullable(rebaseWidth);
     }
 
     public void setPointerShadow(DropShadow shadow) {
@@ -124,16 +125,8 @@ final class CursorRenderer {
         resetDocument();
     }
 
-    public boolean hasPointerShadow() {
-        return variantTransformer.dropShadow().isPresent();
-    }
-
     public void setStrokeWidth(Double width) {
         strokeWidth = Optional.ofNullable(width);
-    }
-
-    public boolean hasThinOutline() {
-        return anchorOffset != 0;
     }
 
     public void loadFile(String cursorName, Path svgFile, String targetName) throws IOException {
@@ -195,18 +188,28 @@ final class CursorRenderer {
             }
         }
 
-        anchorOffset = 0;
+        strokeOffset = 0;
+        fillOffset = 0;
         if (actualStrokeWidth != null) {
-            anchorOffset = (actualStrokeWidth - baseStrokeWidth);
+            double expandBase = expandFillBase
+                    .map(v -> v > 0.0 ? v : baseStrokeWidth)
+                    .orElse(0.0);
+            if (actualStrokeWidth < expandBase) {
+                strokeOffset = expandBase - baseStrokeWidth;
+                fillOffset = expandBase - actualStrokeWidth;
+            } else {
+                strokeOffset = actualStrokeWidth - baseStrokeWidth;
+            }
         }
 
         boolean resetDocument;
-        if (!Objects.equals(actualStrokeWidth,
-                variantTransformer.strokeWidth().orElse(null))) {
-            variantTransformer.setStrokeWidth(actualStrokeWidth);
-            resetDocument = true;
-        } else {
+        if (strokeOffset == variantTransformer.strokeDiff()
+                && fillOffset == variantTransformer.expandFillDiff()) {
             resetDocument = false;
+        } else {
+            variantTransformer.setStrokeDiff(strokeOffset);
+            variantTransformer.setExpandFillDiff(fillOffset);
+            resetDocument = true;
         }
 
         // initDocument
@@ -215,7 +218,6 @@ final class CursorRenderer {
                     .transformDocument(sourceDocument));
             backend.fromDocument(svg -> {
                 svgSizing = SVGSizing.forDocument(svg);
-                svgSizing.expandFill = expandFill;
                 colorTheme = DocumentColors.forDocument(svg);
                 return null;
             });
@@ -294,7 +296,7 @@ final class CursorRenderer {
                     // REVISIT: Implement "reset sizing" to remove previous alignments,
                     // and/or provide flag whether to apply alignments.
                     return sizingTool.applySizing(cursorName, svgSizing,
-                            targetSize > 0 ? targetSize : sourceSize, anchorOffset);
+                            targetSize > 0 ? targetSize : sourceSize, strokeOffset, fillOffset);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }

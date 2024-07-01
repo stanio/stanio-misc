@@ -66,9 +66,9 @@ public class SVGTransformer {
 
     private Optional<DropShadow> dropShadow = Optional.empty();
     private boolean svg11Compat;
-    private Optional<Double> strokeWidth = Optional.empty();
-    private double baseStrokeWidth = 16.0;
-    private boolean expandFill;
+    private double strokeDiff;
+    private double baseStrokeWidth = Float.MAX_VALUE;
+    private double expandFillDiff;
 
     private Map<String, Transformer> transformers = new HashMap<>();
 
@@ -86,12 +86,12 @@ public class SVGTransformer {
                   this::setShadowParameters);
     }
 
-    public Optional<Double> strokeWidth() {
-        return strokeWidth;
+    public double strokeDiff() {
+        return strokeDiff;
     }
 
-    public void setStrokeWidth(Double width) {
-        strokeWidth = Optional.ofNullable(width);
+    public void setStrokeDiff(double widthDiff) {
+        strokeDiff = widthDiff;
         ifPresent(transformers.get("thinStroke"),
                   this::setStrokeParameters);
     }
@@ -102,8 +102,12 @@ public class SVGTransformer {
                   this::setStrokeParameters);
     }
 
-    public void setExpandFill(boolean expandFill) {
-        this.expandFill = expandFill;
+    public double expandFillDiff() {
+        return expandFillDiff;
+    }
+
+    public void setExpandFillDiff(double withDiff) {
+        this.expandFillDiff = withDiff;
         ifPresent(transformers.get("thinStroke"),
                   this::setStrokeParameters);
     }
@@ -146,11 +150,9 @@ public class SVGTransformer {
     }
 
     private void setStrokeParameters(Transformer transformer) {
-        if (strokeWidth.isEmpty()) return;
-
         transformer.setParameter("base-width", baseStrokeWidth);
-        transformer.setParameter("new-width", strokeWidth.get());
-        transformer.setParameter("expand-fill", expandFill);
+        transformer.setParameter("stroke-diff", strokeDiff);
+        transformer.setParameter("expand-fill-diff", expandFillDiff);
     }
 
     private Transformer svg11Transformer() {
@@ -160,7 +162,7 @@ public class SVGTransformer {
 
     private Iterator<Transformer> transformPipeline() {
         Collection<Transformer> pipeline = new ArrayList<>();
-        if (strokeWidth.isPresent()) {
+        if (strokeDiff != 0 || expandFillDiff != 0) {
             pipeline.add(thinStrokeTransformer());
         }
         if (dropShadow.map(DropShadow::isSVG).orElse(false)) {

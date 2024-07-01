@@ -17,8 +17,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.awt.geom.Point2D;
 
-import io.github.stanio.bibata.svg.AnchorPoint.Bias.Mode;
-
 /**
  * Encapsulates point coordinates (x,y) and an associated <i>bias</i>.
  * <pre>
@@ -125,8 +123,8 @@ public class AnchorPoint {
 
             if (tokens.remove(REVERSE)) {
                 mode = Mode.EXPAND_FILL;
-                biasX = -biasX;
-                biasY = -biasY;
+                //biasX = -biasX;
+                //biasY = -biasY;
             } else if (tokens.remove(ALWAYS)) {
                 mode = Mode.ALWAYS;
             }
@@ -259,15 +257,31 @@ public class AnchorPoint {
     }
 
     public Point2D pointWithOffset(double offset) {
-        return pointWithOffset(offset, Mode.STROKE_ONLY);
+        return pointWithOffset(offset, 0.0);
     }
 
-    public Point2D pointWithOffset(double offset, Bias.Mode mode) {
-        if (mode == bias.mode() || bias.mode() == Mode.ALWAYS) {
-            return new Point2D.Double(x + bias.dX() * offset,
-                                      y + bias.dY() * offset);
+    public Point2D pointWithOffset(double strokeOffset, double fillOffset) {
+        double offset;
+        switch (bias.mode()) {
+        case EXPAND_FILL:
+            offset = fillOffset;
+            break;
+
+        case ALWAYS:
+            // fillOffset should have inverse sign
+            offset = strokeOffset - fillOffset;
+            break;
+
+        default:
+        case STROKE_ONLY:
+            offset = strokeOffset;
         }
-        return point();
+
+        if (offset == 0 || bias == Bias.DEFAULT)
+            return point();
+
+        return new Point2D.Double(x + bias.dX() * offset,
+                                  y + bias.dY() * offset);
     }
 
     @Override

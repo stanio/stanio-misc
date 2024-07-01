@@ -53,8 +53,6 @@ public class SVGSizing {
     private static final SVGTransformer identityTransformer = new SVGTransformer();
     private static Supplier<SVGTransformer> svgTransformer = () -> identityTransformer;
 
-    public boolean expandFill;
-
     private final Path sourceFile;
     private final SAXReplayBuffer sourceBuffer;
     private final Document sourceDOM;
@@ -115,18 +113,21 @@ public class SVGSizing {
      * @see     #adjustViewBoxOrigin(Rectangle2D, Point2D)
      */
     public Point apply(int targetSize, int viewBoxSize) throws IOException {
-        return apply(targetSize, viewBoxSize, 0);
+        return apply(targetSize, viewBoxSize, 0, 0);
     }
 
-    public Point apply(int targetSize, int viewBoxSize, double anchorOffset) throws IOException {
+    public Point apply(int targetSize, int viewBoxSize, double strokeOffset, double fillOffset) throws IOException {
         return (sourceDOM == null)
-                ? apply(sourceFile, targetSize, viewBoxSize, anchorOffset)
-                : apply(sourceDOM, targetSize, viewBoxSize, anchorOffset);
+                ? apply(sourceFile, targetSize, viewBoxSize, strokeOffset, fillOffset)
+                : apply(sourceDOM, targetSize, viewBoxSize, strokeOffset, fillOffset);
     }
 
-    Point apply(Path svgFile, int targetSize, int viewBoxSize, double anchorOffset)
+    Point apply(Path svgFile, int targetSize, int viewBoxSize,
+                              double strokeOffset, double fillOffset)
             throws IOException {
-        return updateOffsets(targetSize, viewBoxSize, anchorOffset, (viewBoxOrigin, childOffsets) -> {
+        return updateOffsets(targetSize, viewBoxSize,
+                             strokeOffset, fillOffset,
+                             (viewBoxOrigin, childOffsets) -> {
             Path resolvedSource = resolveLinks(sourceFile);
             Path tempFile = Files.createTempFile(parentPath(resolvedSource),
                     svgFile.getFileName() + "-", null);
@@ -151,9 +152,11 @@ public class SVGSizing {
         });
     }
 
-    Point apply(Document svg, int targetSize, int viewBoxSize, double anchorOffset) {
+    Point apply(Document svg, int targetSize, int viewBoxSize,
+                              double strokeOffset, double fillOffset) {
         return updateOffsets(targetSize, viewBoxSize,
-                             anchorOffset, (viewBoxOrigin, childOffsets) -> {
+                             strokeOffset, fillOffset,
+                             (viewBoxOrigin, childOffsets) -> {
             Element svgRoot = svg.getDocumentElement();
             svgRoot.setAttribute("width", String.valueOf(targetSize));
             svgRoot.setAttribute("height", String.valueOf(targetSize));
@@ -190,7 +193,7 @@ public class SVGSizing {
 
     private <E extends Exception>
     Point updateOffsets(int targetSize, int viewBoxSize,
-                        double anchorOffset,
+                        double strokeOffset, double fillOffset,
                         OffsetsUpdate<E> offsetsConsumer)
             throws E {
         Point2D viewBoxOrigin;
@@ -198,23 +201,21 @@ public class SVGSizing {
         Point alignedHotspot;
         {
             Dimension targetDimension = new Dimension(targetSize, targetSize);
-            final AnchorPoint.Bias.Mode
-                    offsetMode = (expandFill && anchorOffset < 0)
-                                 ? AnchorPoint.Bias.Mode.EXPAND_FILL
-                                 : AnchorPoint.Bias.Mode.STROKE_ONLY;
 
             Rectangle2D viewBox = new Rectangle2D.Double(0, 0, viewBoxSize, viewBoxSize);
             adjustViewBoxOrigin(viewBox,alignToGrid(metadata.rootAnchor
-                    .pointWithOffset(anchorOffset, offsetMode), targetDimension, viewBox));
+                            .pointWithOffset(strokeOffset, fillOffset),
+                    targetDimension, viewBox));
             viewBoxOrigin = new Point2D.Double(viewBox.getX(), viewBox.getY());
 
             objectOffsets = new HashMap<>(metadata.childAnchors.size());
             metadata.childAnchors.forEach((elementPath, anchor) -> {
                 objectOffsets.put(elementPath, alignToGrid(anchor
-                        .pointWithOffset(anchorOffset, offsetMode), targetDimension, viewBox));
+                                .pointWithOffset(strokeOffset, fillOffset),
+                        targetDimension, viewBox));
             });
 
-            Point2D hotspot = metadata.hotspot.pointWithOffset(anchorOffset, offsetMode);
+            Point2D hotspot = metadata.hotspot.pointWithOffset(strokeOffset, fillOffset);
             Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
             int x = (int) (metadata.hotspot.bias().dX() > 0

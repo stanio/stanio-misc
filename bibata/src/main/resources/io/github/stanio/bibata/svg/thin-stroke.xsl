@@ -5,26 +5,13 @@
   -->
 
 <!--
-  <path stroke-width="$base-width" or class="variable-single-stroke" />
-  <path stroke-width="> 2 * $base-width" or class="variable-double-stroke" />
-
-  <path class="stroke-fill" />
-  <path class="outer-stroke" />
-
-  shrink-only-stroke
-  variable-stroke-only
-
-
   fixed-width-stroke
 
-  expand-fill-stroke (expand-fill)
-  outside-stroke (stroke-only)
+  expand-fill-stroke
+  outer-stroke
 
-  shrink-only-stroke (expand-fill)
-
-  stroke-only (stroke-only, expand-fill)
-  stroke-over     single-width / auto
-  stroke-outside  double-width / auto
+  stroke-only
+  shrink-only-stroke
   -->
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -34,18 +21,17 @@
     extension-element-prefixes="Math"
     exclude-result-prefixes="svg">
 
+  <!-- Used as selector criteria, only. -->
   <xsl:param name="base-width" select="16" />
-  <xsl:param name="new-width" select="12" />
-  <xsl:param name="expand-fill" select="false()" />
-
-  <xsl:variable name="width-diff" select="$new-width - $base-width" />
   <xsl:variable name="width-tolerance" select="$base-width div 16" />
-
-  <xsl:variable name="stroke-under-diff" select="2 * $width-diff" />
   <xsl:variable name="stroke-under-min-width" select="$base-width div 8 * 15" />
 
-  <xsl:variable name="expand-mode"
-      select="$expand-fill and ($new-width &lt; $base-width)"/>
+  <xsl:param name="stroke-diff" select="0" />
+  <xsl:param name="expand-fill-diff" select="0" />
+  <xsl:variable name="full-diff"
+      select="$stroke-diff - $expand-fill-diff" />
+
+  <xsl:variable name="expand-mode" select="not($expand-fill-diff = 0)"/>
 
   <xsl:template match="/">
     <xsl:choose>
@@ -58,48 +44,36 @@
     </xsl:choose>
   </xsl:template>
 
-  <xsl:template name="adjust-stroke-over">
-    <xsl:param name="stroke-width" select="number()" />
-
-    <xsl:attribute name="stroke-width">
-      <!-- Not just $new-width as the $stroke-width
-           may not exactly equal the $base-width -->
-      <xsl:value-of select="$stroke-width + $width-diff" />
-    </xsl:attribute>
-    <xsl:attribute name="_stroke-width">
-      <xsl:value-of select="$stroke-width" />
-    </xsl:attribute>
-  </xsl:template>
-
-  <xsl:template name="adjust-stroke-outside">
-    <xsl:param name="stroke-width" select="number()" />
-
-    <xsl:attribute name="stroke-width">
-      <xsl:value-of select="$stroke-width + $stroke-under-diff" />
-    </xsl:attribute>
-    <xsl:attribute name="_stroke-width">
-      <xsl:value-of select="$stroke-width" />
-    </xsl:attribute>
-  </xsl:template>
-
   <!--
-    - Shrink stroke (stroke-only)
+    - Default mode: Stroke-only (shrink or expand)
     -->
 
-  <xsl:template
-      match="@stroke-width[ contains(../@class, 'stroke-over')
-                            or number() = $base-width
-                 or Math:abs(number() - $base-width) &lt; $width-tolerance ]">
-    <xsl:call-template name="adjust-stroke-over" />
+  <xsl:template name="adjust-stroke-over"
+      match="@stroke-width[ number() = $base-width
+          or Math:abs(number() - $base-width) &lt; $width-tolerance ]">
+    <xsl:param name="stroke-width" select="number()" />
+
+    <xsl:attribute name="stroke-width">
+      <xsl:value-of select="$stroke-width + $full-diff" />
+    </xsl:attribute>
+    <xsl:attribute name="_stroke-width">
+      <xsl:value-of select="$stroke-width" />
+    </xsl:attribute>
   </xsl:template>
 
-  <xsl:template
-      match="@stroke-width[ contains(../@class, 'outer-stroke')
-                            or number() &gt;= $stroke-under-min-width ]">
-    <xsl:call-template name="adjust-stroke-outside" />
+  <xsl:template name="adjust-stroke-under"
+      match="@stroke-width[ number() &gt;= $stroke-under-min-width ]">
+    <xsl:param name="stroke-width" select="number()" />
+
+    <xsl:attribute name="stroke-width">
+      <xsl:value-of select="$stroke-width + 2 * $stroke-diff" />
+    </xsl:attribute>
+    <xsl:attribute name="_stroke-width">
+      <xsl:value-of select="$stroke-width" />
+    </xsl:attribute>
   </xsl:template>
 
-  <xsl:template
+  <xsl:template priority="1"
       match="@stroke-width[ contains(../@class, 'fixed-width-stroke')
                             or contains(../@class, 'expand-fill-stroke')
                             or contains(../@class, 'shrink-only-stroke') ]">
@@ -107,39 +81,22 @@
   </xsl:template>
 
   <!--
-    - Expand fill ($new-width < $base-width)
+    - Expand fill ($expand-fill-diff != 0)
     -->
 
   <xsl:template mode="expand-fill"
-      match="@stroke-width[ contains(../@class, 'stroke-over')
-                            or number() = $base-width
+      match="@stroke-width[ number() = $base-width
                  or Math:abs(number() - $base-width) &lt; $width-tolerance ]">
     <xsl:call-template name="adjust-stroke-over" />
   </xsl:template>
 
   <xsl:template mode="expand-fill"
-      match="@stroke-width[ contains(../@class, 'expand-fill-stroke') ]">
-    <xsl:param name="stroke-width" select="number()" />
-
-    <xsl:attribute name="stroke-width">
-      <!-- assert ($stroke-under-diff < 0) -->
-      <xsl:value-of select="$stroke-width - $stroke-under-diff" />
-    </xsl:attribute>
-    <xsl:attribute name="_stroke-width">
-      <xsl:value-of select="$stroke-width" />
-    </xsl:attribute>
-  </xsl:template>
-
-  <xsl:template mode="expand-fill"
-      match="svg:*[ (@stroke-width &gt;= $stroke-under-min-width
-                        or contains(@class, 'variable-stroke'))
+      match="svg:*[ @stroke-width &gt;= $stroke-under-min-width
                     and not(contains(@class, 'fixed-width-stroke')
                             or contains(@class, 'expand-fill-stroke')
-                            or contains(@class, 'shrink-only-stroke')
+                            or contains(@class, 'outer-stroke')
                             or contains(@class, 'stroke-only')
-                            or contains(@class, 'adjust-stroke-only')
-                            or contains(@class, 'outer-stroke')) ]">
-    <!-- XXX: Use <g> to move filter, mask or clip-path to -->
+                            or contains(@class, 'shrink-only-stroke')) ]">
     <g>
       <xsl:copy-of select="@id" />
       <xsl:copy-of select="@filter" />
@@ -150,6 +107,9 @@
                                     or name() = 'filter'
                                     or name() = 'mask'
                                     or name() = 'clip-path')]" />
+        <xsl:call-template name="adjust-stroke-under">
+          <xsl:with-param name="stroke-width" select="@stroke-width" />
+        </xsl:call-template>
         <xsl:copy-of select="node()" />
       </xsl:copy>
       <xsl:copy>
@@ -163,21 +123,55 @@
                                         substring(@stroke, not(normalize-space(@fill)) div 0) )" />
         </xsl:attribute>
         <xsl:attribute name="stroke-width">
-          <xsl:value-of select="-$stroke-under-diff" />
+          <xsl:value-of select="2 * $expand-fill-diff" />
         </xsl:attribute>
       </xsl:copy>
     </g>
   </xsl:template>
 
   <xsl:template mode="expand-fill"
-      match="@stroke-width[ contains(../@class, 'stroke-only')
-                            or contains(../@class, 'shrink-only-stroke') ]">
-    <xsl:call-template name="adjust-stroke-outside" />
+      match="@stroke-width[ contains(../@class, 'expand-fill-stroke') ]">
+    <xsl:param name="stroke-width" select="number()" />
+
+    <xsl:attribute name="stroke-width">
+      <xsl:value-of select="$stroke-width + 2 * $expand-fill-diff" />
+    </xsl:attribute>
+    <xsl:attribute name="_stroke-width">
+      <xsl:value-of select="$stroke-width" />
+    </xsl:attribute>
   </xsl:template>
 
   <xsl:template mode="expand-fill"
-      match="@stroke-width[ contains(../@class, 'outer-stroke')
-                            or contains(../@class, 'fixed-width-stroke') ]">
+      match="@stroke-width[ contains(../@class, 'stroke-only') ]">
+    <xsl:param name="stroke-width" select="number()" />
+
+    <xsl:attribute name="stroke-width">
+      <xsl:value-of select="$stroke-width + 2 * $full-diff" />
+    </xsl:attribute>
+    <xsl:attribute name="_stroke-width">
+      <xsl:value-of select="$stroke-width" />
+    </xsl:attribute>
+  </xsl:template>
+
+  <xsl:template mode="expand-fill"
+      match="@stroke-width[ contains(../@class, 'outer-stroke') ]">
+    <xsl:call-template name="adjust-stroke-under" />
+  </xsl:template>
+
+  <xsl:template mode="expand-fill"
+      match="@stroke-width[ contains(../@class, 'shrink-only-stroke') ]">
+    <xsl:param name="stroke-width" select="number()" />
+
+    <xsl:attribute name="stroke-width">
+      <xsl:value-of select="$stroke-width - 2 * $expand-fill-diff" />
+    </xsl:attribute>
+    <xsl:attribute name="_stroke-width">
+      <xsl:value-of select="$stroke-width" />
+    </xsl:attribute>
+  </xsl:template>
+
+  <xsl:template mode="expand-fill" priority="1"
+      match="@stroke-width[ contains(../@class, 'fixed-width-stroke') ]">
     <xsl:copy-of select="." />
   </xsl:template>
 
