@@ -39,12 +39,14 @@ public class AnchorPoint {
 
     public static class Bias {
 
-        enum Mode { STROKE_ONLY, EXPAND_FILL, ALWAYS }
+        enum Mode { STROKE_OUTSIDE, FILL, STROKE_BASE }
 
         private static final String CENTER = "center",
                                     HALF = "half",
-                                    REVERSE = "reverse",
-                                    ALWAYS = "always";
+                                    FILL = "fill",
+                                    REVERSE = "reverse", // deprecated
+                                    BASE = "base",
+                                    ALWAYS = "always";   // deprecated
 
         private static final Pattern
                 TOP = Pattern.compile("(t(?:op|(\\d+)))"),
@@ -74,7 +76,7 @@ public class AnchorPoint {
         private final Mode mode;
 
         private Bias(double biasX, double biasY) {
-            this(biasX, biasY, Mode.STROKE_ONLY);
+            this(biasX, biasY, Mode.STROKE_OUTSIDE);
         }
 
         private Bias(double x, double y, Mode mode) {
@@ -113,22 +115,16 @@ public class AnchorPoint {
             if (tokens.remove(HALF)) {
                 biasX /= 2;
                 biasY /= 2;
-                // "always" implied for historical reasons.  "reverse"
-                // overrides it.  If you want "stroke-only" instead, use
-                // f.e. "top-right-half" -> "t50-r50".
-                mode = Mode.ALWAYS;
+                mode = Mode.STROKE_BASE;
             } else {
-                mode = Mode.STROKE_ONLY;
+                mode = Mode.STROKE_OUTSIDE;
             }
 
-            if (tokens.remove(REVERSE)) {
-                mode = Mode.EXPAND_FILL;
-                //biasX = -biasX;
-                //biasY = -biasY;
-            } else if (tokens.remove(ALWAYS)) {
-                mode = Mode.ALWAYS;
+            if (tokens.remove(FILL) || tokens.remove(REVERSE)) {
+                mode = Mode.FILL;
+            } else if (tokens.remove(BASE) || tokens.remove(ALWAYS)) {
+                mode = Mode.STROKE_BASE;
             }
-
 
             if (!tokens.isEmpty()) {
                 throw new IllegalArgumentException(
@@ -137,7 +133,7 @@ public class AnchorPoint {
             }
 
             Bias pooled = null;
-            if (mode == Mode.STROKE_ONLY) {
+            if (mode == Mode.STROKE_OUTSIDE) {
                 pooled = valueMap.getOrDefault(biasX,
                         Collections.emptyMap()).get(biasY);
             }
@@ -182,8 +178,8 @@ public class AnchorPoint {
             if (value == null) {
                 amount = 1.0;
             } else {
-                amount = Integer.parseInt(value)
-                        / Math.pow(10, Math.max(2, value.length() - 1));
+                amount = Integer.parseInt(value) * Math.pow(10,
+                                            -Math.max(2, value.length() - 1));
             }
 
             switch (direction.charAt(0)) {
@@ -263,17 +259,18 @@ public class AnchorPoint {
     public Point2D pointWithOffset(double strokeOffset, double fillOffset) {
         double offset;
         switch (bias.mode()) {
-        case EXPAND_FILL:
+        case FILL:
             offset = fillOffset;
             break;
 
-        case ALWAYS:
-            // fillOffset should have inverse sign
+        case STROKE_BASE:
+            // The stroke offset from the path base - full stroke offset as if
+            // no fill is expanded.
             offset = strokeOffset - fillOffset;
             break;
 
         default:
-        case STROKE_ONLY:
+        case STROKE_OUTSIDE:
             offset = strokeOffset;
         }
 
