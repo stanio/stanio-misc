@@ -106,8 +106,8 @@ public class SVGTransformer {
         return expandFillDiff;
     }
 
-    public void setExpandFillDiff(double withDiff) {
-        this.expandFillDiff = withDiff;
+    public void setExpandFillDiff(double fillDiff) {
+        this.expandFillDiff = fillDiff;
         ifPresent(transformers.get("thinStroke"),
                   this::setStrokeParameters);
     }
@@ -152,7 +152,7 @@ public class SVGTransformer {
     private void setStrokeParameters(Transformer transformer) {
         transformer.setParameter("base-width", baseStrokeWidth);
         transformer.setParameter("stroke-diff", strokeDiff);
-        transformer.setParameter("expand-fill-diff", expandFillDiff);
+        transformer.setParameter("fill-diff", expandFillDiff);
     }
 
     private Transformer svg11Transformer() {
