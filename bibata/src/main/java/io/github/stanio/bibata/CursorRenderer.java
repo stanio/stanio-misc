@@ -79,7 +79,7 @@ final class CursorRenderer {
     private volatile SVGSizingTool sizingTool;
     double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
     double minStrokeWidth;
-    Optional<Double> expandFillBase = Optional.empty();
+    double expandFillLimit;
     private double strokeOffset;
     private double fillOffset;
 
@@ -112,8 +112,8 @@ final class CursorRenderer {
         this.minStrokeWidth = width;
     }
 
-    public void setExpandFillBase(Double rebaseWidth) {
-        this.expandFillBase = Optional.ofNullable(rebaseWidth);
+    public void setExpandFillBase(Double expandLimit) {
+        this.expandFillLimit = (expandLimit == null) ? 0 : expandLimit;
     }
 
     public void setPointerShadow(DropShadow shadow) {
@@ -191,12 +191,12 @@ final class CursorRenderer {
         strokeOffset = 0;
         fillOffset = 0;
         if (actualStrokeWidth != null) {
-            double expandBase = expandFillBase
-                    .map(v -> v > 0.0 ? v : baseStrokeWidth)
-                    .orElse(0.0);
-            if (actualStrokeWidth < expandBase) {
-                strokeOffset = expandBase - baseStrokeWidth;
-                fillOffset = expandBase - actualStrokeWidth;
+            if (expandFillLimit > 0 && actualStrokeWidth < baseStrokeWidth) {
+                fillOffset = baseStrokeWidth - actualStrokeWidth;
+                if (fillOffset > expandFillLimit) {
+                    strokeOffset = expandFillLimit - fillOffset;
+                    fillOffset = expandFillLimit;
+                }
             } else {
                 strokeOffset = actualStrokeWidth - baseStrokeWidth;
             }
