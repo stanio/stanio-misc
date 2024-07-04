@@ -99,6 +99,8 @@
                     and not(contains(@class, 'fixed-width-stroke')
                             or contains(@class, 'expand-fill-stroke')
                             or contains(@class, 'stroke-only')) ]">
+    <!-- REVISIT: @stroke-width >= $stroke-under-min-width assumes
+         paint-order="stroke fill".  Markers are not accounted for. -->
     <g>
       <xsl:copy-of select="@id" />
       <xsl:copy-of select="@filter" />
@@ -114,6 +116,28 @@
           <xsl:with-param name="stroke-width" select="@stroke-width" />
         </xsl:call-template>
         <xsl:copy-of select="node()" />
+      </xsl:copy>
+      <!-- XXX: At low resolutions the expanding stroke could be < 1 target
+           pixel.  Although the outer edge of the stroke could be aligned to
+           the target pixel grid, both the stroke and the outer edge of the
+           fill will have anti-aliasing that wouldn't add up to a solid fill -
+           may look like misalignment.  Add layer(s) of just fill, so it
+           doesn't "spill outside the stroke", to "solidify the crack". -->
+      <xsl:copy>
+        <xsl:copy-of select="@*[not(name() = 'id'
+                                    or name() = 'filter'
+                                    or name() = 'mask'
+                                    or name() = 'clip-path')]" />
+        <xsl:attribute name="stroke">none</xsl:attribute>
+        <xsl:attribute name="stroke-width">0</xsl:attribute>
+      </xsl:copy>
+      <xsl:copy>
+        <xsl:copy-of select="@*[not(name() = 'id'
+                                    or name() = 'filter'
+                                    or name() = 'mask'
+                                    or name() = 'clip-path')]" />
+        <xsl:attribute name="stroke">none</xsl:attribute>
+        <xsl:attribute name="stroke-width">0</xsl:attribute>
       </xsl:copy>
       <xsl:copy>
         <xsl:copy-of select="@*[not(name() = 'id'
