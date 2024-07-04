@@ -5,15 +5,9 @@
   -->
 
 <!--
-  fixed-width-stroke
-  expand-fill-stroke
-  stroke-only
-
-  Rename to:
-
-  fixed-stroke
-  fill-stroke
-  fixed-fill
+  - fixed-stroke
+  - fill-stroke
+  - fixed-fill
   -->
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -78,8 +72,8 @@
   </xsl:template>
 
   <xsl:template priority="1"
-      match="@stroke-width[ contains(../@class, 'fixed-width-stroke')
-                            or contains(../@class, 'expand-fill-stroke') ]">
+      match="@stroke-width[ contains(../@class, 'fixed-stroke')
+                            or contains(../@class, 'fill-stroke') ]">
     <xsl:copy-of select="." />
   </xsl:template>
 
@@ -96,9 +90,9 @@
   <xsl:template mode="expand-fill"
       match="svg:*[ @stroke-width &gt;= $stroke-under-min-width
                     and @fill and not(@fill = 'none')
-                    and not(contains(@class, 'fixed-width-stroke')
-                            or contains(@class, 'expand-fill-stroke')
-                            or contains(@class, 'stroke-only')) ]">
+                    and not(contains(@class, 'fixed-stroke')
+                            or contains(@class, 'fill-stroke')
+                            or contains(@class, 'fixed-fill')) ]">
     <!-- REVISIT: @stroke-width >= $stroke-under-min-width assumes
          paint-order="stroke fill".  Markers are not accounted for. -->
     <g>
@@ -160,7 +154,7 @@
   </xsl:template>
 
   <xsl:template mode="expand-fill"
-      match="@stroke-width[ contains(../@class, 'expand-fill-stroke') ]">
+      match="@stroke-width[ contains(../@class, 'fill-stroke') ]">
     <xsl:param name="stroke-width" select="number()" />
 
     <xsl:attribute name="stroke-width">
@@ -172,7 +166,7 @@
   </xsl:template>
 
   <xsl:template mode="expand-fill"
-      match="@stroke-width[ contains(../@class, 'stroke-only') ]">
+      match="@stroke-width[ contains(../@class, 'fixed-fill') ]">
     <xsl:param name="stroke-width" select="number()" />
 
     <xsl:attribute name="stroke-width">
@@ -184,7 +178,7 @@
   </xsl:template>
 
   <xsl:template mode="expand-fill" priority="1"
-      match="@stroke-width[ contains(../@class, 'fixed-width-stroke') ]">
+      match="@stroke-width[ contains(../@class, 'fixed-stroke') ]">
     <xsl:copy-of select="." />
   </xsl:template>
 

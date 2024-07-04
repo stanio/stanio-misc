@@ -63,7 +63,7 @@
         <xsl:attribute name="stroke-width">0</xsl:attribute>
         <xsl:attribute name="class">
           <xsl:value-of select="@class" />
-          <xsl:text> expand-fill-stroke</xsl:text>
+          <xsl:text> fill-stroke</xsl:text>
         </xsl:attribute>
         <xsl:apply-templates />
       </xsl:copy>
