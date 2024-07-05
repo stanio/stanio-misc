@@ -43,6 +43,7 @@ public class AnchorPoint {
 
         private static final String CENTER = "center",
                                     HALF = "half",
+                                    STROKE ="stroke",    // default
                                     FILL = "fill",
                                     REVERSE = "reverse", // deprecated
                                     BASE = "base",
@@ -116,14 +117,13 @@ public class AnchorPoint {
                 biasX /= 2;
                 biasY /= 2;
                 mode = Mode.STROKE_BASE;
-            } else {
-                mode = Mode.STROKE_OUTSIDE;
-            }
-
-            if (tokens.remove(FILL) || tokens.remove(REVERSE)) {
+            } else if (tokens.remove(FILL) || tokens.remove(REVERSE)) {
                 mode = Mode.FILL;
             } else if (tokens.remove(BASE) || tokens.remove(ALWAYS)) {
                 mode = Mode.STROKE_BASE;
+            } else {
+                tokens.remove(STROKE);
+                mode = Mode.STROKE_OUTSIDE;
             }
 
             if (!tokens.isEmpty()) {
