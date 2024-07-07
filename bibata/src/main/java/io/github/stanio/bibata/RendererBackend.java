@@ -491,7 +491,7 @@ class JSVGImageTranscoder {
                 throws XMLStreamException {
             try {
                 return super.createXMLEventReader(input.asDOMSource());
-            } catch (UnsupportedClassVersionError e) {
+            } catch (UnsupportedOperationException e) {
                 // REVISIT: Implement EventBufferReader/Writer as piped streams,
                 // if we want to allow for large document processing.  Alternatively,
                 // EventBufferWriter.eventIterator() should produce events on demand,
