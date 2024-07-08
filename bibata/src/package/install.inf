@@ -16,7 +16,7 @@ Signature="\$Windows NT\$"
 
 [DefaultInstall]
 CopyFiles = ${copyFiles}
-AddReg    = Scheme.Reg,Wreg
+AddReg    = Reg.NewSchemes,Reg.CurrentScheme
 
 [DestinationDirs]
 ; "Using Dirids"
@@ -24,11 +24,12 @@ AddReg    = Scheme.Reg,Wreg
 ; Consider: | 16419 | All Users\Application Data | (ProgramData)
 ${destinationDirs}
 
-[Scheme.Reg]
+[Reg.NewSchemes]
 ${schemesReg}
 
-[Wreg]
+[Reg.CurrentScheme]
 HKCU,"Control Panel\Cursors",,0x00020000,"%SCHEME_NAME%"
+HKCU,"Control Panel\Cursors","Scheme Source",0x00010001,1
 HKCU,"Control Panel\Cursors",Arrow,0x00020000,"%BD%\%CUR_DIR%\%pointer%"
 HKCU,"Control Panel\Cursors",Help,0x00020000,"%BD%\%CUR_DIR%\%help%"
 HKCU,"Control Panel\Cursors",AppStarting,0x00020000,"%BD%\%CUR_DIR%\%work%"

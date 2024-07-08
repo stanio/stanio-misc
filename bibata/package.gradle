@@ -48,7 +48,7 @@ task windowsInstallScripts {
 
     doLast {
         cartesianProduct(0, themeShapes.split(',') as List,
-                            themeColors.split(',') as List,
+                                           themeColors.split(',') as List,
                             leftHandOpts.split(',') as List).each { group ->
             def args = [ shape: group[0],
                          color: group[1],
@@ -139,9 +139,9 @@ def addSetupInfo(Map args, index, setupInfo) {
         "${srcDir}\\${it}"
     }
 
-    def fileSetName = "Scheme.${index == 1 ? 'Cur' : index}"
-    def curDirVar = "CUR_DIR${index == 1 ? '' : index}"
-    def schemeNameVar = "SCHEME_NAME${index == 1 ? '' : index}"
+    def fileSetName = "Files.Scheme${index == 0 ? '' : index}"
+    def curDirVar = "CUR_DIR${index == 0 ? '' : index}"
+    def schemeNameVar = "SCHEME_NAME${index == 0 ? '' : index}"
 
     setupInfo.fileSets[fileSetName] = "[${fileSetName}]\n${ fileList.join('\n') }"
     setupInfo.destinationDirs << "${fileSetName} = 10,\"%BIBATA_DIR%\""
