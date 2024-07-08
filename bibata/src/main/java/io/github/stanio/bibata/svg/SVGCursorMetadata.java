@@ -34,7 +34,7 @@ import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
 import io.github.stanio.bibata.util.BaseXMLFilter;
-import io.github.stanio.bibata.util.SharedXMLReader;
+import io.github.stanio.bibata.util.LocalXMLReader;
 
 /**
  * Encapsulates metadata I add to the Bibata Cursor SVG files.
@@ -57,6 +57,8 @@ public class SVGCursorMetadata {
      * @see  org.w3c.dom.Node#getUserData(String)
      */
     public static final String USER_DATA = "tag:stanio.github.io,2024-03:SVGCursorMetadata";
+
+    private static final LocalXMLReader localXMLReader = LocalXMLReader.newInstance();
 
     final Rectangle2D sourceViewBox;
     final AnchorPoint hotspot;
@@ -110,7 +112,7 @@ public class SVGCursorMetadata {
      */
     public static SAXSource loadingSource(Path file) {
         ParseHandler handler = new ParseHandler();
-        handler.setParent(SharedXMLReader.get());
+        handler.setParent(localXMLReader.get());
         return new SAXSource(handler, new InputSource(file.toUri().toString()));
     }
 

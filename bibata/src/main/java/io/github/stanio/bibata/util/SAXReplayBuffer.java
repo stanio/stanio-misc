@@ -35,6 +35,8 @@ import org.xml.sax.helpers.LocatorImpl;
  */
 public class SAXReplayBuffer {
 
+    private static final LocalXMLReader localXMLReader = LocalXMLReader.newInstance();
+
     private final ArrayList<Object> buffer;
 
     public SAXReplayBuffer() {
@@ -47,15 +49,15 @@ public class SAXReplayBuffer {
 
     public static SAXReplayBuffer load(Path file) throws IOException {
         SAXReplayBuffer buffer = new SAXReplayBuffer();
-        XMLReader xmlReader = SharedXMLReader.get();
+        XMLReader xmlReader = localXMLReader.get();
         try {
             XMLFilter filter = buffer.asXMLFilter();
             filter.setParent(xmlReader);
             filter.parse(file.toUri().toString());
         } catch (SAXException e) {
             throw new IOException(e);
-        } finally {
-            BaseXMLFilter.reset(xmlReader);
+        //} finally {
+        //    BaseXMLFilter.reset(xmlReader);
         }
         return buffer;
     }
@@ -82,7 +84,7 @@ public class SAXReplayBuffer {
     public SAXSource asLoadingSource(Path file) {
         ensureEmpty();
         XMLFilter filter = asXMLFilter();
-        filter.setParent(SharedXMLReader.get());
+        filter.setParent(localXMLReader.get());
         return new SAXSource(filter, new InputSource(file.toUri().toString()));
     }
 
@@ -152,7 +154,7 @@ public class SAXReplayBuffer {
         public void endDocument() throws SAXException {
             super.endDocument();
             add("endDocument");
-            close();
+            //reset();
         }
 
         @Override

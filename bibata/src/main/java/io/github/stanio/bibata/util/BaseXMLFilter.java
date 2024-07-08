@@ -153,7 +153,7 @@ public class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
         }
     }
 
-    public void close() {
+    public void reset() {
         XMLReader parent = super.getParent();
         super.setParent(null);
         super.setErrorHandler(null);
