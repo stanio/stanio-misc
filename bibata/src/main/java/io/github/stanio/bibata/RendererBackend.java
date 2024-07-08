@@ -26,6 +26,7 @@ import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.XMLEvent;
+import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -487,25 +488,33 @@ class JSVGImageTranscoder {
             return defaultDelegate;
         }
 
-        protected final XMLEventReader createReader(DOMInput input)
+        protected final XMLEventReader createXMLEventReader(DOMInput input)
                 throws XMLStreamException {
+            return createXMLEventReader(input.asDOMSource());
+        }
+
+        @Override
+        public XMLEventReader createXMLEventReader(Source source)
+                throws UnsupportedOperationException, XMLStreamException {
             try {
-                return super.createXMLEventReader(input.asDOMSource());
+                return super.createXMLEventReader(source);
             } catch (UnsupportedOperationException e) {
                 // REVISIT: Implement EventBufferReader/Writer as piped streams,
                 // if we want to allow for large document processing.  Alternatively,
                 // EventBufferWriter.eventIterator() should produce events on demand,
                 // that could also happen async with some read-ahead buffering.
-                return new XMLEventBufferReader(xmlEventsFor(input.document()));
+                if (source instanceof DOMSource)
+                    return new XMLEventBufferReader(xmlEventsFor((DOMSource) source));
+
+                throw e;
             }
         }
 
-        private static Iterable<XMLEvent> xmlEventsFor(Document document) {
+        private static Iterable<XMLEvent> xmlEventsFor(DOMSource source) {
             XMLEventBufferWriter bufferWriter = new XMLEventBufferWriter();
             try {
                 localTransformer.get()
-                        .transform(new DOMSource(document),
-                                   new StAXResult(bufferWriter));
+                        .transform(source, new StAXResult(bufferWriter));
             } catch (TransformerException e) {
                 throw new IllegalStateException(e);
             }
@@ -515,19 +524,17 @@ class JSVGImageTranscoder {
         @Override
         public XMLEventReader createXMLEventReader(InputStream stream)
                 throws XMLStreamException {
-            if (stream instanceof DOMInput) {
-                return createReader((DOMInput) stream);
-            }
-            return super.createXMLEventReader(stream);
+            return (stream instanceof DOMInput)
+                    ? createXMLEventReader((DOMInput) stream)
+                    : super.createXMLEventReader(stream);
         }
 
         @Override
         public XMLEventReader createXMLEventReader(InputStream stream, String encoding)
                 throws XMLStreamException {
-            if (stream instanceof DOMInput) {
-                return createReader((DOMInput) stream);
-            }
-            return super.createXMLEventReader(stream, encoding);
+            return (stream instanceof DOMInput)
+                    ? createXMLEventReader((DOMInput) stream)
+                    : super.createXMLEventReader(stream, encoding);
         }
 
         private static final NodeSupplier NODE_SUPPLIER = new NodeSupplier();

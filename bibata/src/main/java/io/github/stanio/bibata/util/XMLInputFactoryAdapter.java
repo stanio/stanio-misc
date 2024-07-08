@@ -44,7 +44,7 @@ public abstract class XMLInputFactoryAdapter extends XMLInputFactory {
 
     @Override
     public XMLStreamReader createXMLStreamReader(Source source)
-            throws XMLStreamException {
+            throws UnsupportedOperationException, XMLStreamException {
         return requireDelegate().createXMLStreamReader(source);
     }
 
@@ -92,7 +92,7 @@ public abstract class XMLInputFactoryAdapter extends XMLInputFactory {
 
     @Override
     public XMLEventReader createXMLEventReader(Source source)
-            throws XMLStreamException {
+            throws UnsupportedOperationException, XMLStreamException {
         return requireDelegate().createXMLEventReader(source);
     }
 
