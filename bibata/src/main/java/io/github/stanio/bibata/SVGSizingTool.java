@@ -75,6 +75,12 @@ public class SVGSizingTool {
     SVGSizingTool(int viewBoxSize, Path hotspotsFile) {
         this.viewBoxSize = viewBoxSize;
         this.hotspotsFile = hotspotsFile;
+        this.adjustedHotspots = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    }
+
+    SVGSizingTool updateHotspots() {
+        adjustedHotspots = null;
+        return this;
     }
 
     public int canvasSize() {
@@ -225,6 +231,7 @@ public class SVGSizingTool {
             SVGSizing.setFileSourceTransformer(() -> svgTransformer);
 
             new SVGSizingTool(cmdArgs.viewBoxSize)
+                    .updateHotspots()
                     .update(cmdArgs.path, cmdArgs.targetSize);
         } catch (IOException | JsonParseException | SAXException e) {
             exitMessage(3, "Error: ", e);
