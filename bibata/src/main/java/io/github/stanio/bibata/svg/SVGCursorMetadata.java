@@ -30,14 +30,13 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 import java.awt.Rectangle;
-import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
 import io.github.stanio.bibata.util.BaseXMLFilter;
 import io.github.stanio.bibata.util.LocalXMLReader;
 
 /**
- * Encapsulates metadata I add to the Bibata Cursor SVG files.
+ * Encapsulates SVG cursor metadata used by the <i>mousegen</i> tool.
  * <pre>
  * <code>&lt;circle <strong>id="cursor-hotspot"</strong> cx="<var>#</var>" cy="<var>#</var>" />
  *
@@ -138,15 +137,15 @@ public class SVGCursorMetadata {
     /**
      * {@code <circle id="cursor-hotspot" cx="#" cy="#" />}
      */
-    public Point2D hotspot() {
-        return hotspot.point();
+    public AnchorPoint hotspot() {
+        return hotspot;
     }
 
     /**
      * {@code <path id="align-anchor" d="m #,# ..." />}
      */
-    public Point2D rootAnchor() {
-        return rootAnchor.point();
+    public AnchorPoint rootAnchor() {
+        return rootAnchor;
     }
 
     /**

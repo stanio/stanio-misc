@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import java.awt.geom.Point2D;
 
 /**
@@ -39,7 +40,7 @@ public class AnchorPoint {
 
     public static class Bias {
 
-        enum Mode { STROKE_OUTSIDE, FILL, STROKE_BASE }
+        public enum Mode { STROKE_OUTSIDE, FILL, STROKE_BASE }
 
         private static final String CENTER = "center",
                                     HALF = "half",
@@ -147,8 +148,7 @@ public class AnchorPoint {
         /**
          * {@code center=0.0}, {@code right=1.0}, {@code left=-1.0}
          *
-         * @return  {@code -1.0}, {@code 0}, or {@code 1.0}
-         * @see     Math#signum(double)
+         * @return  the magnitude an offset should be applied in horizontal direction
          */
         public double dX() {
             return dX;
@@ -157,8 +157,7 @@ public class AnchorPoint {
         /**
          * {@code center=0.0}, {@code bottom=1.0}, {@code top=-1.0}
          *
-         * @return  {@code -1.0}, {@code 0}, or {@code 1.0}
-         * @see     Math#signum(double)
+         * @return  the magnitude an offset should be applied in vertical direction
          */
         public double dY() {
             return dY;
