@@ -32,7 +32,7 @@ public class XMLEventBufferReader implements XMLEventReader {
 
     @Override
     public boolean hasNext() {
-        return events.hasNext();
+        return next(false) != null;
     }
 
     @Override
@@ -42,10 +42,15 @@ public class XMLEventBufferReader implements XMLEventReader {
 
     @Override
     public XMLEvent nextEvent() {
+        return next(true);
+    }
+
+    private XMLEvent next(boolean advance) {
         XMLEvent next = nextEvent;
-        if (next == null) {
+        if (next == null && events.hasNext()) {
             next = events.next();
-        } else {
+            nextEvent = next;
+        } else if (advance && next != null) {
             nextEvent = null;
         }
         return next;
@@ -53,14 +58,7 @@ public class XMLEventBufferReader implements XMLEventReader {
 
     @Override
     public XMLEvent peek() {
-        XMLEvent next = nextEvent;
-        if (next == null) {
-            if (!hasNext()) return null;
-
-            next = nextEvent();
-            nextEvent = next;
-        }
-        return next;
+        return next(false);
     }
 
     @Override
