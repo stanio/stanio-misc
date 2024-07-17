@@ -4,6 +4,8 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
+group = 'io.github.stanio'
+
 application {
     mainClass = 'io.github.stanio.bibata.Command'
     def argStr = bibataJvmArgs.trim()
@@ -74,6 +76,8 @@ repositories {
 
 dependencies {
     implementation rootProject
+    //implementation 'io.github.stanio:stanio-misc'
+
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'com.github.weisj:jsvg:1.6.0'
     //implementation 'com.github.weisj:jsvg:latest.integration'

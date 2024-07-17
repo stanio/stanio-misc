@@ -3,6 +3,8 @@ plugins {
     id 'java-library'
 }
 
+group = 'io.github.stanio'
+
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     //toolchain {
