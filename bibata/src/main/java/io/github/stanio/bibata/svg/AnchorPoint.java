@@ -44,11 +44,9 @@ public class AnchorPoint {
 
         private static final String CENTER = "center",
                                     HALF = "half",
-                                    STROKE ="stroke",    // default
+                                    STROKE ="stroke", // default, implied
                                     FILL = "fill",
-                                    REVERSE = "reverse", // deprecated
-                                    BASE = "base",
-                                    ALWAYS = "always";   // deprecated
+                                    BASE = "base";
 
         private static final Pattern
                 TOP = Pattern.compile("(t(?:op|(\\d+)))"),
@@ -118,9 +116,9 @@ public class AnchorPoint {
                 biasX /= 2;
                 biasY /= 2;
                 mode = Mode.STROKE_BASE;
-            } else if (tokens.remove(FILL) || tokens.remove(REVERSE)) {
+            } else if (tokens.remove(FILL)) {
                 mode = Mode.FILL;
-            } else if (tokens.remove(BASE) || tokens.remove(ALWAYS)) {
+            } else if (tokens.remove(BASE)) {
                 mode = Mode.STROKE_BASE;
             } else {
                 tokens.remove(STROKE);
