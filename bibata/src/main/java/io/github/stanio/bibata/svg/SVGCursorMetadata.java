@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -196,13 +197,13 @@ public class SVGCursorMetadata {
             String id = attributes.getValue("id");
             if (contentStack.currentDepth() == 1 && qname.equals("svg")) {
                 setViewBox(attributes.getValue("viewBox"));
-            } else if ("cursor-hotspot".equals(id) && qname.equals("circle")) {
-                setHotspot(attributes);
-            } else if ("align-anchor".equals(id) && qname.equals("path")) {
-                setAnchor(attributes);
-            } else if (hasClass(attributes, "align-anchor") && qname.equals("path")) {
-                childAnchors.put(contentStack.currentPath().parent(),
-                                 parseAnchor(attributes));
+            } else if ("cursor-hotspot".equals(id) || "hotspot".equals(id)) {
+                setHotspot(localName, attributes);
+            } else if ("align-anchor".equals(id)) {
+                setRootAnchor(localName, attributes);
+            } else if (hasClass(attributes, "align-anchor")) {
+                parseAnchor(localName, attributes, anchor ->
+                        childAnchors.put(contentStack.currentPath().parent(), anchor));
             }
             super.startElement(uri, localName, qname, attributes);
         }
@@ -244,36 +245,59 @@ public class SVGCursorMetadata {
             }
         }
 
-        private void setHotspot(Attributes attributes) {
-            String cx = attributes.getValue("cx");
-            String cy = attributes.getValue("cy");
+        private void setHotspot(String shapeType, Attributes attributes) {
+            parseAnchor(shapeType, attributes, anchor -> hotspot = anchor);
+        }
+
+        private void setRootAnchor(String shapeType, Attributes attributes) {
+            parseAnchor(shapeType, attributes, anchor -> rootAnchor = anchor);
+        }
+
+        private void parseAnchor(String shapeType, Attributes attributes,
+                                 Consumer<AnchorPoint> consumer) {
+            String[] point;
+            switch (shapeType) {
+            case "circle":
+                point = new String[] { attributes.getValue("cx"),
+                                       attributes.getValue("cy") };
+                break;
+
+            case "rect":
+                point = new String[] { attributes.getValue("x"),
+                                       attributes.getValue("y") };
+                break;
+
+            case "path":
+                point = pathPoint(attributes.getValue("d"));
+                break;
+
+            default:
+                System.err.println("Unknown shape type: " + shapeType);
+                point = null;
+            }
+            if (point == null)
+                return;
+
             try {
-                hotspot = AnchorPoint.valueOf(cx, cy,
-                        bias(attributes.getValue("class")));
+                consumer.accept(AnchorPoint.valueOf(point[0],
+                        point[1], bias(attributes.getValue("class"))));
             } catch (NumberFormatException e) {
-                System.err.append("<circle id=\"cursor-hotspot\">: ").println(e);
+                System.err.append("<" + shapeType + "> anchor: ").println(e);
             }
         }
 
-        private void setAnchor(Attributes attributes) {
-            rootAnchor = parseAnchor(attributes);
-        }
-
-        private AnchorPoint parseAnchor(Attributes attributes) {
-            String path = attributes.getValue("d");
+        private String[] pathPoint(String path) {
             if (path == null) {
-                System.err.println("<path id=\"align-anchor\"> has no 'd' attribute");
-                return AnchorPoint.defaultValue();
+                System.err.println("<path> has no 'd' attribute");
+                return null;
             }
 
             Matcher m = anchorMatcher.reset(path);
             if (m.find()) {
-                return AnchorPoint.valueOf(m.group(1), m.group(2),
-                                           bias(attributes.getValue("class")));
-            } else {
-                System.err.println("Could not parse anchor point: d=" + path);
-                return AnchorPoint.defaultValue();
+                return new String[] { m.group(1), m.group(2) };
             }
+            System.err.println("Could not parse anchor from <path d=" + path);
+            return null;
         }
 
         private String bias(String classNames) {
