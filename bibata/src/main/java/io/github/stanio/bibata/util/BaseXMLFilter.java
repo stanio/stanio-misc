@@ -11,6 +11,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.xml.sax.InputSource;
+import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXNotRecognizedException;
 import org.xml.sax.SAXNotSupportedException;
@@ -30,6 +31,8 @@ public class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
     static final String LEXICAL_HANDLER = PROPERTY + "lexical-handler";
 
     static final Logger log = Logger.getLogger(BaseXMLFilter.class.getName());
+
+    protected Locator locator;
 
     LexicalHandler lexicalHandler;
 
@@ -66,6 +69,12 @@ public class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
             throws SAXNotRecognizedException, SAXNotSupportedException {
         return name.equals(LEXICAL_HANDLER) ? lexicalHandler
                                             : super.getProperty(name);
+    }
+
+    @Override
+    public void setDocumentLocator(Locator locator) {
+        this.locator = locator;
+        super.setDocumentLocator(locator);
     }
 
     @Override
@@ -161,7 +170,7 @@ public class BaseXMLFilter extends XMLFilterImpl implements LexicalHandler {
         super.setContentHandler(null);
         super.setDTDHandler(null);
         lexicalHandler = null;
-        super.setDocumentLocator(null);
+        setDocumentLocator(null);
         if (parent != null) {
             reset(parent);
         }

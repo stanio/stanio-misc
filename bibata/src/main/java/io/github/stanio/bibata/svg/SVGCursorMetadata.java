@@ -26,7 +26,6 @@ import org.w3c.dom.Document;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
-import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
@@ -196,7 +195,7 @@ public class SVGCursorMetadata {
 
             String id = attributes.getValue("id");
             if (contentStack.currentDepth() == 1 && qname.equals("svg")) {
-                setViewBox(attributes.getValue("viewBox"));
+                setViewBox(attributes);
             } else if ("cursor-hotspot".equals(id) || "hotspot".equals(id)) {
                 setHotspot(localName, attributes);
             } else if ("align-anchor".equals(id)) {
@@ -227,22 +226,48 @@ public class SVGCursorMetadata {
             return false;
         }
 
-        private void setViewBox(String spec) throws SAXException {
-            if (spec == null) return;
+        private void setViewBox(Attributes attributes) throws SAXException {
+            Rectangle2D box = parseViewBox(attributes.getValue("_viewBox"));
+            if (box == null) {
+                box = parseViewBox(attributes.getValue("viewBox"));
+            }
+            if (box == null) {
+                try {
+                    box = new Rectangle2D.Double(0, 0,
+                            parseDimension(attributes.getValue("width")),
+                            parseDimension(attributes.getValue("height")));
+                } catch (NullPointerException | NumberFormatException e) {
+                    error(new SAXParseException("Invalid width or height", locator, e));
+                }
+            }
+            if (box != null) {
+                sourceViewBox = box;
+            }
+        }
+
+        private Rectangle2D parseViewBox(String spec) throws SAXException {
+            if (spec == null) return null;
 
             final String spaceAndOrComma = "\\s+(?:,\\s*)?|,\\s*";
             String[] viewBox = spec.strip().split(spaceAndOrComma, 5);
-            if (viewBox.length == 1) return; // empty
+            if (viewBox.length == 1) return null; // empty
 
             try {
                 double x = Double.parseDouble(viewBox[0]);
                 double y = Double.parseDouble(viewBox[1]);
                 double width = Double.parseDouble(viewBox[2]);
                 double height = Double.parseDouble(viewBox[3]);
-                sourceViewBox = new Rectangle2D.Double(x, y, width, height);
+                return new Rectangle2D.Double(x, y, width, height);
             } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-                error(new SAXParseException("Invalid viewBox: " + spec, (Locator) null, e));
+                error(new SAXParseException("Invalid viewBox: " + spec, locator, e));
+                return null;
             }
+        }
+
+        private static double parseDimension(String length) {
+            // Treat 'pt' as 'px', for the time being.
+            return Double.parseDouble(length.replaceFirst("(?ix) \\+? "
+                    + "((?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?) (?:p[xt])?", "$1"));
         }
 
         private void setHotspot(String shapeType, Attributes attributes) {
