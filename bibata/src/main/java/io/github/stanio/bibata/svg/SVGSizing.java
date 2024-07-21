@@ -44,9 +44,10 @@ import java.awt.geom.Dimension2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
+import io.github.stanio.windows.Cursor;
+
 import io.github.stanio.bibata.util.LocalXMLReader;
 import io.github.stanio.bibata.util.SAXReplayBuffer;
-import io.github.stanio.windows.Cursor;
 
 public class SVGSizing {
 
@@ -219,17 +220,43 @@ public class SVGSizing {
             Point2D hotspot = metadata.hotspot.pointWithOffset(strokeOffset, fillOffset);
             Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
-            int x = (int) (metadata.hotspot.bias().dX() > 0
-                           ? Math.round(offsetHotspot.getX())
-                           : offsetHotspot.getX());
-            int y = (int) (metadata.hotspot.bias().dY() > 0
-                           ? Math.round(offsetHotspot.getY())
-                           : offsetHotspot.getY());
+            int x = roundHotspotCoord(offsetHotspot.getX(), metadata.hotspot.bias().dX(),
+                        metadata.hotspot.x() >= metadata.sourceViewBox.getCenterX());
+            int y = roundHotspotCoord(offsetHotspot.getY(), metadata.hotspot.bias().dY(),
+                        metadata.hotspot.y() >= metadata.sourceViewBox.getCenterY());
             alignedHotspot = new Point(x, y);
         }
         offsetsConsumer.apply(viewBoxOrigin, objectOffsets);
         return alignedHotspot;
     }
+
+    /**
+     * {@return appropriately rounded hotspot coordinate}
+     *
+     * {@code biasValue > 0} is used to determine whether the coordinate is
+     * "at the end of the shape", essentially outside the shape, in which case
+     * after rounding it is "shifted" back to keep it inside the shape.
+     *
+     * @param   coordinate  fractional hotspot coordinate in the target space
+     * @param   biasValue  bias value on the given coordinate axis
+     * @param   beyondCenter  whether the source coordinate is larger (or equal)
+     *          to the source canvas/view-box center.  May be used as heuristics
+     *          whether the coordinate is "on the outside of the shape" when
+     *          {@code biasValue == 0}
+     */
+    private static int roundHotspotCoord(double coordinate, double biasValue, boolean beyondCenter) {
+        int rounded = (int) Math.round(coordinate);
+        if  (biasValue > 0 ||
+                // REVISIT: Should (rounded > coordinate) be ignored when using center heuristics?
+                (biasValue == 0 && (rounded > coordinate
+                        || beyondCenter && hotspotCenterHeuristics))) {
+            rounded -= 1;
+        }
+        return rounded;
+    }
+
+    private static final boolean hotspotCenterHeuristics =
+            Boolean.getBoolean("mousegen.hotspot.centerHeuristics");
 
     private static Path resolveLinks(Path path) throws IOException {
         Path target = path;

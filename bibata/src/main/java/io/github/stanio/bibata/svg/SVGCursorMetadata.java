@@ -57,6 +57,9 @@ public class SVGCursorMetadata {
      */
     public static final String USER_DATA = "tag:stanio.github.io,2024-03:SVGCursorMetadata";
 
+    private static final double defaultHotspot = Double
+            .parseDouble(System.getProperty("mousegen.defaultHotspot", "0.5"));
+
     private static final LocalXMLReader localXMLReader = LocalXMLReader.newInstance();
 
     final Rectangle2D sourceViewBox;
@@ -94,6 +97,12 @@ public class SVGCursorMetadata {
             identityTransformer().transform(source, new SAXResult(handler));
         } catch (TransformerException e) {
             throw new IllegalStateException(e);
+        }
+        if (handler.hotspot == null) {
+            Rectangle2D viewBox = handler.sourceViewBox;
+            handler.hotspot = new AnchorPoint(
+                    viewBox.getX() + viewBox.getWidth() * defaultHotspot,
+                    viewBox.getY() + viewBox.getHeight() * defaultHotspot);
         }
         return new SVGCursorMetadata(handler);
     }
@@ -178,7 +187,7 @@ public class SVGCursorMetadata {
         }
 
         Rectangle2D sourceViewBox = new Rectangle(256, 256);
-        AnchorPoint hotspot = new AnchorPoint(127, 127);
+        AnchorPoint hotspot;
         AnchorPoint rootAnchor = AnchorPoint.defaultValue(); // REVISIT: or 128,128?
         Map<ElementPath, AnchorPoint> childAnchors = new HashMap<>(1);
 

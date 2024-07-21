@@ -85,6 +85,7 @@ public class AnchorPoint {
             this.mode = mode;
         }
 
+        // REVISIT: Allow for different bias modes in horizontal and vertical direction.
         public static Bias valueOf(String spec) {
             List<String> tokens = new ArrayList<>(Arrays.asList(
                     SEP.split(spec.strip().toLowerCase(Locale.ROOT), -1)));
