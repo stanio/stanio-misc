@@ -64,16 +64,16 @@ import io.github.stanio.bibata.svg.SVGTransformer;
  */
 public class SVGSizingTool {
 
-    private int viewBoxSize;
+    private double canvasSizeFactor;
     private Path hotspotsFile;
     private Map<String, Map<Integer, String>> adjustedHotspots;
 
-    SVGSizingTool(int viewBoxSize) {
-        this(viewBoxSize, Path.of("cursor-hotspots-" + viewBoxSize + ".json"));
+    SVGSizingTool(double canvasSize) {
+        this(canvasSize, Path.of("cursor-hotspots-" + canvasSize + ".json"));
     }
 
-    SVGSizingTool(int viewBoxSize, Path hotspotsFile) {
-        this.viewBoxSize = viewBoxSize;
+    SVGSizingTool(double canvasSize, Path hotspotsFile) {
+        this.canvasSizeFactor = canvasSize;
         this.hotspotsFile = hotspotsFile;
         this.adjustedHotspots = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     }
@@ -83,12 +83,12 @@ public class SVGSizingTool {
         return this;
     }
 
-    public int canvasSize() {
-        return viewBoxSize;
+    double canvasSize() {
+        return canvasSizeFactor;
     }
 
     private Map<String, Map<Integer, String>>
-            adjustedHotspots(int viewBoxSize) throws IOException {
+            adjustedHotspots() throws IOException {
         Map<String, Map<Integer, String>> hotspots = adjustedHotspots;
         if (hotspots == null) {
             hotspots = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -136,7 +136,7 @@ public class SVGSizingTool {
     public Point applySizing(String cursorName, SVGSizing sizing,
             int targetSize, double anchorOffset, double baseOffset)
             throws IOException {
-        Point hotspot = sizing.apply(targetSize, viewBoxSize, anchorOffset, baseOffset);
+        Point hotspot = sizing.apply(targetSize, canvasSizeFactor, anchorOffset, baseOffset);
 
         if (cursorName.startsWith("wait-")) {
             cursorName = "wait";
@@ -144,7 +144,7 @@ public class SVGSizingTool {
             cursorName = "left_ptr_watch";
         }
 
-        Map<Integer, String> cursorHotspots = adjustedHotspots(viewBoxSize)
+        Map<Integer, String> cursorHotspots = adjustedHotspots()
                 .computeIfAbsent(cursorName, k -> new TreeMap<>(Comparator.reverseOrder()));
         if (hotspot.x != 0 || hotspot.y != 0) {
             cursorHotspots.put(targetSize, hotspot.x + " " + hotspot.y);
@@ -171,7 +171,7 @@ public class SVGSizingTool {
     public static void main(String[] args) {
         class CommandArgs {
             int targetSize;
-            int viewBoxSize;
+            double viewBoxSize;
             Path path;
             DropShadow pointerShadow;
             Double strokeWidth;
@@ -198,7 +198,7 @@ public class SVGSizingTool {
 
                 try {
                     targetSize = Integer.parseInt(argList.get(0));
-                    viewBoxSize = Integer.parseInt(argList.get(1));
+                    viewBoxSize = Double.parseDouble(argList.get(1));
                     path = Path.of(argList.get(2));
                 } catch (NumberFormatException | InvalidPathException e) {
                     exitWithHelp(2, "Error: ", e);

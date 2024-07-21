@@ -113,23 +113,26 @@ public class SVGSizing {
      * @throws  IOException  ...
      * @see     #alignToGrid(Point2D, Dimension, Rectangle2D)
      * @see     #adjustViewBoxOrigin(Rectangle2D, Point2D)
+     *
+     * @deprecated  In favor of {@link #apply(int, double, double, double)}.
      */
+    @Deprecated
     public Point apply(int targetSize, int viewBoxSize) throws IOException {
-        return apply(targetSize, viewBoxSize, 0, 0);
+        return apply(targetSize, viewBoxSize / metadata.sourceViewBox.getWidth(), 0, 0);
     }
 
-    public Point apply(int targetSize, int viewBoxSize, double strokeOffset, double fillOffset) throws IOException {
+    public Point apply(int targetSize, double canvasSize, double strokeOffset, double fillOffset) throws IOException {
         return (sourceDOM == null)
-                ? apply(sourceFile, targetSize, viewBoxSize, strokeOffset, fillOffset)
-                : apply(sourceDOM, targetSize, viewBoxSize, strokeOffset, fillOffset);
+                ? apply(sourceFile, targetSize, canvasSize, strokeOffset, fillOffset)
+                : apply(sourceDOM, targetSize, canvasSize, strokeOffset, fillOffset);
     }
 
-    Point apply(Path svgFile, int targetSize, int viewBoxSize,
+    Point apply(Path svgFile, int targetSize, double canvasSize,
                               double strokeOffset, double fillOffset)
             throws IOException {
-        return updateOffsets(targetSize, viewBoxSize,
+        return updateOffsets(targetSize, canvasSize,
                              strokeOffset, fillOffset,
-                             (viewBoxOrigin, childOffsets) -> {
+                             (viewBox, childOffsets) -> {
             Path resolvedSource = resolveLinks(sourceFile);
             Path tempFile = Files.createTempFile(parentPath(resolvedSource),
                     svgFile.getFileName() + "-", null);
@@ -138,7 +141,7 @@ public class SVGSizing {
                                ? sourceBuffer.asXMLReader()
                                : localXMLReader.get();
             UpdateFilter filter = UpdateFilter.withParent(parent,
-                    targetSize, viewBoxSize, viewBoxOrigin, childOffsets);
+                    targetSize, viewBox, childOffsets);
             try (OutputStream fileOut = Files.newOutputStream(tempFile)) {
                 InputSource input = new InputSource(svgFile.toUri().toString());
                 svgTransformer.get().transform(new SAXSource(filter, input),
@@ -154,18 +157,24 @@ public class SVGSizing {
         });
     }
 
-    Point apply(Document svg, int targetSize, int viewBoxSize,
+    Point apply(Document svg, int targetSize, double canvasSize,
                               double strokeOffset, double fillOffset) {
-        return updateOffsets(targetSize, viewBoxSize,
+        return updateOffsets(targetSize, canvasSize,
                              strokeOffset, fillOffset,
-                             (viewBoxOrigin, childOffsets) -> {
+                             (viewBox, childOffsets) -> {
             Element svgRoot = svg.getDocumentElement();
             svgRoot.setAttribute("width", String.valueOf(targetSize));
             svgRoot.setAttribute("height", String.valueOf(targetSize));
             svgRoot.setAttribute("viewBox",
-                    String.format(Locale.ROOT, "%s %s %d %d",
-                            viewBoxOrigin.getX(), viewBoxOrigin.getY(),
-                            viewBoxSize, viewBoxSize));
+                    String.format(Locale.ROOT, "%s %s %s %s",
+                            viewBox.getX(), viewBox.getY(),
+                            viewBox.getWidth(), viewBox.getHeight()));
+            svgRoot.setAttribute("_viewBox",
+                    String.format(Locale.ROOT, "%s %s %s %s",
+                            metadata.sourceViewBox.getX(),
+                            metadata.sourceViewBox.getY(),
+                            metadata.sourceViewBox.getWidth(),
+                            metadata.sourceViewBox.getHeight()));
             childOffsets.forEach((elementPath, childOffset) -> {
                 XPathExpression xpath = XPathCache.getExpr(elementPath.xpath());
                 Element elem;
@@ -188,33 +197,51 @@ public class SVGSizing {
 
     @FunctionalInterface
     private interface OffsetsUpdate<E extends Exception> {
-        void apply(Point2D viewBoxOrigin,
+        void apply(Rectangle2D viewBox,
                    Map<ElementPath, Point2D> objectOffsets)
                 throws E;
     }
 
     private <E extends Exception>
-    Point updateOffsets(int targetSize, int viewBoxSize,
+    Point updateOffsets(int targetSize, double canvasSize,
                         double strokeOffset, double fillOffset,
                         OffsetsUpdate<E> offsetsConsumer)
             throws E {
-        Point2D viewBoxOrigin;
+        return updateOffsets(new Dimension(targetSize, targetSize),
+                new Rectangle2D.Double(0, 0, canvasSize, canvasSize),
+                strokeOffset, fillOffset, offsetsConsumer);
+    }
+
+    private Rectangle2D sizeCanvas(Rectangle2D sizing) {
+        Rectangle2D vbox = metadata.sourceViewBox;
+        double newWidth = vbox.getWidth() * sizing.getWidth();
+        double newHeight = vbox.getHeight() * sizing.getHeight();
+        return new Rectangle2D.Double(
+                vbox.getX() + (vbox.getWidth() - newWidth) * sizing.getX(),
+                vbox.getY() + (vbox.getHeight() - newHeight) * sizing.getY(),
+                newWidth, newHeight);
+    }
+
+    private <E extends Exception>
+    Point updateOffsets(Dimension targetDimension,
+                        Rectangle2D canvasSizing,
+                        double strokeOffset, double fillOffset,
+                        OffsetsUpdate<E> offsetsConsumer)
+            throws E {
+        Rectangle2D viewBox;
         Map<ElementPath, Point2D> objectOffsets;
         Point alignedHotspot;
         {
-            Dimension targetDimension = new Dimension(targetSize, targetSize);
-
-            Rectangle2D viewBox = new Rectangle2D.Double(0, 0, viewBoxSize, viewBoxSize);
-            adjustViewBoxOrigin(viewBox,alignToGrid(metadata.rootAnchor
-                            .pointWithOffset(strokeOffset, fillOffset),
-                    targetDimension, viewBox));
-            viewBoxOrigin = new Point2D.Double(viewBox.getX(), viewBox.getY());
+            viewBox = sizeCanvas(canvasSizing);
+            adjustViewBoxOrigin(viewBox,
+                    alignToGrid(metadata.rootAnchor.pointWithOffset(strokeOffset, fillOffset),
+                                targetDimension, viewBox));
 
             objectOffsets = new HashMap<>(metadata.childAnchors.size());
             metadata.childAnchors.forEach((elementPath, anchor) -> {
-                objectOffsets.put(elementPath, alignToGrid(anchor
-                                .pointWithOffset(strokeOffset, fillOffset),
-                        targetDimension, viewBox));
+                objectOffsets.put(elementPath,
+                        alignToGrid(anchor.pointWithOffset(strokeOffset, fillOffset),
+                                    targetDimension, viewBox));
             });
 
             Point2D hotspot = metadata.hotspot.pointWithOffset(strokeOffset, fillOffset);
@@ -226,7 +253,7 @@ public class SVGSizing {
                         metadata.hotspot.y() >= metadata.sourceViewBox.getCenterY());
             alignedHotspot = new Point(x, y);
         }
-        offsetsConsumer.apply(viewBoxOrigin, objectOffsets);
+        offsetsConsumer.apply(viewBox, objectOffsets);
         return alignedHotspot;
     }
 
@@ -339,29 +366,25 @@ public class SVGSizing {
     private static class UpdateFilter extends XMLFilterImpl {
 
         private int targetSize;
-        private int viewBoxSize;
-        private Point2D viewBoxOrigin;
+        private Rectangle2D viewBox;
         private Map<ElementPath, Point2D> childOffsets;
 
         private boolean rootElement = true;
         private ContentStack contentStack = new ContentStack();
 
-        UpdateFilter(int targetSize, int viewBoxSize,
-                Point2D viewBoxOrigin, Map<ElementPath, Point2D> childOffsets) {
+        UpdateFilter(int targetSize, Rectangle2D viewBox,
+                Map<ElementPath, Point2D> childOffsets) {
             this.targetSize = targetSize;
-            this.viewBoxSize = viewBoxSize;
-            this.viewBoxOrigin = viewBoxOrigin;
+            this.viewBox = viewBox;
             this.childOffsets = childOffsets;
         }
 
         public static
         UpdateFilter withParent(XMLReader xmlReader,
                                 int targetSize,
-                                int viewBoxSize,
-                                Point2D viewBoxOrigin,
+                                Rectangle2D viewBox,
                                 Map<ElementPath, Point2D> childOffsets) {
-            UpdateFilter filter = new UpdateFilter(targetSize,
-                    viewBoxSize, viewBoxOrigin, childOffsets);
+            UpdateFilter filter = new UpdateFilter(targetSize, viewBox, childOffsets);
             filter.setParent(xmlReader);
             return filter;
         }
@@ -377,9 +400,11 @@ public class SVGSizing {
                 setAttribute(updatedAttrs, "width", String.valueOf(targetSize));
                 setAttribute(updatedAttrs, "height", String.valueOf(targetSize));
                 setAttribute(updatedAttrs, "viewBox",
-                        limitFractional(viewBoxOrigin.getX()).toPlainString() + " "
-                        + limitFractional(viewBoxOrigin.getY()).toPlainString() + " "
-                        + viewBoxSize + " " + viewBoxSize);
+                        limitFractional(viewBox.getX()).toPlainString() + " "
+                        + limitFractional(viewBox.getY()).toPlainString() + " "
+                        + limitFractional(viewBox.getWidth()).toPlainString() + " "
+                        + limitFractional(viewBox.getHeight()).toPlainString());
+                // REVISIT: Save sourceViewBox as _viewBox
                 super.startElement(uri, localName, qname, updatedAttrs);
                 rootElement = false;
                 return;

@@ -171,17 +171,20 @@ final class CursorRenderer {
 
     private void prepareDocument(int targetSize) throws IOException {
         /* setCanvasSize */ {
-            // REVISIT: Use just the canvasSize factor for initializing SVGSizingTool.
-            // Individual sources may have different "sourceSize".
-            int viewBoxSize = (int) Math.round(sourceSize * canvasSizing.canvasSize);
             sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
-                    new SVGSizingTool(viewBoxSize, dir.resolve("cursor-hotspots.json")));
+                    new SVGSizingTool(canvasSizing.canvasSize, dir.resolve("cursor-hotspots.json")));
         }
 
         Double actualStrokeWidth; {
             double hairWidth;
+            // It is a bit unfortunate we need to initialize this an extra time upfront.
+            SVGSizing sizing = (svgSizing == null)
+                    ? SVGSizing.forDocument(sourceDocument)
+                    : svgSizing;
+            double sourceCanvasSize = backend.fromDocument(svg ->
+                    sizing.metadata().sourceViewBox().getWidth()) * canvasSizing.canvasSize;
             if (minStrokeWidth > 0 && strokeWidth.orElse(baseStrokeWidth).doubleValue()
-                    < (hairWidth = sizingTool.canvasSize() * minStrokeWidth / targetSize)) {
+                    < (hairWidth = sourceCanvasSize * minStrokeWidth / targetSize)) {
                 actualStrokeWidth = hairWidth;
             } else {
                 actualStrokeWidth = strokeWidth.orElse(null);
