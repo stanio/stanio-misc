@@ -122,9 +122,12 @@ public class SVGSizing {
     }
 
     public Point apply(int targetSize, double canvasSize, double strokeOffset, double fillOffset) throws IOException {
+        int pixelSize = (targetSize > 0)
+                        ? targetSize
+                        : (int) Math.round(metadata.sourceViewBox().getWidth());
         return (sourceDOM == null)
-                ? apply(sourceFile, targetSize, canvasSize, strokeOffset, fillOffset)
-                : apply(sourceDOM, targetSize, canvasSize, strokeOffset, fillOffset);
+                ? apply(sourceFile, pixelSize, canvasSize, strokeOffset, fillOffset)
+                : apply(sourceDOM, pixelSize, canvasSize, strokeOffset, fillOffset);
     }
 
     Point apply(Path svgFile, int targetSize, double canvasSize,

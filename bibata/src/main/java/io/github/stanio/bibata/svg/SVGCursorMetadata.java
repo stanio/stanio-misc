@@ -186,6 +186,8 @@ public class SVGCursorMetadata {
                                            Pattern.CASE_INSENSITIVE | Pattern.COMMENTS);
         }
 
+        // XXX: Better signal with an exception we couldn't determine
+        // source dimensions from viewBox or width/height attributes.
         Rectangle2D sourceViewBox = new Rectangle(256, 256);
         AnchorPoint hotspot;
         AnchorPoint rootAnchor = AnchorPoint.defaultValue(); // REVISIT: or 128,128?

@@ -38,24 +38,6 @@ final class CursorRenderer {
 
     public static final Integer staticFrame = 0;
 
-    /**
-     * Implied source ({@code viewBox}) dimensions.  Current value of {@value #sourceSize}
-     * is the one of the Bibata v2.0.4 sources.  Similar to the implied HTML-embedded SVG
-     * {@code width} and {@code height} given no {@code viewBox} as well:
-     * <blockquote>
-     *   <strong>Note:</strong> In an HTML document if both the
-     *   <code>viewBox</code> and <code>width</code> attributes are omitted,
-     *   <a href="https://svgwg.org/specs/integration/#svg-css-sizing">the
-     *   svg element will be rendered with a width of <code>300px</code></a>
-     * </blockquote>
-     * <p>
-     * XXX: Try to eliminate dependency on this one.
-     *
-     * @see  <a href="https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/width#svg"
-     *          >SVG width</a>
-     */
-    protected static final int sourceSize = 256;
-
     protected OutputType outputType;
 
     private final SVGTransformer loadTransformer;
@@ -299,7 +281,7 @@ final class CursorRenderer {
                     // REVISIT: Implement "reset sizing" to remove previous alignments,
                     // and/or provide flag whether to apply alignments.
                     return sizingTool.applySizing(cursorName, svgSizing,
-                            targetSize > 0 ? targetSize : sourceSize, strokeOffset, fillOffset);
+                            targetSize, strokeOffset, fillOffset);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
