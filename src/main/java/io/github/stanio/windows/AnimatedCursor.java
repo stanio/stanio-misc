@@ -6,17 +6,15 @@ package io.github.stanio.windows;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
@@ -50,8 +48,22 @@ public class AnimatedCursor {
             this.padding = (size % 2 > 0) ? PADDING : NO_PADDING;
         }
 
+        static Frame of(Cursor frame) {
+            ByteArrayBuffer buf = new ByteArrayBuffer(10_000);
+            try {
+                frame.write(buf);
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+            return new Frame(buf.size(), buf.array());
+        }
+
         int paddedSize() {
             return size + padding.length;
+        }
+
+        int chunkSize() {
+            return CHUNK_HEADER_SIZE + paddedSize();
         }
     }
 
@@ -71,8 +83,7 @@ public class AnimatedCursor {
     private static final int ANI_HEADER_SIZE = CHUNK_HEADER_SIZE + 36;
 
     private int displayRate;
-    private List<Frame> frames = new ArrayList<>();
-    private SortedMap<Integer, Cursor> deferredFrames = new TreeMap<>();
+    private SortedMap<Integer, Cursor> frames = new TreeMap<>();
 
     /**
      * Constructs an empty {@code AnimatedCursor} builder.
@@ -85,23 +96,15 @@ public class AnimatedCursor {
     }
 
     public boolean isEmpty() {
-        return frames.isEmpty() && deferredFrames.isEmpty();
+        return frames.isEmpty();
     }
 
     public int numFrames() {
-        return frames.size() + deferredFrames.size();
+        return frames.size();
     }
 
     public Cursor prepareFrame(Integer frameNum) {
-        return deferredFrames.computeIfAbsent(frameNum, k -> new Cursor());
-    }
-
-    private void addDeferred() {
-        Iterator<Cursor> iterator = deferredFrames.values().iterator();
-        while (iterator.hasNext()) {
-            addFrame(iterator.next());
-            iterator.remove();
-        }
+        return frames.computeIfAbsent(frameNum, k -> new Cursor());
     }
 
     /**
@@ -110,38 +113,18 @@ public class AnimatedCursor {
      * @param   frame  cursor frame to add to this animation
      */
     public void addFrame(Cursor frame) {
-        ByteArrayBuffer buf = new ByteArrayBuffer(10_000);
-        try {
-            frame.write(buf);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-        frames.add(new Frame(buf.size(), buf.array()));
+        frames.put(frames.isEmpty() ? 1 : frames.lastKey() + 1, frame);
     }
 
     /**
-     * Adds an animation frame from the given cursor file.  <em>Note,</em>
-     * the file is not verified if it represents a valid Windows cursor,
-     * currently.
+     * Adds an animation frame from the given cursor file.
      *
      * @param   curFile  cursor file to load animation frame from
-     * @throws  IOException  if I/O error occurs
+     * @throws  IOException  if I/O error occurs, or
+     *          file has bad/unsupported data format
      */
     public void addFrame(Path curFile) throws IOException {
-        ByteBuffer buf;
-        try (FileChannel fch = FileChannel.open(curFile)) {
-            buf = ByteBuffer.allocate((int) fch.size());
-            while (fch.read(buf) >= 0) {
-                if (buf.remaining() == 0)
-                    break;
-            }
-        }
-        frames.add(new Frame(buf.capacity() - buf.remaining(), buf.array()));
-    }
-
-    private int allFramesSize() {
-        return CHUNK_HEADER_SIZE * frames.size()
-                + frames.stream().mapToInt(Frame::paddedSize).sum();
+        addFrame(Cursor.read(curFile));
     }
 
     /**
@@ -170,23 +153,24 @@ public class AnimatedCursor {
     }
 
     private void write(LittleEndianOutput leOut) throws IOException {
-        addDeferred();
+        List<Frame> frameData = frames.values().stream()
+                .map(Frame::of).collect(Collectors.toList());
 
-        int framesSize = allFramesSize();
+        int allFramesSize = frameData.stream().mapToInt(Frame::chunkSize).sum();
 
         leOut.write(RIFF);
         leOut.writeDWord(CHUNK_ID_SIZE
-                + ANI_HEADER_SIZE + LIST_HEADER_SIZE + framesSize);
+                + ANI_HEADER_SIZE + LIST_HEADER_SIZE + allFramesSize);
         leOut.write(ACON); // Form type
 
         writeANIHeader(leOut);
 
         // LISTFRAMECHUNK
         leOut.write(LIST);
-        leOut.writeDWord(CHUNK_ID_SIZE + framesSize);
+        leOut.writeDWord(CHUNK_ID_SIZE + allFramesSize);
         leOut.write(FRAM); // List type
 
-        for (Frame item : frames) {
+        for (Frame item : frameData) {
             // ICONSUBCHUNK
             leOut.write(ICON);
             leOut.writeDWord(item.size);
@@ -202,12 +186,12 @@ public class AnimatedCursor {
         littleEndian.writeDWord(ANI_HEADER_SIZE - 8); // HeaderSize == Size
         littleEndian.writeDWord(numFrames()); // NumFrames
         littleEndian.writeDWord(numFrames()); // NumSteps
-        littleEndian.writeDWord(0); // Raw Width
-        littleEndian.writeDWord(0); // Raw Height
-        littleEndian.writeDWord(0); // Raw BitCount
-        littleEndian.writeDWord(0); // Raw NumPlanes
+        littleEndian.writeDWord(0); // Raw bitmap Width
+        littleEndian.writeDWord(0); // Raw bitmap Height
+        littleEndian.writeDWord(0); // Raw bitmap BitCount
+        littleEndian.writeDWord(0); // Raw bitmap NumPlanes
         littleEndian.writeDWord(displayRate);
-        littleEndian.writeDWord(1); // Bit-flags: 1 - Icon/Cursor data,
+        littleEndian.writeDWord(1); // Bit-flags: 1 - Icon/Cursor (vs. Raw bitmap) data,
                                     //            2 - Contains sequence data
     }
 
