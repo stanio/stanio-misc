@@ -114,6 +114,8 @@ public class Cursor {
 
         final int width;
         final int height;
+        final int numColors;
+        final byte reserved;
         final short hotspotX;
         final short hotspotY;
         final int dataSize;
@@ -123,12 +125,26 @@ public class Cursor {
                 short hotspotX, short hotspotY,
                 int dataSize, byte[] data)
         {
+            this(width, height, Integer.MAX_VALUE, NUL, hotspotX, hotspotY, dataSize, data);
+        }
+
+        Image(int width, int height,
+                int numColors, byte reserved,
+                short hotspotX, short hotspotY,
+                int dataSize, byte[] data)
+        {
             if (width < 0 || height < 0) {
                 throw new IllegalArgumentException("width and height"
                         + " must be positive: " + width + " x " + height);
             }
+            if (numColors < 0) {
+                throw new IllegalArgumentException("numColors"
+                        + " must be positive: " + numColors);
+            }
             this.width = width;
             this.height = height;
+            this.numColors = numColors;
+            this.reserved = reserved;
             this.hotspotX = hotspotX;
             this.hotspotY = hotspotY;
             this.dataSize = dataSize;
@@ -147,14 +163,20 @@ public class Cursor {
         throw new IllegalStateException("No registered PNG image writer available");
     });
 
-    private final short imageType;
+    private final short reserved; // Should be 0 (zero)
+    private final short imageType; // 1 - Icon, 2 - Cursor
     private final List<Image> entries = new ArrayList<>();
 
     /**
      * Constructs an empty {@code Cursor} builder.
      */
     public Cursor() {
-        this.imageType = 2; // Cursor (.CUR)
+        this((short) 0, (short) 2);
+    }
+
+    Cursor(short reserved, short imageType) {
+        this.reserved = reserved;
+        this.imageType = imageType;
     }
 
     /**
@@ -201,7 +223,7 @@ public class Cursor {
      *          source image and hotspot
      */
     public void addImage(BufferedImage image, Point2D hotspot, BoxSizing sizing) {
-        if (entries.size() >= 0xFFFF)
+        if (entries.size() >= 0xFFFF) // DWORD
             throw new IllegalStateException("Too many images: " + entries.size());
 
         BufferedImage argb;
@@ -346,8 +368,8 @@ public class Cursor {
             // ICONDIRENTRY
             leOut.write(entry.width > 255 ? 0 : (byte) entry.width);
             leOut.write(entry.height > 255 ? 0 : (byte) entry.height);
-            leOut.write(NUL); // numColors palette
-            leOut.write(NUL); // reserved
+            leOut.write(entry.numColors > 255 ? 0 : (byte) entry.numColors);
+            leOut.write(entry.reserved);
             leOut.writeWord(entry.hotspotX);
             leOut.writeWord(entry.hotspotY);
             leOut.writeDWord(entry.dataSize);
@@ -362,7 +384,7 @@ public class Cursor {
 
     private int writeHeader(LittleEndianOutput leOut) throws IOException {
         // ICONDIR
-        leOut.writeWord((short) 0); // reserved
+        leOut.writeWord(reserved);
         leOut.writeWord(imageType);
         leOut.writeWord((short) imageCount());
         return 6; // header size
