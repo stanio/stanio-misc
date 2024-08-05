@@ -6,6 +6,10 @@ package io.github.stanio.windows;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,8 +20,12 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import java.util.logging.Logger;
+
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
+import io.github.stanio.io.DataFormatException;
+import io.github.stanio.io.ReadableChannelBuffer;
 
 import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
 
@@ -63,24 +71,33 @@ public class AnimatedCursor {
         }
 
         int chunkSize() {
-            return CHUNK_HEADER_SIZE + paddedSize();
+            return Chunk.HEADER_SIZE + paddedSize();
         }
     }
 
 
-    private static final byte[] RIFF = bytes("RIFF");
-    private static final byte[] ACON = bytes("ACON");
-    private static final byte[] ANIH = bytes("anih");
-    private static final byte[] LIST = bytes("LIST");
-    private static final byte[] FRAM = bytes("fram");
-    private static final byte[] ICON = bytes("icon");
+    static interface Chunk {
 
-    private static final int CHUNK_ID_SIZE = 4;
-    private static final int
-            CHUNK_HEADER_SIZE = CHUNK_ID_SIZE + 4; // ID + size field
-    private static final int
-            LIST_HEADER_SIZE = CHUNK_HEADER_SIZE + CHUNK_ID_SIZE; // + format ID
-    private static final int ANI_HEADER_SIZE = CHUNK_HEADER_SIZE + 36;
+        byte[] RIFF = bytes("RIFF");
+        byte[] ACON = bytes("ACON");
+        byte[] ANIH = bytes("anih");
+        byte[] LIST = bytes("LIST");
+        byte[] FRAM = bytes("fram");
+        byte[] ICON = bytes("icon");
+
+        int ID_SIZE = FourCC.SIZE;
+        int HEADER_SIZE = ID_SIZE + Integer.BYTES; // ID + DWORD
+
+        static byte[] bytes(String str) {
+            return str.getBytes(StandardCharsets.US_ASCII);
+        }
+    }
+
+
+    private static final int LIST_HEADER_SIZE =
+            Chunk.HEADER_SIZE + Chunk.ID_SIZE; // Chunk header + format ID (form type)
+
+    static final Logger log = Logger.getLogger(AnimatedCursor.class.getName());
 
     private int displayRate;
     private SortedMap<Integer, Cursor> frames = new TreeMap<>();
@@ -93,6 +110,94 @@ public class AnimatedCursor {
      */
     public AnimatedCursor(int jiffies) {
         this.displayRate = jiffies;
+    }
+
+    public static AnimatedCursor read(Path file) throws IOException {
+        try (SeekableByteChannel fch = Files.newByteChannel(file)) {
+            return read(fch);
+        }
+    }
+
+    public static AnimatedCursor read(ReadableByteChannel fch) throws IOException {
+        ReadableChannelBuffer source = new ReadableChannelBuffer(fch)
+                                       .order(ByteOrder.LITTLE_ENDIAN);
+
+        FourCC chunkId = new FourCC();
+        ByteBuffer buffer = source.ensure(3 * Integer.BYTES);
+        if (!chunkId.from(buffer).equalTo(Chunk.RIFF))
+            throw new DataFormatException("Not a RIFF file: " + chunkId.detailString());
+
+        long aniDataSize = Integer.toUnsignedLong(buffer.getInt());
+
+        if (!chunkId.from(buffer).equalTo(Chunk.ACON))
+            throw new DataFormatException("Not an ACON file: " + chunkId.detailString());
+
+        // "anih" could be stored after the frame list, though I don't know if it is legal
+        ANIHeader aniHeader = null;
+        List<Cursor> frames = null;
+
+        aniDataSize -= Chunk.ID_SIZE; // Form type just read
+        while (aniDataSize > 0) {
+            buffer = source.ensure(Chunk.HEADER_SIZE);
+            chunkId.from(buffer);
+            long chunkDataSize = Integer.toUnsignedLong(buffer.getInt());
+            switch (chunkId.toString()) {
+            case "anih":
+                if (aniHeader != null) {
+                    throw new DataFormatException("Multiple \"anih\" chunks");
+                }
+                aniHeader = ANIHeader.read(source, chunkDataSize);
+                break;
+
+            case "seq ":
+            case "rate":
+                throw new DataFormatException("Chunk \"" + chunkId + "\" not supported");
+
+            case "LIST":
+                buffer = source.ensure(Chunk.ID_SIZE);
+                if (!chunkId.from(buffer).equalTo(Chunk.FRAM)) {
+                    log.fine(() -> "Discarding LIST/" + chunkId + " chunk");
+                    source.skipNBytes(chunkDataSize - Chunk.ID_SIZE);
+                    break;
+                }
+                if (frames != null) {
+                    throw new DataFormatException("Multiple LIST/fram chunks");
+                }
+                frames = new ArrayList<>();
+
+                long listDataSize = chunkDataSize - Chunk.ID_SIZE;
+                while (listDataSize > 0) {
+                    buffer = source.ensure(Chunk.HEADER_SIZE);
+                    if (!chunkId.from(buffer).equalTo(Chunk.ICON))
+                        throw new DataFormatException("Expected \"icon\" chunk but got: " + chunkId.detailString());
+
+                    int frameSize = buffer.getInt();
+                    if (frameSize < 0)
+                        throw new DataFormatException("Frame data size too large: " + Integer.toUnsignedLong(frameSize));
+
+                    int paddedSize = (frameSize % 2 == 0) ? frameSize : frameSize + 1;
+                    try (ReadableByteChannel sub = source.subChannel(paddedSize)) {
+                        frames.add(Cursor.read(sub));
+                    }
+                    listDataSize -= Chunk.HEADER_SIZE + paddedSize;
+                }
+                break;
+
+            default:
+                log.fine(() -> "Discarding " + chunkId.detailString() + " chunk");
+                source.skipNBytes(chunkDataSize);
+            }
+            aniDataSize -= Chunk.HEADER_SIZE + chunkDataSize;
+        }
+        if (aniHeader == null)
+            throw new DataFormatException("No \"anih\" chunk found");
+
+        if (frames == null)
+            throw new DataFormatException("No LIST/fram chunk found");
+
+        AnimatedCursor ani = new AnimatedCursor(aniHeader.displayRate);
+        frames.forEach(ani::addFrame);
+        return ani;
     }
 
     public boolean isEmpty() {
@@ -158,21 +263,21 @@ public class AnimatedCursor {
 
         int allFramesSize = frameData.stream().mapToInt(Frame::chunkSize).sum();
 
-        leOut.write(RIFF);
-        leOut.writeDWord(CHUNK_ID_SIZE
-                + ANI_HEADER_SIZE + LIST_HEADER_SIZE + allFramesSize);
-        leOut.write(ACON); // Form type
+        leOut.write(Chunk.RIFF);
+        leOut.writeDWord(Chunk.ID_SIZE // Format ID
+                + ANIHeader.CHUNK_SIZE + LIST_HEADER_SIZE + allFramesSize);
+        leOut.write(Chunk.ACON); // Form type
 
         writeANIHeader(leOut);
 
         // LISTFRAMECHUNK
-        leOut.write(LIST);
-        leOut.writeDWord(CHUNK_ID_SIZE + allFramesSize);
-        leOut.write(FRAM); // List type
+        leOut.write(Chunk.LIST);
+        leOut.writeDWord(Chunk.ID_SIZE + allFramesSize);
+        leOut.write(Chunk.FRAM); // List type
 
         for (Frame item : frameData) {
             // ICONSUBCHUNK
-            leOut.write(ICON);
+            leOut.write(Chunk.ICON);
             leOut.writeDWord(item.size);
             leOut.write(item.data, item.size);
             leOut.write(item.padding);
@@ -181,9 +286,9 @@ public class AnimatedCursor {
 
     private void writeANIHeader(LittleEndianOutput littleEndian) throws IOException {
         // ANIHEADERSUBCHUNK
-        littleEndian.write(ANIH);
-        littleEndian.writeDWord(ANI_HEADER_SIZE - 8); // Size
-        littleEndian.writeDWord(ANI_HEADER_SIZE - 8); // HeaderSize == Size
+        littleEndian.write(Chunk.ANIH);
+        littleEndian.writeDWord(ANIHeader.SIZE); // Size
+        littleEndian.writeDWord(ANIHeader.SIZE); // HeaderSize == Size
         littleEndian.writeDWord(numFrames()); // NumFrames
         littleEndian.writeDWord(numFrames()); // NumSteps
         littleEndian.writeDWord(0); // Raw bitmap Width
@@ -195,9 +300,65 @@ public class AnimatedCursor {
                                     //            2 - Contains sequence data
     }
 
-    private static byte[] bytes(String str) {
-        return str.getBytes(StandardCharsets.US_ASCII);
+
+    static class ANIHeader {
+
+        static final int SIZE = 9 * Integer.BYTES; // 36;
+        static final int CHUNK_SIZE = Chunk.HEADER_SIZE + SIZE;
+
+        final int numFrames;
+        final int displayRate;
+
+        private ANIHeader(int numFrames, int displayRate) {
+            this.numFrames = numFrames;
+            this.displayRate = displayRate;
+        }
+
+        static ANIHeader read(ReadableChannelBuffer source, long chunkSize) throws IOException {
+            // Chunk header (ID and size) already read
+            if (chunkSize < SIZE || chunkSize > Integer.MAX_VALUE)
+                throw new DataFormatException("Unsupported \"anih\" size: " + chunkSize);
+
+            ByteBuffer buffer = source.ensure(SIZE);
+            int headerSize = buffer.getInt();
+            if (chunkSize != headerSize)
+                throw new DataFormatException("anih: chunkSize("
+                        + chunkSize + ") =/= headerSize("
+                        + Integer.toUnsignedLong(headerSize) + ")");
+
+            int numFrames = buffer.getInt();
+            int numSteps = buffer.getInt();
+            if (numSteps != numFrames)
+                throw new DataFormatException("anih: Doesn't support frame sequence data: "
+                        + "numFrames(" + numFrames + ") =/= numSteps(" + numSteps + ")");
+
+            // Ignore Raw bitmap info
+            buffer.getInt(); // width
+            buffer.getInt(); // height
+            buffer.getInt(); // bitCount
+            buffer.getInt(); // numPlanes
+
+            int displayRate = buffer.getInt();
+
+            int flags = buffer.getInt();
+            if (chunkSize > SIZE) {
+                log.fine(() -> "Discarding " + (chunkSize - SIZE)
+                        + " extra \"anih\" (newer version?) bytes");
+                source.skipNBytes(chunkSize - SIZE);
+            }
+
+            if ((flags & 0x01) == 0) // cursor/icon, otherwise raw bitmap
+                throw new DataFormatException("anih: Doesn't support raw bitmap data: "
+                        + "flags=0b" + Integer.toBinaryString(flags));
+
+            if ((flags & 0x02) != 0) // contains sequence data
+                throw new DataFormatException("anih: Doesn't support frame sequence data: "
+                        + "flags=0b" + Integer.toBinaryString(flags));
+
+            return new ANIHeader(numFrames, displayRate);
+        }
     }
+
 
     /**
      * Command-line entry point.
