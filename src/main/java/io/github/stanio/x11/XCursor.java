@@ -10,6 +10,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,12 +19,17 @@ import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import java.awt.Point;
@@ -30,6 +37,9 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 
 import javax.imageio.ImageIO;
+
+import io.github.stanio.io.DataFormatException;
+import io.github.stanio.io.ReadableChannelBuffer;
 
 /**
  * Xcursor file builder.
@@ -162,11 +172,11 @@ public class XCursor {
 
     /** magic */
     private static final byte[] Xcur = "Xcur".getBytes(StandardCharsets.US_ASCII);
-    private static final int fileHeaderSize = 4 * Integer.BYTES;
-    private static final int fileVersion = 0x1_0000;
-    private static final int tocEntrySize = 3 * Integer.BYTES;
+    private static final int FILE_HEADER_SIZE = 4 * Integer.BYTES;
+    private static final int FILE_VERSION = 0x1_0000;
+    private static final int TOC_ENTRY_SIZE = 3 * Integer.BYTES;
 
-    private static final Integer staticFrame = 0;
+    private static final Integer staticFrame = 1;
 
     private static final
     boolean defaultCropToContent = Boolean.getBoolean("xcur.cropToContent");
@@ -189,6 +199,169 @@ public class XCursor {
     public XCursor(float factor, boolean crop) {
         this.scaleFactor = factor;
         this.cropToContent = crop;
+    }
+
+    public static XCursor read(Path file) throws IOException {
+        try (SeekableByteChannel fch = Files.newByteChannel(file)) {
+            return read(fch);
+        }
+    }
+
+    public static XCursor read(ReadableByteChannel ch) throws IOException {
+        ReadableChannelBuffer source = new ReadableChannelBuffer(ch, 8192)
+                                       .order(ByteOrder.LITTLE_ENDIAN);
+        long sourcePosition = 0;
+
+        final int ntoc;
+        {
+            byte[] magic = new byte[4];
+            source.ensure(FILE_HEADER_SIZE).get(magic);
+            if (!Arrays.equals(magic, Xcur))
+                throw new DataFormatException("Not a Xcur file: " + Arrays.toString(magic));
+
+            final int headerSize = source.buffer().getInt();
+            final int fileVersion = source.buffer().getInt();
+            if (fileVersion != FILE_VERSION)
+                log.fine(() -> "Not the usual file version (0x"
+                        + toHexString(FILE_VERSION) + "): 0x" + toHexString(fileVersion));
+
+            if (headerSize < FILE_HEADER_SIZE || headerSize > Integer.MAX_VALUE)
+                throw new DataFormatException("Unsupported file header size: "
+                        + Integer.toUnsignedLong(headerSize));
+
+            ntoc = source.buffer().getInt();
+            if (headerSize > FILE_HEADER_SIZE) {
+                log.fine(() -> "Discarding " + (headerSize - FILE_HEADER_SIZE)
+                        + " extra Xcur header (newer version?) bytes");
+                source.skipNBytes(headerSize - FILE_HEADER_SIZE);
+            }
+            if (ntoc < 0)
+                throw new DataFormatException("Too many chunks: " + Integer.toUnsignedLong(ntoc));
+
+            sourcePosition = headerSize;
+        }
+
+        Map<Long, Integer> dataOrder = new TreeMap<>(); // sorted
+        for (int i = 0; i < ntoc; i++) {
+            int type = source.ensure(TOC_ENTRY_SIZE).getInt();
+            int subType = source.buffer().getInt();
+            long position = Integer.toUnsignedLong(source.buffer().getInt());
+            if (type == ImageChunk.TYPE) {
+                dataOrder.put(position, i);
+            } else {
+                int entryNum = i + 1;
+                log.fine(() -> "Ignoring TOC entry #" + entryNum
+                        + " type 0x" + Integer.toHexString(type)
+                        + " / " + Integer.toUnsignedLong(subType));
+            }
+        }
+        sourcePosition += ntoc * TOC_ENTRY_SIZE;
+
+        SortedMap<Integer, List<ImageChunk>> sizes = new TreeMap<>();
+        for (Map.Entry<Long, Integer> entry : dataOrder.entrySet()) {
+            final long dataOffset = entry.getKey();
+            final int entryIndex = entry.getValue();
+            Supplier<String> entryTag = () -> "Entry #" + (entryIndex + 1);
+
+            long currentOffset = sourcePosition;
+            if (dataOffset < currentOffset)
+                throw new DataFormatException(entryTag.get() + " data offset 0x"
+                        + toHexString(dataOffset) + " overlaps previous data: current offset 0x"
+                        + toHexString(currentOffset));
+
+            if (dataOffset > currentOffset) {
+                log.fine(() -> "Discarding " + (dataOffset - currentOffset)
+                        + " bytes @ 0x" + toHexString(currentOffset));
+                source.skipNBytes(dataOffset - currentOffset);
+                sourcePosition = dataOffset;
+            }
+            log.fine(() -> entryTag.get() + " position: 0x" + toHexString(dataOffset));
+
+            int chunkSize = source.ensure(Chunk.HEADER).getInt();
+            int type = source.buffer().getInt();
+            int subType = source.buffer().getInt();
+            int chunkVersion = source.buffer().getInt();
+            if (type != ImageChunk.TYPE)
+                throw new DataFormatException(entryTag.get() + ": Not an image type"
+                        + " (doesn't match TOC entry): 0x" + toHexString(type));
+
+            if (chunkVersion != 1)
+                log.fine(() -> entryTag.get() + ": Not the usual image version: "
+                        + Integer.toUnsignedLong(chunkVersion));
+
+            if (chunkSize < ImageChunk.HEADER_SIZE)
+                throw new DataFormatException(entryTag.get()
+                        + ": Unsupported image header size: " + Integer.toUnsignedLong(chunkSize));
+
+            int nominalSize = subType;
+            if (nominalSize < 1 || nominalSize > 0x7FFF)
+                throw new DataFormatException(entryTag.get()
+                        + ": Unsupported nominal size: " + Integer.toUnsignedLong(nominalSize));
+
+            int width = source.ensure(ImageChunk.HEADER_SIZE - Chunk.HEADER).getInt();
+            if (width < 1 || width > 0x7FFF)
+                throw new DataFormatException(entryTag.get()
+                        + ": Illegal width: " + Integer.toUnsignedLong(width));
+
+            int height = source.buffer().getInt();
+            if (height < 1 || height > 0x7FFF)
+                throw new DataFormatException(entryTag.get()
+                        + ": Illegal height: " + Integer.toUnsignedLong(height));
+
+            int xhot = source.buffer().getInt();
+            if (xhot < 0 || xhot >= width)
+                throw new DataFormatException(entryTag.get()
+                        + ": Illegal xhot: " + Integer.toUnsignedLong(xhot));
+
+            int yhot = source.buffer().getInt();
+            if (yhot < 0 || yhot >= height)
+                throw new DataFormatException(entryTag.get()
+                        + ": Illegal yhot: " + Integer.toUnsignedLong(yhot));
+
+            int delay = source.buffer().getInt();
+            if (delay < 0)
+                throw new DataFormatException(entryTag.get()
+                        + ": Frame delay too large: " + Integer.toUnsignedLong(delay));
+
+            {
+                int extraHeader = chunkSize - ImageChunk.HEADER_SIZE;
+                log.fine(() -> entryTag.get() + ": Discarding " + extraHeader
+                        + " extra image header (newer version?) bytes");
+                source.skipNBytes(extraHeader);
+            }
+
+            int[] pixels = new int[width * height];
+            {
+                int remaining = pixels.length;
+                int bufferCapacity = source.buffer().capacity();
+                while (remaining > 0) {
+                    int count = Math.min(remaining, bufferCapacity >> 2);
+                    source.ensure(count << 2).asIntBuffer()
+                            .get(pixels, pixels.length - remaining, count);
+                    source.advanceBuffer(count << 2);
+                    remaining -= count;
+                }
+            }
+            sourcePosition += chunkSize + Integer.BYTES * pixels.length;
+
+            sizes.computeIfAbsent(nominalSize, k -> new ArrayList<>())
+                    .add(new ImageChunk(nominalSize, width, height, xhot, yhot, delay, pixels));
+        }
+
+        XCursor cur = new XCursor();
+        sizes.forEach((size, frames) -> {
+            boolean animation = frames.size() > 1;
+            Integer n = staticFrame;
+            for (ImageChunk img : frames) {
+                if (animation && img.delay == 0)
+                    log.log(Level.FINE, "(size={0}): Zero delay for animation frame #{1}",
+                                        new Object[] { size, n });
+
+                cur.addFrameImage(n, img);
+                n++;
+            }
+        });
+        return cur;
     }
 
     public boolean isEmpty() {
@@ -346,11 +519,11 @@ public class XCursor {
     private void writeHeader(List<Chunk> content) throws IOException {
         ByteBuffer outBuf = outputBuffer;
         outBuf.put(Xcur);
-        outBuf.putInt(fileHeaderSize);
-        outBuf.putInt(fileVersion);
+        outBuf.putInt(FILE_HEADER_SIZE);
+        outBuf.putInt(FILE_VERSION);
         outBuf.putInt(content.size());
 
-        int offset = outBuf.position() + content.size() * tocEntrySize;
+        int offset = outBuf.position() + content.size() * TOC_ENTRY_SIZE;
         for (Chunk chunk : content) {
             if (outBuf.remaining() < 3 * Integer.BYTES) {
                 flushBuffer();
@@ -399,6 +572,14 @@ public class XCursor {
         outputBuffer.flip();
         outputChannel.write(outputBuffer);
         outputBuffer.clear();
+    }
+
+    private static String toHexString(int value) {
+        return toHexString(Integer.toUnsignedLong(value));
+    }
+
+    private static String toHexString(long value) {
+        return Long.toHexString(value).toUpperCase(Locale.ROOT);
     }
 
 }
