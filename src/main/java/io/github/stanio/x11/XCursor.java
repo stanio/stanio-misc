@@ -6,8 +6,6 @@ package io.github.stanio.x11;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
@@ -24,6 +22,8 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+
+import java.util.logging.Logger;
 
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -44,6 +44,8 @@ public class XCursor {
     // Each chunk in the file has set of common header fields followed by
     // additional type-specific fields:
     public static abstract class Chunk {
+        public static final int HEADER = Integer.BYTES * 4;
+
         public final int header;  // bytes in chunk header (including type-specific fields)
         public final int type;    // must match type in TOC for this chunk
         public final int subType; // must match subtype in TOC for this chunk
@@ -82,7 +84,8 @@ public class XCursor {
 
         public static final int TYPE = 0xFFFD0002;
 
-        private static final int HEADER = 9 * Integer.BYTES;
+        public static final int
+                HEADER_SIZE = Chunk.HEADER + Integer.BYTES * 5;
 
         public final int width;  // Must be less than or equal to 0x7fff
         public final int height; // Must be less than or equal to 0x7fff
@@ -112,7 +115,7 @@ public class XCursor {
                    int canvasWidth, int canvasHeight,
                    int xhot, int yhot, int delay,
                    int[] pixels, int pixelsLength) {
-             super(HEADER, TYPE, nominalSize, 1);
+             super(HEADER_SIZE, TYPE, nominalSize, 1);
              this.width = canvasWidth;
              this.height = canvasHeight;
              this.xhot = xhot;
@@ -123,8 +126,7 @@ public class XCursor {
         }
 
         static int nominalSize(int width, int height) {
-            return BigDecimal.valueOf((width + height) / 2f)
-                    .setScale(0, RoundingMode.HALF_EVEN).intValue();
+            return (int) Math.ceil((width + height) / 2f);
         }
 
         /**
@@ -155,6 +157,8 @@ public class XCursor {
 
     } // class ImageChunk
 
+
+    static final Logger log = Logger.getLogger(XCursor.class.getName());
 
     /** magic */
     private static final byte[] Xcur = "Xcur".getBytes(StandardCharsets.US_ASCII);
@@ -202,9 +206,9 @@ public class XCursor {
         return (int) (Math.ceil(size * scaleFactor) + 1) / 2 * 2; // round to even
     }
 
-    private void addFrame(Integer frameNum,
-                          int nominalSize, BufferedImage image,
-                          Point hotspot, int delay) {
+    public void addFrame(Integer frameNum,
+                         int nominalSize, BufferedImage image,
+                         Point hotspot, int delay) {
         int[] pixels = IntPixels.getRGB(image);
         Rectangle bounds = IntPixels.contentBounds(pixels, image.getWidth(), hotspot);
         int bitmapSize = cropToContent
@@ -224,13 +228,43 @@ public class XCursor {
         bounds.height = bitmapSize;
         pixels = IntPixels.resizeCanvas(pixels, image.getWidth(), bounds);
 
-        frames.computeIfAbsent(frameNum, k -> new ArrayList<>())
-                .add(new ImageChunk(nominalSize,
-                                    bounds.width, bounds.height,
-                                    hotspot.x - bounds.x,
-                                    hotspot.y - bounds.y,
-                                    delay, pixels,
-                                    bounds.width * bounds.height));
+        addFrameImage(frameNum, new ImageChunk(nominalSize,
+                                               bounds.width, bounds.height,
+                                               hotspot.x - bounds.x,
+                                               hotspot.y - bounds.y,
+                                               delay, pixels,
+                                               bounds.width * bounds.height));
+    }
+
+    private void addFrameImage(Integer frameNum, ImageChunk image) {
+        List<ImageChunk> sizes = frames.computeIfAbsent(frameNum, k -> new ArrayList<>());
+        int index = 0;
+
+    find_index:
+        {
+            int currentIndex = 0;
+            for (ImageChunk item : sizes) {
+                int order = item.nominalSize() - image.nominalSize();
+                if (order == 0) {
+                    index = currentIndex;
+                    break find_index;
+                }
+
+                currentIndex++;
+                if (order > 0) {
+                    index = currentIndex;
+                }
+            }
+            index = -index - 1;
+        }
+
+        if (index < 0) {
+            log.finer(() -> "Adding " + image.nominalSize() + " size to frame #" + frameNum);
+            sizes.add(-index - 1, image);
+        } else {
+            log.fine(() -> "Replacing " + image.nominalSize() + " size to frame #" + frameNum);
+            sizes.set(index, image);
+        }
     }
 
     public void addImage(BufferedImage image, Point hotspot) {
@@ -286,8 +320,8 @@ public class XCursor {
         }
     }
 
-    private List<? extends Chunk> sortedContent() {
-        List<ImageChunk> images = new ArrayList<>(frames.size() * 10);
+    private List<Chunk> sortedContent() {
+        List<Chunk> images = new ArrayList<>(frames.size() * 10);
         frames.entrySet().stream()
                 .flatMap(entry -> entry.getValue().stream())
                 .collect(Collectors.toCollection(() -> images));
@@ -299,7 +333,7 @@ public class XCursor {
     }
 
     private void write() throws IOException {
-        List<? extends Chunk> content = sortedContent();
+        List<Chunk> content = sortedContent();
         writeHeader(content);
 
         Output out = asOutput();
@@ -309,7 +343,7 @@ public class XCursor {
         flushBuffer();
     }
 
-    private void writeHeader(List<? extends Chunk> content) throws IOException {
+    private void writeHeader(List<Chunk> content) throws IOException {
         ByteBuffer outBuf = outputBuffer;
         outBuf.put(Xcur);
         outBuf.putInt(fileHeaderSize);
