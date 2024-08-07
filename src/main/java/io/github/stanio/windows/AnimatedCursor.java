@@ -4,12 +4,17 @@
  */
 package io.github.stanio.windows;
 
+import static io.github.stanio.windows.Cursor.writeOptions;
+import static io.github.stanio.windows.LittleEndianOutput.NUL;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +32,7 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
 
-import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
+import io.github.stanio.windows.LittleEndianOutput.BufferChunksOutputStream;
 
 /**
  * A builder for Animated Windows cursors.
@@ -43,35 +48,59 @@ public class AnimatedCursor {
 
 
     static final class Frame {
-        private static final byte[] NO_PADDING = new byte[0];
-        private static final byte[] PADDING = { 0 };
 
         final int size;
-        final byte[] data;
-        final byte[] padding;
+        private final ByteBuffer[] data;
+        private final int paddedSize;
 
-        Frame(int size, byte[] data) {
-            this.size = size;
-            this.data = data;
-            this.padding = (size % 2 > 0) ? PADDING : NO_PADDING;
+        Frame(ByteBuffer... data) {
+            int dataSize = 0;
+            for (ByteBuffer buf : data) {
+                dataSize += buf.limit();
+            }
+            this.size = dataSize;
+
+            if (dataSize % 2 == 0) {
+                this.paddedSize = dataSize;
+            } else {
+                this.paddedSize = dataSize + 1;
+
+                ByteBuffer lastBuffer = data[data.length - 1];
+                assert (lastBuffer.capacity() % 2 == 0
+                        && lastBuffer.limit() % 2 != 0);
+                int tailIndex = lastBuffer.limit();
+                lastBuffer.limit(tailIndex + 1);
+                lastBuffer.put(tailIndex, NUL);
+            }
+
+            final int numChunks = data.length;
+            ByteBuffer[] readOnlyData = new ByteBuffer[numChunks];
+            for (int i = 0; i < numChunks; i++) {
+                readOnlyData[i] = data[i].asReadOnlyBuffer();
+            }
+            this.data = readOnlyData;
         }
 
         static Frame of(Cursor frame) {
-            ByteArrayBuffer buf = new ByteArrayBuffer(10_000);
-            try {
-                frame.write(buf);
+            BufferChunksOutputStream buf;
+            try (BufferChunksOutputStream buf0 = buf = new BufferChunksOutputStream(8 * 1024)) {
+                frame.write(buf0);
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
-            return new Frame(buf.size(), buf.array());
-        }
-
-        int paddedSize() {
-            return size + padding.length;
+            return new Frame(buf.chunks());
         }
 
         int chunkSize() {
-            return Chunk.HEADER_SIZE + paddedSize();
+            return Chunk.HEADER_SIZE + paddedSize;
+        }
+
+        ByteBuffer[] paddedData() {
+            ByteBuffer[] chunks = data.clone();
+            for (ByteBuffer buf : chunks) {
+                buf.rewind();
+            }
+            return chunks;
         }
     }
 
@@ -240,7 +269,7 @@ public class AnimatedCursor {
      * @throws  IOException  if I/O error occurs
      */
     public void write(Path file) throws IOException {
-        try (OutputStream out = Files.newOutputStream(file)) {
+        try (WritableByteChannel out = Files.newByteChannel(file, writeOptions)) {
             write(out);
         }
     }
@@ -252,6 +281,12 @@ public class AnimatedCursor {
      * @throws  IOException  if I/O error occurs
      */
     public void write(OutputStream out) throws IOException {
+        try (WritableByteChannel chOut = Channels.newChannel(out)) {
+            write(chOut);
+        }
+    }
+
+    public void write(WritableByteChannel out) throws IOException {
         try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
             write(leOut);
         }
@@ -279,8 +314,7 @@ public class AnimatedCursor {
             // ICONSUBCHUNK
             leOut.write(Chunk.ICON);
             leOut.writeDWord(item.size);
-            leOut.write(item.data, item.size);
-            leOut.write(item.padding);
+            leOut.write(item.paddedData());
         }
     }
 

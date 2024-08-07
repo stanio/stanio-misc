@@ -6,19 +6,25 @@ package io.github.stanio.windows;
 
 import static io.github.stanio.windows.LittleEndianOutput.NUL;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -48,7 +54,7 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
 
-import io.github.stanio.windows.LittleEndianOutput.ByteArrayBuffer;
+import io.github.stanio.windows.LittleEndianOutput.BufferChunksOutputStream;
 
 /**
  * A builder for multi-resolution Windows cursors.  Supports only 32-bit color
@@ -135,19 +141,19 @@ public class Cursor {
         final short hotspotX;
         final short hotspotY;
         final int dataSize;
-        final byte[] data;
+        private final ByteBuffer[] data;
 
         Image(int width, int height,
                 short hotspotX, short hotspotY,
-                int dataSize, byte[] data)
+                ByteBuffer... data)
         {
-            this(width, height, Integer.MAX_VALUE, NUL, hotspotX, hotspotY, dataSize, data);
+            this(width, height, Integer.MAX_VALUE, NUL, hotspotX, hotspotY, data);
         }
 
         Image(int width, int height,
                 int numColors, byte reserved,
                 short hotspotX, short hotspotY,
-                int dataSize, byte[] data)
+                ByteBuffer... data)
         {
             if (width < 0 || height < 0) {
                 throw new IllegalArgumentException("width and height"
@@ -163,8 +169,17 @@ public class Cursor {
             this.reserved = reserved;
             this.hotspotX = hotspotX;
             this.hotspotY = hotspotY;
-            this.dataSize = dataSize;
-            this.data = data;
+
+            final int numChunks = data.length;
+            ByteBuffer[] readOnlyData = new ByteBuffer[numChunks];
+            int allDataSize = 0;
+            for (int i = 0; i < numChunks; i++) {
+                ByteBuffer chunk = data[i].asReadOnlyBuffer();
+                readOnlyData[i] = chunk;
+                allDataSize += chunk.limit();
+            }
+            this.dataSize = allDataSize;
+            this.data = readOnlyData;
         }
 
         int width() {
@@ -179,9 +194,17 @@ public class Cursor {
             return (numColors == 0) ? 256 : numColors;
         }
 
+        ByteBuffer[] data() {
+            ByteBuffer[] chunks = data.clone();
+            for (ByteBuffer buf : chunks) {
+                buf.rewind();
+            }
+            return chunks;
+        }
+
         String colStr() {
             if (numColors > 256) {
-                return "32-bit";
+                return (numColors > 65536) ? "32-bit" : "16-bit";
             }
             return (numColors > 2) ? numColors + " colors" : "1-bit";
         }
@@ -310,7 +333,7 @@ public class Cursor {
                 numColors = bitmap.numColors();
 
             cursor.entries.add(new Image(width, height, numColors, reserved,
-                    hotspotX, hotspotY, bitmap.data.capacity(), bitmap.data.array()));
+                    hotspotX, hotspotY, bitmap.data));
         }
         return cursor;
     }
@@ -384,9 +407,10 @@ public class Cursor {
     }
 
     private void addARGBImage(BufferedImage image, Point hotspot) {
-        ByteArrayBuffer buf = new ByteArrayBuffer();
+        BufferChunksOutputStream buf;
         ImageWriter imageWriter = pngWriter.get();
-        try (ImageOutputStream out = new MemoryCacheImageOutputStream(buf)) {
+        try (BufferChunksOutputStream buf0 = buf = new BufferChunksOutputStream();
+                ImageOutputStream out = new MemoryCacheImageOutputStream(buf0)) {
             imageWriter.setOutput(out);
             imageWriter.write(image);
         } catch (IOException e) {
@@ -402,8 +426,7 @@ public class Cursor {
         addEntry(new Image(width, height,
                            (short) clamp(hotspot.x, 0, maxUnsignedShort),
                            (short) clamp(hotspot.y, 0, maxUnsignedShort),
-                           buf.size(),
-                           buf.array()));
+                           buf.chunks()));
     }
 
     private void addEntry(Image entry) {
@@ -503,10 +526,15 @@ public class Cursor {
      * @throws  IOException  if I/O error occurs
      */
     public void write(Path file) throws IOException {
-        try (OutputStream out = Files.newOutputStream(file)) {
+        try (WritableByteChannel out = Files.newByteChannel(file, writeOptions)) {
             write(out);
         }
     }
+
+    static final EnumSet<? extends OpenOption>
+                writeOptions = EnumSet.of(StandardOpenOption.CREATE,
+                                          StandardOpenOption.TRUNCATE_EXISTING,
+                                          StandardOpenOption.WRITE);
 
     /**
      * Writes a Windows cursor to the given output stream.
@@ -515,6 +543,12 @@ public class Cursor {
      * @throws  IOException  if I/O error occurs
      */
     public void write(OutputStream out) throws IOException {
+        try (WritableByteChannel chOut = Channels.newChannel(out)) {
+            write(chOut);
+        }
+    }
+
+    public void write(WritableByteChannel out) throws IOException {
         try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
             write(leOut);
         }
@@ -536,7 +570,7 @@ public class Cursor {
         }
 
         for (Image entry : entries) {
-            leOut.write(entry.data, entry.dataSize);
+            leOut.write(entry.data());
         }
     }
 
@@ -588,11 +622,10 @@ public class Cursor {
         private BitmapInfo parsed() {
             if (parsed) return this;
 
-            ByteBuffer buf = data;
+            ByteBuffer buf = (ByteBuffer) data.rewind();
             try {
                 byte[] tag = new byte[PNG_TAG.length];
-                buf.get(tag);
-                buf.position(0); // reset
+                buf.get(tag).rewind();
 
                 if (Arrays.equals(tag, PNG_TAG)) {
                     parsePNGData(buf);
@@ -603,6 +636,9 @@ public class Cursor {
                     throw new DataFormatException("Unsupported BITMAP dimension: "
                             + width + "x" + height);
 
+            } catch (BufferUnderflowException e) {
+                throw new UncheckedIOException((EOFException)
+                        new EOFException(e.getMessage()).initCause(e));
             } catch (DataFormatException e) {
                 throw new UncheckedIOException(e);
             }
@@ -662,7 +698,8 @@ public class Cursor {
 
         private boolean veryLargeDimension() {
             try {
-                return Math.multiplyExact(width, height) > 0x10_0000;
+                // ~ 16_384 x 16_384
+                return Math.multiplyExact(width, height) > 0x1000_0000;
             } catch (ArithmeticException e) {
                 return true;
             }

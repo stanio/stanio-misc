@@ -87,6 +87,7 @@ public class XCursor {
     private static interface Output {
         void writeInt(int value) throws IOException;
         void write(int[] data, int off, int len) throws IOException;
+        void write(IntBuffer buf) throws IOException;
     }
 
 
@@ -103,36 +104,29 @@ public class XCursor {
         public final int yhot;   // Must be less than or equal to height
         public final int delay;  // Delay between animation frames in milliseconds
 
-        final int[] pixels; // Packed ARGB format pixels
+        private final IntBuffer pixels; // Packed ARGB format pixels
         final int pixelsLength;
-
-        ImageChunk(int width, int height,
-                   int xhot, int yhot,
-                   int delay, int[] pixels) {
-            this(nominalSize(width, height),
-                    width, height, xhot, yhot, delay, pixels);
-        }
-
-        ImageChunk(int nominalSize,
-                   int canvasWidth, int canvasHeight,
-                   int xhot, int yhot, int delay,
-                   int[] pixels) {
-            this(nominalSize, canvasWidth, canvasHeight,
-                    xhot, yhot, delay, pixels, pixels.length);
-        }
 
         ImageChunk(int nominalSize,
                    int canvasWidth, int canvasHeight,
                    int xhot, int yhot, int delay,
                    int[] pixels, int pixelsLength) {
-             super(HEADER_SIZE, TYPE, nominalSize, 1);
-             this.width = canvasWidth;
-             this.height = canvasHeight;
-             this.xhot = xhot;
-             this.yhot = yhot;
-             this.delay = delay;
-             this.pixels = pixels;
-             this.pixelsLength = pixelsLength;
+            this(nominalSize, canvasWidth, canvasHeight, xhot, yhot, delay,
+                    IntBuffer.wrap(pixels, 0, pixelsLength));
+        }
+
+        ImageChunk(int nominalSize,
+                   int canvasWidth, int canvasHeight,
+                   int xhot, int yhot, int delay,
+                   IntBuffer pixels) {
+            super(HEADER_SIZE, TYPE, nominalSize, 1);
+            this.width = canvasWidth;
+            this.height = canvasHeight;
+            this.xhot = xhot;
+            this.yhot = yhot;
+            this.delay = delay;
+            this.pixels = pixels.asReadOnlyBuffer();
+            this.pixelsLength = pixels.limit();
         }
 
         static int nominalSize(int width, int height) {
@@ -151,6 +145,10 @@ public class XCursor {
             return subType;
         }
 
+        IntBuffer pixels() {
+            return (IntBuffer) pixels.rewind();
+        }
+
         @Override public int size() {
             return super.size() + pixelsLength * Integer.BYTES;
         }
@@ -162,7 +160,7 @@ public class XCursor {
             out.writeInt(xhot);
             out.writeInt(yhot);
             out.writeInt(delay);
-            out.write(pixels, 0, pixelsLength);
+            out.write(pixels());
         }
 
     } // class ImageChunk
@@ -330,19 +328,8 @@ public class XCursor {
                 source.skipNBytes(extraHeader);
             }
 
-            int[] pixels = new int[width * height];
-            {
-                int remaining = pixels.length;
-                int bufferCapacity = source.buffer().capacity();
-                while (remaining > 0) {
-                    int count = Math.min(remaining, bufferCapacity >> 2);
-                    source.ensure(count << 2).asIntBuffer()
-                            .get(pixels, pixels.length - remaining, count);
-                    source.advanceBuffer(count << 2);
-                    remaining -= count;
-                }
-            }
-            sourcePosition += chunkSize + Integer.BYTES * pixels.length;
+            IntBuffer pixels = source.copyNBytes(width * height * Integer.BYTES).asIntBuffer();
+            sourcePosition += chunkSize + Integer.BYTES * pixels.limit();
 
             sizes.computeIfAbsent(nominalSize, k -> new ArrayList<>())
                     .add(new ImageChunk(nominalSize, width, height, xhot, yhot, delay, pixels));
@@ -536,33 +523,38 @@ public class XCursor {
     }
 
     private static final ThreadLocal<ByteBuffer> localBuffer = ThreadLocal
-            .withInitial(() -> ByteBuffer.allocate(8 * 1024).order(ByteOrder.LITTLE_ENDIAN));
+            .withInitial(() -> ByteBuffer.allocateDirect(16 * 1024).order(ByteOrder.LITTLE_ENDIAN));
     private ByteBuffer outputBuffer;
     private WritableByteChannel outputChannel;
 
     private Output asOutput() {
-        final ByteBuffer buf = this.outputBuffer;
+        final ByteBuffer outBuf = this.outputBuffer;
         return new Output() {
             @Override public void writeInt(int value) throws IOException {
-                if (buf.remaining() < Integer.BYTES) {
+                if (outBuf.remaining() < Integer.BYTES) {
                     flushBuffer();
                 }
-                buf.putInt(value);
+                outBuf.putInt(value);
             }
 
             @Override public void write(int[] data, int off, int len) throws IOException {
-                IntBuffer intBuffer = buf.asIntBuffer();
-                int dataRemaining = len;
-                while (dataRemaining > 0) {
-                    int chunkLength = Math.min(dataRemaining, intBuffer.remaining());
-                    intBuffer.put(data, off + len - dataRemaining, chunkLength);
-                    dataRemaining -= chunkLength;
-                    buf.position(buf.position() + chunkLength * Integer.BYTES);
-                    if (dataRemaining == 0)
+                write(IntBuffer.wrap(data, off, len));
+            }
+
+            @Override public void write(IntBuffer src) throws IOException {
+                IntBuffer dst = outBuf.asIntBuffer();
+                int srcLimit = src.limit();
+                while (src.hasRemaining()) {
+                    int chunkLength = Math.min(src.remaining(), dst.remaining());
+                    src.limit(src.position() + chunkLength);
+                    dst.put(src);
+                    outBuf.position(outBuf.position() + chunkLength * Integer.BYTES);
+                    src.limit(srcLimit);
+                    if (!src.hasRemaining())
                         break;
 
                     flushBuffer();
-                    intBuffer = buf.asIntBuffer(); // full capacity
+                    dst = outBuf.asIntBuffer(); // full capacity
                 }
             }
         };
@@ -570,7 +562,10 @@ public class XCursor {
 
     void flushBuffer() throws IOException {
         outputBuffer.flip();
-        outputChannel.write(outputBuffer);
+        while (outputBuffer.hasRemaining()) {
+            outputChannel.write(outputBuffer);
+            Thread.yield();
+        }
         outputBuffer.clear();
     }
 
