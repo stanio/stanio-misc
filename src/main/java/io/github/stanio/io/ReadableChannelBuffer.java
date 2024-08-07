@@ -20,7 +20,6 @@ import java.util.Objects;
 public class ReadableChannelBuffer {
 
     private final ReadableByteChannel channel;
-    private ByteOrder byteOrder;
     private ByteBuffer buffer;
 
     public ReadableChannelBuffer(ReadableByteChannel channel) {
@@ -31,12 +30,10 @@ public class ReadableChannelBuffer {
                                  int initialCapacity) {
         this.channel = Objects.requireNonNull(channel);
         this.buffer = ByteBuffer.allocate(initialCapacity);
-        this.byteOrder = buffer.order();
         buffer.limit(0); // initially empty
     }
 
     public ReadableChannelBuffer order(ByteOrder order) {
-        this.byteOrder = order;
         buffer().order(order);
         return this;
     }
@@ -72,14 +69,16 @@ public class ReadableChannelBuffer {
             return buf;
 
         if (size > buf.capacity()) {
-            buf = buffer(ByteBuffer.allocate(size)
-                                   .order(byteOrder)
-                                   .put(buf));
+            buf = buffer(allocate(size).put(buf));
         } else {
             buf.compact();
         }
         readChannel(buf);
         return (ByteBuffer) buf.flip();
+    }
+
+    private ByteBuffer allocate(int size) {
+        return ByteBuffer.allocate(size).order(buffer().order());
     }
 
     /*private*/ int readChannel(ByteBuffer dst) throws IOException {
@@ -106,7 +105,7 @@ public class ReadableChannelBuffer {
     }
 
     public ByteBuffer copyNBytes(int n) throws IOException {
-        ByteBuffer result = ByteBuffer.allocate(n).order(byteOrder);
+        ByteBuffer result = allocate(n);
         ByteBuffer buf = buffer();
         if (buf.remaining() > n) {
             int savedLimit = buf.limit();
