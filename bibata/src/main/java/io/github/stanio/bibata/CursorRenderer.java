@@ -33,8 +33,6 @@ import io.github.stanio.bibata.svg.SVGTransformer;
  * @see  BitmapsRenderer
  */
 final class CursorRenderer {
-    // REVISIT: Rename to CursorCompiler, and rename BitmapsRenderer to
-    // CursorGenerator The current CursorCompiler (wincur) is no longer needed.
 
     protected OutputType outputType;
 
@@ -49,6 +47,7 @@ final class CursorRenderer {
     private String targetName;
 
     private Path outDir;
+    private boolean updateExisting;
 
     private Optional<Double> strokeWidth = Optional.empty();
     private Map<String, String> colorMap = Collections.emptyMap();
@@ -146,6 +145,10 @@ final class CursorRenderer {
         outputSet = false;
     }
 
+    public void setUpdateExisting(boolean update) {
+        this.updateExisting = update;
+    }
+
     public void setCanvasSize(SizeScheme sizeScheme) {
         this.canvasSizing = sizeScheme;
     }
@@ -229,7 +232,7 @@ final class CursorRenderer {
 
     private CursorBuilder newCursorBuilder() throws UncheckedIOException {
         return CursorBuilder.newInstance(outputType,
-                outDir.resolve(targetName),
+                outDir.resolve(targetName), updateExisting,
                 animation, 1 / (float) canvasSizing.nominalSize);
     }
 
@@ -270,9 +273,6 @@ final class CursorRenderer {
     }
 
     public void saveCurrent() throws IOException {
-        if (outputType == OutputType.BITMAPS)
-            return;
-
         // Static cursor or complete animation
         if (animation == null || frameNum == null) {
             currentFrames.build();

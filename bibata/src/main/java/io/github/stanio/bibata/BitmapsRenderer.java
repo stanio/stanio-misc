@@ -35,6 +35,7 @@ import com.google.gson.JsonParseException;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
+
 import io.github.stanio.bibata.CursorNames.Animation;
 import io.github.stanio.bibata.options.ConfigFactory;
 import io.github.stanio.bibata.options.SizeScheme;
@@ -54,6 +55,7 @@ import io.github.stanio.bibata.svg.DropShadow;
  * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
  */
 public class BitmapsRenderer {
+    // REVISIT: Rename to CursorGenerator, MouseGenerator, or just MouseGen for short.
 
     public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS }
 
@@ -94,6 +96,11 @@ public class BitmapsRenderer {
                                        boolean allCursors,
                                        Collection<String> filter) {
         cursorNames.init(names, allCursors, filter);
+        return this;
+    }
+
+    public BitmapsRenderer updateExisting(boolean update) {
+        renderer.setUpdateExisting(update);
         return this;
     }
 
@@ -286,6 +293,7 @@ public class BitmapsRenderer {
                             cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
+                    .updateExisting(cmdArgs.updateExisting)
                     .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
         } catch (IOException e) {
@@ -341,6 +349,8 @@ public class BitmapsRenderer {
         boolean defaultStrokeAlso;
         boolean allVariants;
 
+        boolean updateExisting;
+
         CommandArgs(String... args) {
             CommandLine cmd = CommandLine.ofUnixStyle()
                     .acceptOption("-s", sizes::addAll,
@@ -361,6 +371,7 @@ public class BitmapsRenderer {
                     .acceptOptionalArg("--linux-cursors", val ->
                             setOutputType(OutputType.LINUX_CURSORS, val, "x11-names"))
                     .acceptFlag("--all-cursors", () -> allCursors = true)
+                    .acceptFlag("--update-existing", () -> updateExisting = true)
                     .acceptOptionalArg("--pointer-shadow",
                             val -> pointerShadow = DropShadow.decode(val))
                     .acceptFlag("--no-shadow-also", () -> noShadowAlso = true)

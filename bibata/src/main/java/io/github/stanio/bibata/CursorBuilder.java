@@ -22,6 +22,7 @@ import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import io.github.stanio.windows.AnimatedCursor;
+import io.github.stanio.windows.Cursor;
 import io.github.stanio.x11.XCursor;
 
 import io.github.stanio.bibata.BitmapsRenderer.OutputType;
@@ -34,7 +35,7 @@ import io.github.stanio.bibata.CursorNames.Animation;
  */
 abstract class CursorBuilder {
 
-    static final Integer staticFrame = 0;
+    static final Integer staticFrame = 1;
 
     protected final Path targetPath;
 
@@ -47,21 +48,29 @@ abstract class CursorBuilder {
 
     static CursorBuilder newInstance(OutputType type,
                                      Path targetPath,
+                                     boolean updateExisting,
                                      Animation animation,
                                      float targetCanvasFactor)
             throws UncheckedIOException {
-        switch (type) {
-        case WINDOWS_CURSORS:
-            return new WindowsCursorBuilder(targetPath, animation);
+        try {
+            switch (type) {
+            case WINDOWS_CURSORS:
+                return updateExisting ? WindowsCursorBuilder.forUpdate(targetPath, animation)
+                                      : new WindowsCursorBuilder(targetPath, animation);
 
-        case LINUX_CURSORS:
-            return new LinuxCursorBuilder(targetPath, animation, targetCanvasFactor);
+            case LINUX_CURSORS:
+                return updateExisting ? LinuxCursorBuilder.forUpdate(targetPath, animation, targetCanvasFactor)
+                                      : new LinuxCursorBuilder(targetPath, animation, targetCanvasFactor);
 
-        case BITMAPS:
-            return new BitmapOtputBuilder(targetPath, animation);
+            case BITMAPS:
+                // No updateExisting-specific configuration for bitmaps
+                return BitmapOutputBuilder.newInstance(targetPath, animation);
 
-        default:
-            throw new IllegalArgumentException("Unsupported output type: " + type);
+            default:
+                throw new IllegalArgumentException("Unsupported output type: " + type);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -88,8 +97,32 @@ abstract class CursorBuilder {
         private final AnimatedCursor frames;
 
         WindowsCursorBuilder(Path targetPath, Animation animation) {
+            this(targetPath, animation, null);
+        }
+
+        private WindowsCursorBuilder(Path targetPath, Animation animation, AnimatedCursor frames) {
             super(targetPath, animation);
-            this.frames = new AnimatedCursor(animation == null ? 0 : animation.jiffies());
+            this.frames = (frames == null)
+                          ? new AnimatedCursor(animation == null ? 0 : animation.jiffies())
+                          : frames;
+        }
+
+        static WindowsCursorBuilder forUpdate(Path targetPath, Animation animation)
+                throws IOException {
+            AnimatedCursor existing = null;
+            if (animation == null) {
+                Path curFile = targetPath.resolveSibling(targetPath.getFileName() + ".cur");
+                if (Files.exists(curFile)) {
+                    existing = new AnimatedCursor(0);
+                    existing.addFrame(Cursor.read(curFile));
+                }
+            } else {
+                Path aniFile = targetPath.resolveSibling(targetPath.getFileName() + ".ani");
+                if (Files.exists(aniFile)) {
+                    existing = AnimatedCursor.read(aniFile);
+                }
+            }
+            return new WindowsCursorBuilder(targetPath, animation, existing);
         }
 
         @Override
@@ -123,9 +156,20 @@ abstract class CursorBuilder {
         private final int frameDelay;
 
         LinuxCursorBuilder(Path targetPath, Animation animation, float targetCanvasSize) {
+            this(targetPath, animation, new XCursor(targetCanvasSize));
+        }
+
+        private LinuxCursorBuilder(Path targetPath, Animation animation, XCursor frames) {
             super(targetPath, animation);
-            this.frames = new XCursor(targetCanvasSize);
+            this.frames = frames;
             this.frameDelay = (animation == null) ? 0 : animation.delayMillis();
+        }
+
+        static LinuxCursorBuilder forUpdate(Path targetPath, Animation animation, float targetCanvasSize)
+                throws IOException {
+            return Files.exists(targetPath)
+                    ? new LinuxCursorBuilder(targetPath, animation, XCursor.read(targetPath))
+                    : new LinuxCursorBuilder(targetPath, animation, targetCanvasSize);
         }
 
         @Override
@@ -141,7 +185,7 @@ abstract class CursorBuilder {
     } // class LinuxCursorBuilder
 
 
-    private static class BitmapOtputBuilder extends CursorBuilder {
+    private static class BitmapOutputBuilder extends CursorBuilder {
 
         private static final ThreadLocal<ImageWriter> pngWriter = ThreadLocal.withInitial(() -> {
             Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("png");
@@ -151,13 +195,14 @@ abstract class CursorBuilder {
             throw new IllegalStateException("PNG image writer not registered/available");
         });
 
-        BitmapOtputBuilder(Path targetPath, Animation animation) throws UncheckedIOException {
+        private BitmapOutputBuilder(Path targetPath, Animation animation) {
             super(targetPath, animation);
-            try {
-                Files.createDirectories(targetPath);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+        }
+
+        static BitmapOutputBuilder newInstance(Path targetPath, Animation animation)
+                throws IOException {
+            Files.createDirectories(targetPath);
+            return new BitmapOutputBuilder(targetPath, animation);
         }
 
         @Override
