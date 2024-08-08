@@ -182,7 +182,7 @@ public class BitmapsRenderer {
             return;
 
         progress.push(cursorName);
-        renderer.loadFile(cursorName, svgFile, targetName);
+        renderer.setFile(cursorName, svgFile, targetName);
 
         for (ThemeConfig config : renderConfig) {
             // REVISIT: Test cursorName or animation.lowerName

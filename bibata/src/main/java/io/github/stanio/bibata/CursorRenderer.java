@@ -39,6 +39,7 @@ final class CursorRenderer {
     private final SVGTransformer loadTransformer;
     private final SVGTransformer variantTransformer;
     private final RendererBackend backend;
+    private Path sourceFile;
     private Document sourceDocument;
 
     private String cursorName;
@@ -108,12 +109,19 @@ final class CursorRenderer {
         strokeWidth = Optional.ofNullable(width);
     }
 
-    @SuppressWarnings("hiding")
-    public void loadFile(String cursorName, Path svgFile, String targetName) throws IOException {
+    public void setFile(String cursorName, Path svgFile, String targetName) throws IOException {
         resetFile();
         this.cursorName = cursorName;
         this.targetName = targetName;
-        sourceDocument = loadTransformer.loadDocument(svgFile);
+        this.sourceFile = svgFile;
+        this.sourceDocument = null;
+    }
+
+    private Document sourceDocument() throws IOException {
+        if (sourceDocument == null) {
+            sourceDocument = loadTransformer.loadDocument(sourceFile);
+        }
+        return sourceDocument;
     }
 
     private void resetFile() {
@@ -163,7 +171,7 @@ final class CursorRenderer {
             double hairWidth;
             // It is a bit unfortunate we need to initialize this an extra time upfront.
             SVGSizing sizing = (svgSizing == null)
-                    ? SVGSizing.forDocument(sourceDocument)
+                    ? SVGSizing.forDocument(sourceDocument())
                     : svgSizing;
             double sourceCanvasSize = backend.fromDocument(svg ->
                     sizing.metadata().sourceViewBox().getWidth()) * canvasSizing.canvasSize;
@@ -202,7 +210,7 @@ final class CursorRenderer {
         // initDocument
         if (resetDocument || colorTheme == null || svgSizing == null) {
             backend.setDocument(variantTransformer
-                    .transformDocument(sourceDocument));
+                    .transformDocument(sourceDocument()));
             backend.fromDocument(svg -> {
                 svgSizing = SVGSizing.forDocument(svg);
                 colorTheme = DocumentColors.forDocument(svg);
@@ -237,8 +245,8 @@ final class CursorRenderer {
     }
 
     public void renderTargetSize(int size) throws IOException {
-        prepareDocument(size);
         setUpOutput();
+        prepareDocument(size);
 
         Point hotspot = applySizing(size);
         try {
