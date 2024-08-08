@@ -36,8 +36,6 @@ final class CursorRenderer {
     // REVISIT: Rename to CursorCompiler, and rename BitmapsRenderer to
     // CursorGenerator The current CursorCompiler (wincur) is no longer needed.
 
-    public static final Integer staticFrame = 0;
-
     protected OutputType outputType;
 
     private final SVGTransformer loadTransformer;
@@ -111,6 +109,7 @@ final class CursorRenderer {
         strokeWidth = Optional.ofNullable(width);
     }
 
+    @SuppressWarnings("hiding")
     public void loadFile(String cursorName, Path svgFile, String targetName) throws IOException {
         resetFile();
         this.cursorName = cursorName;
@@ -120,7 +119,7 @@ final class CursorRenderer {
 
     private void resetFile() {
         animation = null;
-        frameNum = backend.frameNum = staticFrame;
+        frameNum = backend.frameNum = null;
         currentFrames = null;
         resetDocument();
         sizingTool = null;
@@ -138,7 +137,7 @@ final class CursorRenderer {
 
     public void setAnimation(Animation animation, Integer frameNum) {
         this.animation = animation;
-        this.frameNum = backend.frameNum = (frameNum == null) ? staticFrame : frameNum;
+        this.frameNum = backend.frameNum = frameNum;
         outputSet = false;
     }
 
@@ -213,29 +212,24 @@ final class CursorRenderer {
     private void setUpOutput() throws IOException {
         if (outputSet) return;
 
-        if (animation == null) {
-            if (outputType != OutputType.BITMAPS)
+        try {
+            if (animation == null || frameNum == null) {
                 currentFrames = newCursorBuilder();
-        } else {
-            Path animDir = outDir.resolve(targetName);
-            switch (outputType) {
-            case BITMAPS:
-                // Place individual frame bitmaps in a subdirectory.
-                outDir = animDir;
-                break;
-            default:
-                currentFrames = (frameNum == staticFrame)
-                                 ? newCursorBuilder()
-                                 : deferredFrames.computeIfAbsent(animDir,
-                                         k -> newCursorBuilder());
+            } else {
+                assert (animation != null);
+                    currentFrames = deferredFrames.computeIfAbsent(outDir.resolve(targetName),
+                                                                   k -> newCursorBuilder());
             }
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
         Files.createDirectories(outDir);
         outputSet = true;
     }
 
-    private CursorBuilder newCursorBuilder() {
+    private CursorBuilder newCursorBuilder() throws UncheckedIOException {
         return CursorBuilder.newInstance(outputType,
+                outDir.resolve(targetName),
                 animation, 1 / (float) canvasSizing.nominalSize);
     }
 
@@ -244,33 +238,17 @@ final class CursorRenderer {
         setUpOutput();
 
         Point hotspot = applySizing(size);
-
-        String sizeSuffix = "";
-        if (size > 0) {
-            sizeSuffix = (size < 100 ? "-0" : "-") + size;
-        }
-
-        if (animation == null || frameNum != staticFrame) {
-            // Static cursor or animation frame from static image
-            switch (outputType) {
-            case BITMAPS:
-                backend.writeStatic(outDir.resolve(cursorName + sizeSuffix + ".png"));
-                break;
-            default:
+        try {
+            if (animation == null || frameNum != null) {
+                // Static cursor or animation frame from static image
                 currentFrames.addFrame(frameNum, backend.renderStatic(), hotspot);
+            } else {
+                assert (animation != null);
+                backend.renderAnimation(animation,
+                        (frameNo, image) -> currentFrames.addFrame(frameNo, image, hotspot));
             }
-        } else {
-            assert (animation != null);
-
-            switch (outputType) {
-            case BITMAPS:
-                backend.writeAnimation(animation, outDir, cursorName + "-%0"
-                        + animation.numDigits + "d" + sizeSuffix + ".png");
-                break;
-            default:
-                backend.renderAnimation(animation, (frameNo, image) -> currentFrames
-                        .addFrame(frameNo, image, hotspot));
-            }
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
     }
 
@@ -296,8 +274,8 @@ final class CursorRenderer {
             return;
 
         // Static cursor or complete animation
-        if (frameNum == staticFrame) {
-            currentFrames.writeTo(outDir.resolve(targetName));
+        if (animation == null || frameNum == null) {
+            currentFrames.build();
         }
         currentFrames = null;
     }
@@ -306,7 +284,7 @@ final class CursorRenderer {
         var iterator = deferredFrames.entrySet().iterator();
         while (iterator.hasNext()) {
             var entry = iterator.next();
-            entry.getValue().writeTo(entry.getKey());
+            entry.getValue().build();
             iterator.remove();
         }
     }

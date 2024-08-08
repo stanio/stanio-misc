@@ -4,17 +4,10 @@
  */
 package io.github.stanio.bibata;
 
-import static io.github.stanio.batik.DynamicImageTranscoder.fileOutput;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Iterator;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,11 +34,6 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Dimension2D;
 import java.awt.image.BufferedImage;
-
-import javax.imageio.ImageIO;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import org.apache.batik.transcoder.TranscoderException;
 import org.apache.batik.transcoder.TranscoderOutput;
@@ -74,7 +62,7 @@ abstract class RendererBackend {
             BACKENDS = Map.of("batik", BatikRendererBackend::new,
                               "jsvg", JSVGRendererBackend::new);
 
-    Integer frameNum = CursorRenderer.staticFrame;
+    Integer frameNum;
 
     public static RendererBackend newInstance() {
         String key = System.getProperty("bibata.renderer", "").strip();
@@ -100,16 +88,7 @@ abstract class RendererBackend {
         // no op
     }
 
-    public abstract void writeStatic(Path targetFile)
-            throws IOException;
-
     public abstract BufferedImage renderStatic();
-
-    public void writeAnimation(Animation animation, Path targetBase, String nameFormat)
-            throws IOException {
-        implWarn("doesn't handle SVG animations");
-        writeStatic(targetBase.resolve(String.format(Locale.ROOT, nameFormat, frameNum)));
-    }
 
     @FunctionalInterface
     public static interface AnimationFrameCallback {
@@ -180,15 +159,6 @@ class BatikRendererBackend extends RendererBackend {
     }
 
     @Override
-    public void writeStatic(Path targetFile) throws IOException {
-        try {
-            imageTranscoder.transcodeTo(fileOutput(targetFile));
-        } catch (TranscoderException e) {
-            throw findIOCause(e);
-        }
-    }
-
-    @Override
     public void renderAnimation(Animation animation, AnimationFrameCallback callback) {
         try {
             renderAnimation(animation, frameNo -> new RenderedTranscoderOutput(),
@@ -196,17 +166,6 @@ class BatikRendererBackend extends RendererBackend {
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    @Override
-    public void writeAnimation(Animation animation, Path targetBase, String nameFormat)
-            throws IOException {
-        Function<Integer, TranscoderOutput> fileProvider = frameNo -> {
-            String fileName = String.format(Locale.ROOT, nameFormat, frameNo);
-            return fileOutput(targetBase.resolve(fileName));
-        };
-        renderAnimation(animation, fileProvider,
-                (frameNo, output) -> {/* written to file already */});
     }
 
     private <T extends TranscoderOutput>
@@ -269,11 +228,6 @@ class JSVGRendererBackend extends RendererBackend {
         return imageTranscoder.transcode();
     }
 
-    @Override
-    public void writeStatic(Path targetFile) throws IOException {
-        imageTranscoder.transcodeTo(targetFile);
-    }
-
 }
 
 
@@ -288,7 +242,6 @@ class JSVGImageTranscoder {
 
     private Optional<DropShadow> dropShadow = Optional.empty();
     private StaxSVGLoader svgLoader;
-    private ImageWriter pngWriter;
 
     public void setDropShadow(DropShadow shadow) {
         this.dropShadow = Optional.ofNullable(shadow);
@@ -386,33 +339,6 @@ class JSVGImageTranscoder {
         } finally {
             g.dispose();
         }
-    }
-
-    public void transcodeTo(Path file) throws IOException {
-        BufferedImage image = transcode();
-        ImageWriter imageWriter = pngWriter();
-        try (OutputStream fileOut = Files.newOutputStream(file);
-                ImageOutputStream out = new MemoryCacheImageOutputStream(fileOut)) {
-            imageWriter.setOutput(out);
-            imageWriter.write(image);
-        } finally {
-            //imageWriter.reset();
-            imageWriter.setOutput(null);
-        }
-    }
-
-    private ImageWriter pngWriter() {
-        ImageWriter writer = pngWriter;
-        if (writer == null) {
-            Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("png");
-            if (iter.hasNext()) {
-                writer = iter.next();
-                pngWriter = writer;
-            } else {
-                throw new IllegalStateException("No registered PNG image writer available");
-            }
-        }
-        return writer;
     }
 
 
