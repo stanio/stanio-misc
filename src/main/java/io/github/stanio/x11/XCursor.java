@@ -144,7 +144,8 @@ public class XCursor {
         }
 
         @Override public int size() {
-            return super.size() + pixelsLength * Integer.BYTES;
+            return Math.addExact(super.size(),
+                    Math.multiplyExact(pixelsLength, Integer.BYTES));
         }
 
         @Override void writeTo(BufferedChannelOutput out) throws IOException {

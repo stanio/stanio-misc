@@ -174,7 +174,7 @@ public class Cursor {
             for (int i = 0; i < numChunks; i++) {
                 ByteBuffer chunk = data[i].asReadOnlyBuffer();
                 readOnlyData[i] = chunk;
-                allDataSize += chunk.limit();
+                allDataSize = Math.addExact(allDataSize, chunk.limit());
             }
             this.dataSize = allDataSize;
             this.data = readOnlyData;

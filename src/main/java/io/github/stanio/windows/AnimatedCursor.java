@@ -56,7 +56,7 @@ public class AnimatedCursor {
         Frame(ByteBuffer... data) {
             int dataSize = 0;
             for (ByteBuffer buf : data) {
-                dataSize += buf.limit();
+                dataSize = Math.addExact(dataSize, buf.limit());
             }
             this.size = dataSize;
 
