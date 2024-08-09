@@ -176,9 +176,9 @@ public class XCursor {
     private final SortedMap<Integer, List<ImageChunk>> frames = new TreeMap<>();
 
     /** drawing size / canvas size */
-    private final float scaleFactor;
+    private float nominalFactor;
 
-    private final boolean cropToContent;
+    private boolean cropToContent;
 
     public XCursor() {
         this(1f);
@@ -189,7 +189,7 @@ public class XCursor {
     }
 
     public XCursor(float factor, boolean crop) {
-        this.scaleFactor = factor;
+        this.nominalFactor = factor;
         this.cropToContent = crop;
     }
 
@@ -345,6 +345,16 @@ public class XCursor {
         return cur;
     }
 
+    public XCursor withNominalFactor(double factor) {
+        this.nominalFactor = (float) factor;
+        return this;
+    }
+
+    public XCursor withCropToContent(boolean crop) {
+        this.cropToContent = crop;
+        return this;
+    }
+
     public boolean isEmpty() {
         return frames.isEmpty();
     }
@@ -353,11 +363,15 @@ public class XCursor {
      * {@return nominal size for the given image adjusted to the initialized
      * scale factor}
      *
-     * @see  #scaleFactor
+     * This causes no image scaling/resampling – only adjusting the logical
+     * <i>nominal size</i> associated with the bitmap (which actual dimension
+     * may differ from that size).
+     *
+     * @see  #nominalFactor
      */
     private int nominalSize(BufferedImage image) {
         int size = ImageChunk.nominalSize(image.getWidth(), image.getHeight());
-        return (int) (Math.ceil(size * scaleFactor) + 1) / 2 * 2; // round to even
+        return (int) (Math.ceil(size * nominalFactor) + 1) / 2 * 2; // round to even
     }
 
     public void addFrame(Integer frameNum,

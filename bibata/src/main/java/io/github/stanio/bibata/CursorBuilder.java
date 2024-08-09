@@ -168,7 +168,8 @@ abstract class CursorBuilder {
         static LinuxCursorBuilder forUpdate(Path targetPath, Animation animation, float targetCanvasSize)
                 throws IOException {
             return Files.exists(targetPath)
-                    ? new LinuxCursorBuilder(targetPath, animation, XCursor.read(targetPath))
+                    ? new LinuxCursorBuilder(targetPath, animation,
+                            XCursor.read(targetPath).withNominalFactor(targetCanvasSize))
                     : new LinuxCursorBuilder(targetPath, animation, targetCanvasSize);
         }
 
