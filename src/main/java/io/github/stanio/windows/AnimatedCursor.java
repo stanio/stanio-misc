@@ -5,7 +5,7 @@
 package io.github.stanio.windows;
 
 import static io.github.stanio.windows.Cursor.writeOptions;
-import static io.github.stanio.windows.LittleEndianOutput.NUL;
+import static io.github.stanio.windows.Cursor.NUL;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -29,10 +29,10 @@ import java.util.logging.Logger;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
+import io.github.stanio.io.BufferChunksWritableChannel;
+import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
-
-import io.github.stanio.windows.LittleEndianOutput.BufferChunksOutputStream;
 
 /**
  * A builder for Animated Windows cursors.
@@ -82,8 +82,9 @@ public class AnimatedCursor {
         }
 
         static Frame of(Cursor frame) {
-            BufferChunksOutputStream buf;
-            try (BufferChunksOutputStream buf0 = buf = new BufferChunksOutputStream(8 * 1024)) {
+            BufferChunksWritableChannel buf = new BufferChunksWritableChannel(8 * 1024);
+            // Java 9+ has more concise try-with-resources
+            try (BufferChunksWritableChannel buf0 = buf) {
                 frame.write(buf0);
             } catch (IOException e) {
                 throw new IllegalStateException(e);
@@ -286,20 +287,25 @@ public class AnimatedCursor {
         }
     }
 
+    private static final ThreadLocal<ByteBuffer> localBuffer =
+            ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(1024)
+                                                    .order(ByteOrder.LITTLE_ENDIAN));
+
     public void write(WritableByteChannel out) throws IOException {
-        try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
+        try (BufferedChannelOutput leOut = new BufferedChannelOutput(out, localBuffer.get())) {
             write(leOut);
         }
     }
 
-    private void write(LittleEndianOutput leOut) throws IOException {
+    private void write(BufferedChannelOutput leOut) throws IOException {
         List<Frame> frameData = frames.values().stream()
                 .map(Frame::of).collect(Collectors.toList());
 
         int allFramesSize = frameData.stream().mapToInt(Frame::chunkSize).sum();
 
+        leOut.buffer().order(ByteOrder.LITTLE_ENDIAN);
         leOut.write(Chunk.RIFF);
-        leOut.writeDWord(Chunk.ID_SIZE // Format ID
+        leOut.write(Chunk.ID_SIZE // Format ID
                 + ANIHeader.CHUNK_SIZE + LIST_HEADER_SIZE + allFramesSize);
         leOut.write(Chunk.ACON); // Form type
 
@@ -307,31 +313,31 @@ public class AnimatedCursor {
 
         // LISTFRAMECHUNK
         leOut.write(Chunk.LIST);
-        leOut.writeDWord(Chunk.ID_SIZE + allFramesSize);
+        leOut.write(Chunk.ID_SIZE + allFramesSize);
         leOut.write(Chunk.FRAM); // List type
 
         for (Frame item : frameData) {
             // ICONSUBCHUNK
             leOut.write(Chunk.ICON);
-            leOut.writeDWord(item.size);
+            leOut.write(item.size);
             leOut.write(item.paddedData());
         }
     }
 
-    private void writeANIHeader(LittleEndianOutput littleEndian) throws IOException {
+    private void writeANIHeader(BufferedChannelOutput littleEndian) throws IOException {
         // ANIHEADERSUBCHUNK
         littleEndian.write(Chunk.ANIH);
-        littleEndian.writeDWord(ANIHeader.SIZE); // Size
-        littleEndian.writeDWord(ANIHeader.SIZE); // HeaderSize == Size
-        littleEndian.writeDWord(numFrames()); // NumFrames
-        littleEndian.writeDWord(numFrames()); // NumSteps
-        littleEndian.writeDWord(0); // Raw bitmap Width
-        littleEndian.writeDWord(0); // Raw bitmap Height
-        littleEndian.writeDWord(0); // Raw bitmap BitCount
-        littleEndian.writeDWord(0); // Raw bitmap NumPlanes
-        littleEndian.writeDWord(displayRate);
-        littleEndian.writeDWord(1); // Bit-flags: 1 - Icon/Cursor (vs. Raw bitmap) data,
-                                    //            2 - Contains sequence data
+        littleEndian.write(ANIHeader.SIZE); // Size
+        littleEndian.write(ANIHeader.SIZE); // HeaderSize == Size
+        littleEndian.write(numFrames()); // NumFrames
+        littleEndian.write(numFrames()); // NumSteps
+        littleEndian.write(0); // Raw bitmap Width
+        littleEndian.write(0); // Raw bitmap Height
+        littleEndian.write(0); // Raw bitmap BitCount
+        littleEndian.write(0); // Raw bitmap NumPlanes
+        littleEndian.write(displayRate);
+        littleEndian.write(1); // Bit-flags: 1 - Icon/Cursor (vs. Raw bitmap) data,
+                               //            2 - Contains sequence data
     }
 
 

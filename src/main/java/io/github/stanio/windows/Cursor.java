@@ -4,8 +4,6 @@
  */
 package io.github.stanio.windows;
 
-import static io.github.stanio.windows.LittleEndianOutput.NUL;
-
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -51,10 +49,10 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
 import io.github.stanio.awt.SmoothDownscale;
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
+import io.github.stanio.io.BufferChunksOutputStream;
+import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
-
-import io.github.stanio.windows.LittleEndianOutput.BufferChunksOutputStream;
 
 /**
  * A builder for multi-resolution Windows cursors.  Supports only 32-bit color
@@ -212,6 +210,7 @@ public class Cursor {
     } // class Image
 
 
+    static final byte NUL = 0;
     static final short IMAGE_TYPE = 2;
     static final int HEADER_SIZE = 6;
     static final int MAX_DATA_SIZE = Integer.MAX_VALUE - 8;
@@ -407,9 +406,10 @@ public class Cursor {
     }
 
     private void addARGBImage(BufferedImage image, Point hotspot) {
-        BufferChunksOutputStream buf;
         ImageWriter imageWriter = pngWriter.get();
-        try (BufferChunksOutputStream buf0 = buf = new BufferChunksOutputStream();
+        BufferChunksOutputStream buf = new BufferChunksOutputStream();
+        // Java 9+ has more concise try-with-resources
+        try (BufferChunksOutputStream buf0 = buf;
                 ImageOutputStream out = new MemoryCacheImageOutputStream(buf0)) {
             imageWriter.setOutput(out);
             imageWriter.write(image);
@@ -548,24 +548,30 @@ public class Cursor {
         }
     }
 
+    private static final ThreadLocal<ByteBuffer> localBuffer =
+            ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(1024)
+                                                    .order(ByteOrder.LITTLE_ENDIAN));
+
     public void write(WritableByteChannel out) throws IOException {
-        try (LittleEndianOutput leOut = new LittleEndianOutput(out)) {
+        try (BufferedChannelOutput leOut = new BufferedChannelOutput(out, localBuffer.get())) {
             write(leOut);
         }
     }
 
-    private void write(LittleEndianOutput leOut) throws IOException {
-        int dataOffset = writeHeader(leOut) + imageCount() * Image.ENTRY_SIZE;
+    private void write(BufferedChannelOutput leOut) throws IOException {
+        leOut.buffer().order(ByteOrder.LITTLE_ENDIAN);
+
+        long dataOffset = writeHeader(leOut) + imageCount() * Image.ENTRY_SIZE;
         for (Image entry : entries) {
             // ICONDIRENTRY
             leOut.write(entry.width > 255 ? 0 : (byte) entry.width);
             leOut.write(entry.height > 255 ? 0 : (byte) entry.height);
             leOut.write(entry.numColors > 255 ? 0 : (byte) entry.numColors);
             leOut.write(entry.reserved);
-            leOut.writeWord(entry.hotspotX);
-            leOut.writeWord(entry.hotspotY);
-            leOut.writeDWord(entry.dataSize);
-            leOut.writeDWord(dataOffset);
+            leOut.write(entry.hotspotX);
+            leOut.write(entry.hotspotY);
+            leOut.write(entry.dataSize);
+            leOut.write((int) dataOffset); // XXX: Ensure exact UINT
             dataOffset += entry.dataSize;
         }
 
@@ -574,11 +580,11 @@ public class Cursor {
         }
     }
 
-    private int writeHeader(LittleEndianOutput leOut) throws IOException {
+    private int writeHeader(BufferedChannelOutput leOut) throws IOException {
         // ICONDIR
-        leOut.writeWord(reserved);
-        leOut.writeWord(imageType);
-        leOut.writeWord((short) imageCount());
+        leOut.write(reserved);
+        leOut.write(imageType);
+        leOut.write((short) imageCount());
         return HEADER_SIZE;
     }
 

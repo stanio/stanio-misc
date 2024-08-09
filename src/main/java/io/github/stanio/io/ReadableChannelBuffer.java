@@ -16,6 +16,8 @@ import java.util.Objects;
 /**
  * Encapsulates a source {@code ReadableByteChannel} and a {@code ByteBuffer} as
  * means to read data from it.
+ * <p>
+ * <em>Not thread-safe.</em></p>
  */
 public class ReadableChannelBuffer {
 
@@ -38,7 +40,7 @@ public class ReadableChannelBuffer {
         return this;
     }
 
-    public ByteBuffer buffer() {
+    public final ByteBuffer buffer() {
         return buffer;
     }
 

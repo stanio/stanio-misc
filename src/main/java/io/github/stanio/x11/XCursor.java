@@ -38,6 +38,7 @@ import java.awt.image.BufferedImage;
 
 import javax.imageio.ImageIO;
 
+import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
 
@@ -74,21 +75,14 @@ public class XCursor {
             return header;
         }
 
-        void writeTo(Output out) throws IOException {
-            out.writeInt(header);
-            out.writeInt(type);
-            out.writeInt(subType);
-            out.writeInt(version);
+        void writeTo(BufferedChannelOutput out) throws IOException {
+            out.write(header);
+            out.write(type);
+            out.write(subType);
+            out.write(version);
         }
 
     } // class Chunk
-
-
-    private static interface Output {
-        void writeInt(int value) throws IOException;
-        void write(int[] data, int off, int len) throws IOException;
-        void write(IntBuffer buf) throws IOException;
-    }
 
 
     public static class ImageChunk extends Chunk {
@@ -153,13 +147,13 @@ public class XCursor {
             return super.size() + pixelsLength * Integer.BYTES;
         }
 
-        @Override void writeTo(Output out) throws IOException {
+        @Override void writeTo(BufferedChannelOutput out) throws IOException {
             super.writeTo(out);
-            out.writeInt(width);
-            out.writeInt(height);
-            out.writeInt(xhot);
-            out.writeInt(yhot);
-            out.writeInt(delay);
+            out.write(width);
+            out.write(height);
+            out.write(xhot);
+            out.write(yhot);
+            out.write(delay);
             out.write(pixels());
         }
 
@@ -468,15 +462,8 @@ public class XCursor {
     }
 
     private void writeTo(WritableByteChannel wch) throws IOException {
-        try {
-            outputChannel = wch;
-            outputBuffer = localBuffer.get();
-            outputBuffer.clear();
-            write();
-        } finally {
-            outputBuffer.clear();
-            outputBuffer = null;
-            outputChannel = null;
+        try (BufferedChannelOutput out = new BufferedChannelOutput(wch, localBuffer.get())) {
+            write(out);
         }
     }
 
@@ -492,82 +479,34 @@ public class XCursor {
         return images;
     }
 
-    private void write() throws IOException {
-        List<Chunk> content = sortedContent();
-        writeHeader(content);
+    private void write(BufferedChannelOutput out) throws IOException {
+        out.buffer().order(ByteOrder.LITTLE_ENDIAN);
 
-        Output out = asOutput();
+        List<Chunk> content = sortedContent();
+        writeHeader(content, out);
+
         for (Chunk chunk : content) {
             chunk.writeTo(out);
         }
-        flushBuffer();
     }
 
-    private void writeHeader(List<Chunk> content) throws IOException {
-        ByteBuffer outBuf = outputBuffer;
-        outBuf.put(Xcur);
-        outBuf.putInt(FILE_HEADER_SIZE);
-        outBuf.putInt(FILE_VERSION);
-        outBuf.putInt(content.size());
+    private void writeHeader(List<Chunk> content, BufferedChannelOutput out) throws IOException {
+        out.write(Xcur);
+        out.write(FILE_HEADER_SIZE);
+        out.write(FILE_VERSION);
+        out.write(content.size());
 
-        int offset = outBuf.position() + content.size() * TOC_ENTRY_SIZE;
+        long offset = FILE_HEADER_SIZE + content.size() * TOC_ENTRY_SIZE;
         for (Chunk chunk : content) {
-            if (outBuf.remaining() < 3 * Integer.BYTES) {
-                flushBuffer();
-            }
-            outBuf.putInt(chunk.type);
-            outBuf.putInt(chunk.subType);
-            outBuf.putInt(offset);
+            out.write(chunk.type);
+            out.write(chunk.subType);
+            out.write((int) offset); // XXX: Ensure exact UINT
             offset += chunk.size();
         }
     }
 
     private static final ThreadLocal<ByteBuffer> localBuffer = ThreadLocal
             .withInitial(() -> ByteBuffer.allocateDirect(16 * 1024).order(ByteOrder.LITTLE_ENDIAN));
-    private ByteBuffer outputBuffer;
-    private WritableByteChannel outputChannel;
-
-    private Output asOutput() {
-        final ByteBuffer outBuf = this.outputBuffer;
-        return new Output() {
-            @Override public void writeInt(int value) throws IOException {
-                if (outBuf.remaining() < Integer.BYTES) {
-                    flushBuffer();
-                }
-                outBuf.putInt(value);
-            }
-
-            @Override public void write(int[] data, int off, int len) throws IOException {
-                write(IntBuffer.wrap(data, off, len));
-            }
-
-            @Override public void write(IntBuffer src) throws IOException {
-                IntBuffer dst = outBuf.asIntBuffer();
-                int srcLimit = src.limit();
-                while (src.hasRemaining()) {
-                    int chunkLength = Math.min(src.remaining(), dst.remaining());
-                    src.limit(src.position() + chunkLength);
-                    dst.put(src);
-                    outBuf.position(outBuf.position() + chunkLength * Integer.BYTES);
-                    src.limit(srcLimit);
-                    if (!src.hasRemaining())
-                        break;
-
-                    flushBuffer();
-                    dst = outBuf.asIntBuffer(); // full capacity
-                }
-            }
-        };
-    }
-
-    void flushBuffer() throws IOException {
-        outputBuffer.flip();
-        while (outputBuffer.hasRemaining()) {
-            outputChannel.write(outputBuffer);
-            Thread.yield();
-        }
-        outputBuffer.clear();
-    }
 
     private static String toHexString(int value) {
         return toHexString(Integer.toUnsignedLong(value));
