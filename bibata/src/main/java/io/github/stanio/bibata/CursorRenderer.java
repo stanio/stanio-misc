@@ -306,8 +306,11 @@ final class CursorRenderer {
     }
 
     public void saveHotspots() throws IOException {
-        for (SVGSizingTool hotspots : hotspotsPool.values()) {
+        var iterator = hotspotsPool.values().iterator();
+        while (iterator.hasNext()) {
+            var hotspots = iterator.next();
             hotspots.saveHotspots();
+            iterator.remove();
         }
     }
 

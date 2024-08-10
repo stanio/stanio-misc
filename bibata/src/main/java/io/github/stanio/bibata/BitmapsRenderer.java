@@ -113,8 +113,7 @@ public class BitmapsRenderer {
         return Objects.requireNonNullElse(config.resolutions(), resolutions);
     }
 
-    public void render(ThemeConfig... config)
-            throws IOException {
+    public void render(ThemeConfig... config) throws IOException {
         renderer.reset();
         try {
             for (var entry : groupByDir(config).entrySet()) {
@@ -122,9 +121,6 @@ public class BitmapsRenderer {
             }
         } finally {
             progress.pop();
-
-            if (renderer.outputType == OutputType.BITMAPS)
-                renderer.saveHotspots();
         }
     }
 
@@ -147,6 +143,8 @@ public class BitmapsRenderer {
         }
         progress.pop();
         renderer.saveDeferred();
+        if (renderer.outputType == OutputType.BITMAPS)
+            renderer.saveHotspots();
     }
 
     private final Matcher svgExt = Pattern.compile("(?i)\\.svg$").matcher("");
