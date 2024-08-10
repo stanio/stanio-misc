@@ -46,9 +46,14 @@ task windowsInstallScripts {
     outputs.dir("${buildDir}/windows-scripts")
     outputs.upToDateWhen { false }
 
+    def themeShapes = project.themeShapes
+    def themeColors = project.themeColors
+    def leftHandOpts = project.leftHandOpts
+    def windowsSizes = project.windowsSizes
+    def strokeWidths = project.strokeWidths
     doLast {
         cartesianProduct(0, themeShapes.split(',') as List,
-                                           themeColors.split(',') as List,
+                            themeColors.split(',') as List,
                             leftHandOpts.split(',') as List).each { group ->
             def args = [ shape: group[0],
                          color: group[1],
@@ -164,6 +169,10 @@ task linuxThemeFiles {
     outputs.dir("${buildDir}/linux-themes")
     outputs.upToDateWhen { false }
 
+    def themeShapes = project.themeShapes
+    def themeColors = project.themeColors
+    def leftHandOpts = project.leftHandOpts
+    def strokeWidths = project.strokeWidths
     doLast {
         cartesianProduct(0, themeShapes.split(',') as List,
                             themeColors.split(',') as List,
