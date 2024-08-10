@@ -51,13 +51,14 @@ task cursorHotspots(type: JavaExec) {
 }
 
 jar {
+    archiveBaseName = "${project.name}-lib"
     manifest {
         attributes('Main-Class': application.mainClass)
     }
 }
 
 shadowJar {
-    archiveBaseName = 'bibata'
+    archiveBaseName = project.name
     archiveClassifier = ''
     minimize {
         exclude dependency('com.google.code.gson:gson')

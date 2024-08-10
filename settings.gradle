@@ -7,6 +7,4 @@ rootProject.name = 'stanio-misc'
 
 // The dependency is the other way around, but keeping both in a single
 // repository/build is more convenient for maintenance, for the time being.
-include 'bibata'
-
-project(':bibata').name = 'mousegen'
+include 'mousegen'
