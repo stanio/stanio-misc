@@ -4,11 +4,14 @@
  */
 
 /**
- * Provides custom/alternative utilities for generating Bibata bitmap images
- * and Windows cursors.
+ * Provides the main <i>mousegen</i> tool classes.
+ * <ul>
+ * <li>{@link io.github.stanio.mousegen.MouseGen}
+ * </ul>
+ * <p><i>Mousegen</i> is a tool for generating Windows and X11 mouse cursors
+ * from SVG sources.</p>
  *
- * @see  <a href="https://github.com/ful1e5/Bibata_Cursor">Bibata Cursor</a>
  * @see  <a href="https://github.com/ful1e5/Bibata_Cursor/issues/149"
- *              >Multi-resolution cursors on Windows</a> <i>(Bibata Cursor)</i>
+ *              >Multi-resolution cursors on Windows</a> <i>(Bibata_Cursor)</i>
  */
 package io.github.stanio.mousegen;

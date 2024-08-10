@@ -43,7 +43,7 @@ public class DropShadow {
     }
 
     public static DropShadow instance() {
-        return instance(getBoolean("bibata.shadow.svg", true));
+        return instance(getBoolean("mousegen.shadow.svg", true));
     }
 
     private static boolean getBoolean(String name, boolean defaultValue) {
@@ -91,7 +91,7 @@ public class DropShadow {
     }
 
     public static String xslt() {
-        String location = System.getProperty("bibata.shadow.xslt", "");
+        String location = System.getProperty("mousegen.shadow.xslt", "");
         if (location.isBlank()) {
             URL builtIn = DropShadow.class.getResource("drop-shadow.xsl");
             if (builtIn == null) {

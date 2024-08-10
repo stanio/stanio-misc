@@ -25,7 +25,7 @@ import io.github.stanio.windows.AnimatedCursor;
 import io.github.stanio.windows.Cursor;
 import io.github.stanio.x11.XCursor;
 
-import io.github.stanio.mousegen.BitmapsRenderer.OutputType;
+import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.CursorNames.Animation;
 
 /**

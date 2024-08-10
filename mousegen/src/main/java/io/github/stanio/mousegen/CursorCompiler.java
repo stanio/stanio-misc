@@ -36,12 +36,11 @@ import io.github.stanio.windows.Cursor;
 import io.github.stanio.mousegen.CursorNames.Animation;
 
 /**
- * Command-line utility creating Bibata Windows cursors from pre-rendered
- * bitmaps ({@code yarn render}).
+ * Command-line utility creating Windows cursors from pre-rendered bitmaps.
  * <p>
  * <i>Usage:</i></p>
  * <pre>
- * java -jar bibata.jar wincur <var>&lt;bitmaps-dir></var></pre>
+ * java -jar mousegen.jar wincur <var>&lt;bitmaps-dir></var></pre>
  * <p>
  * The results are saved in a {@code cursors} subdirectory of the specified
  * <var>&lt;bitmaps-dir></var>.</p>
@@ -76,8 +75,8 @@ public class CursorCompiler {
 
     private static final Pattern WS = Pattern.compile("\\s+");
 
-    static final int maxAnimSize = Integer.getInteger("bibata.maxAnimSize", 256);
-    static final int minAnimSize = Integer.getInteger("bibata.minAnimSize", 16);
+    static final int maxAnimSize = Integer.getInteger("mousegen.maxAnimSize", 256);
+    static final int minAnimSize = Integer.getInteger("mousegen.minAnimSize", 16);
 
     private Path outputDir;
 

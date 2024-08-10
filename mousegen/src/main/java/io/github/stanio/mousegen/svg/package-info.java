@@ -1,6 +1,6 @@
 /**
- * Provides SVG processing classes not specific to the main Bibata tool
- * implementations.  Notable classes include:
+ * Provides SVG processing classes not specific to the <i>mousegen</i> tool
+ * implementation.  Notable classes include:
  * <ul>
  * <li>{@link io.github.stanio.mousegen.svg.SVGCursorMetadata}
  * <li>{@link io.github.stanio.mousegen.svg.SVGSizing}

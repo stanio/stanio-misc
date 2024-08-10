@@ -48,21 +48,21 @@ clarity/sharpness:
 
 ## Build
 
-    gradlew :bibata:shadowJar
+    gradlew :mousegen:shadowJar
 
-Copy `build/libs/bibata.jar` to the `Bibata_Cursor` working copy.
+Copy `build/libs/mousegen.jar` to the `Bibata_Cursor` working copy.
 
 ## Usage
 
-    > java -jar bibata.jar --help
-    USAGE: bibata <command> [<args>]
+    > java -jar mousegen.jar --help
+    USAGE: mousegen <command> [<args>]
 
 ### `svgsize` (deprecated)
 
 Utility for adjusting SVG sources' `width`, `height`, and `viewBox`.  Prepares the
 SVG sources for `yarn render`:
 
-    > java -jar bibata.jar svgsize --help
+    > java -jar mousegen.jar svgsize --help
     USAGE: svgsize <target-size> <viewbox-size> <svg-dir>
 
 _Note:_ This functionality is automatically done by [`render`](#render).
@@ -71,7 +71,7 @@ _Note:_ This functionality is automatically done by [`render`](#render).
 
 Utility creating Bibata Windows cursors from pre-rendered bitmaps (`yarn render`):
 
-    > java -jar bibata.jar wincur --help
+    > java -jar mousegen.jar wincur --help
     USAGE: wincur [--all-cursors] <bitmaps-dir>
 
 ### `render`
@@ -83,7 +83,7 @@ optionally [Batik](https://xmlgraphics.apache.org/batik/)).  Can create
 Windows and X (Linux) cursors directly (a la clickgen), not saving intermediate
 bitmaps:
 
-    > java -jar bibata.jar render --help
+    > java -jar mousegen.jar render --help
     USAGE: render [<project-path>] [{--windows-cursors|--linux-cursors}]
 
 ## Similar Tools

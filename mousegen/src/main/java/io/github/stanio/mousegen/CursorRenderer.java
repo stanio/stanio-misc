@@ -18,7 +18,7 @@ import org.w3c.dom.Document;
 
 import java.awt.Point;
 
-import io.github.stanio.mousegen.BitmapsRenderer.OutputType;
+import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
@@ -30,7 +30,7 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
  * Creates cursors from SVG sources.  Implements the actual cursor generation,
  * independent from the user UI ({@code BitmapsRenderer}, the CLI tool).
  *
- * @see  BitmapsRenderer
+ * @see  MouseGen
  */
 final class CursorRenderer {
 

@@ -45,7 +45,7 @@ import io.github.stanio.mousegen.util.LocalXMLReader;
  * &lt;g>
  *   &lt;path <strong>class="align-anchor"</strong> d="m <var>#,#</var> ..." /></code></pre>
  *
- * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
+ * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata_Cursor</a>
  */
 public class SVGCursorMetadata {
 

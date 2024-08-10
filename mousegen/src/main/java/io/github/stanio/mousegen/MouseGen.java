@@ -44,17 +44,14 @@ import io.github.stanio.mousegen.options.ThemeConfig;
 import io.github.stanio.mousegen.svg.DropShadow;
 
 /**
- * Command-line utility for rendering Bibata cursor bitmap images.  Alternative
- * to {@code yarn render} (using <a href="https://pptr.dev/">Puppeteer</a>)
- * using Java SVG rendering libraries.  Can create Windows cursors directly, not
- * saving intermediate bitmaps.
- * <p>
- * Renders each target size individually, aligning hinted elements to the target
- * pixel grid for maximum quality.</p>
+ * The main <i>mousegen</i> tool class providing its command-line entry point.
+ * Implements the CLI and exposes an API that could be integrated in a GUI
+ * (conceptually).
  *
- * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
+ * @see  <a href="https://github.com/stanio/stanio-misc/wiki/mousegen">mousegen</a> <i>(Wiki)</i>
+ * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata_Cursor</a>
  */
-public class BitmapsRenderer {
+public class MouseGen {
     // REVISIT: Rename to CursorGenerator, MouseGenerator, or just MouseGen for short.
 
     public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS }
@@ -69,13 +66,13 @@ public class BitmapsRenderer {
 
     private final ProgressOutput progress = new ProgressOutput();
 
-    BitmapsRenderer(Path projectDir, Path buildDir) {
+    MouseGen(Path projectDir, Path buildDir) {
         this.projectDir = Objects.requireNonNull(projectDir, "null projectDir");
         this.buildDir = Objects.requireNonNull(buildDir, "null buildDir");
         renderer = new CursorRenderer();
     }
 
-    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit, boolean wholePixelWidth) {
+    public MouseGen withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit, boolean wholePixelWidth) {
         renderer.setBaseStrokeWidth(width);
         renderer.setMinStrokeWidth(minWidth);
         renderer.setExpandFillBase(expandFillLimit);
@@ -83,7 +80,7 @@ public class BitmapsRenderer {
         return this;
     }
 
-    public BitmapsRenderer withResolutions(Collection<Integer> resolutions) {
+    public MouseGen withResolutions(Collection<Integer> resolutions) {
         if (resolutions.isEmpty()) {
             this.resolutions = new int[] { -1 };
         } else {
@@ -93,19 +90,19 @@ public class BitmapsRenderer {
         return this;
     }
 
-    public BitmapsRenderer cursorNames(Map<String, String> names,
+    public MouseGen cursorNames(Map<String, String> names,
                                        boolean allCursors,
                                        Collection<String> filter) {
         cursorNames.init(names, allCursors, filter);
         return this;
     }
 
-    public BitmapsRenderer updateExisting(boolean update) {
+    public MouseGen updateExisting(boolean update) {
         renderer.setUpdateExisting(update);
         return this;
     }
 
-    public BitmapsRenderer buildCursors(OutputType type) {
+    public MouseGen buildCursors(OutputType type) {
         renderer.setOutputType(type);
         return this;
     }
@@ -286,7 +283,7 @@ public class BitmapsRenderer {
 
         try {
             Path projectDir = configFactory.baseDir();
-            new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
+            new MouseGen(projectDir, projectDir.resolve(cmdArgs.buildDir))
                     .withBaseStrokeWidth(cmdArgs.baseStrokeWidth,
                             cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit, cmdArgs.wholePixelStroke)
                     .withResolutions(cmdArgs.resolutions())

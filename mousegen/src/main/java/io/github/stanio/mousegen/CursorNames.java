@@ -26,7 +26,7 @@ public class CursorNames {
     public static class Animation {
 
         private static float rateGain = Float
-                .parseFloat(System.getProperty("bibata.animRateGain", "1.0"));
+                .parseFloat(System.getProperty("mousegen.animRateGain", "1.0"));
 
         public final String name;
         public final float duration;

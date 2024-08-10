@@ -249,7 +249,7 @@ public class CursorHotspots {
                 OnOffFilterStream filterOutput = new OnOffFilterStream(fileOut)) {
             XMLEventWriter xmlWriter = xmlWriter(filterOutput);
 
-            String xmlDecl = System.getProperty("bibata.xmlDecl", "");
+            String xmlDecl = System.getProperty("mousegen.xmlDecl", "");
             if (!xmlDecl.isBlank()) {
                 filterOutput.write(xmlDecl.getBytes(StandardCharsets.UTF_8));
                 filterOutput.write(newLine);

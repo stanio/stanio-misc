@@ -30,7 +30,7 @@ public class X11Symlinks {
     private static final String BOLD_RED = "1;31";
     private static final String YELLOW = "33";
 
-    private static final boolean plainTerm = Boolean.getBoolean("bibata.plainTerm");
+    private static final boolean plainTerm = Boolean.getBoolean("mousegen.plainTerm");
 
     private Map<String, Set<String>> symlinks;
     private Map<String, String> backlinks;

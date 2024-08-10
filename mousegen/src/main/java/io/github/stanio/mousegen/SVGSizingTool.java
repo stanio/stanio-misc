@@ -40,11 +40,11 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
  * <p>
  * <i>Usage:</i></p>
  * <pre>
- * java -jar bibata.jar svgsize <var>&lt;target-size></var> <var>&lt;viewbox-size></var> <var>&lt;svg-dir></var></pre>
+ * java -jar mousegen.jar svgsize <var>&lt;target-size></var> <var>&lt;viewbox-size></var> <var>&lt;svg-dir></var></pre>
  * <p>
  * <i>Example:</i></p>
  * <pre>
- * java -jar bibata.jar svgsize 48 384 svg/modern</pre>
+ * java -jar mousegen.jar svgsize 48 384 svg/modern</pre>
  * <p>
  * This will update the SVG sources like:</p>
  * <pre>
@@ -60,7 +60,7 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
  * is the specified <var>&lt;viewbox-size></var> associated with the target
  * cursor sizing scheme: <i>Regular</i>, <i>Large</i>, <i>Extra-Large</i>.</p>
  *
- * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata Cursor</a>
+ * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata_Cursor</a>
  */
 public class SVGSizingTool {
 

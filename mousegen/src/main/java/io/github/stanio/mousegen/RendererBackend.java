@@ -65,12 +65,12 @@ abstract class RendererBackend {
     Integer frameNum;
 
     public static RendererBackend newInstance() {
-        String key = System.getProperty("bibata.renderer", "").strip();
+        String key = System.getProperty("mousegen.renderer", "").strip();
         Supplier<RendererBackend> ctor = BACKENDS.get(key);
         if (ctor != null) {
             return ctor.get();
         } else if (!key.isEmpty()) {
-            System.err.append("Unknown bibata.renderer=").println(key);
+            System.err.append("Unknown mousegen.renderer=").println(key);
         }
         return new JSVGRendererBackend();
         //return new BatikRendererBackend();

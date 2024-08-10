@@ -14,7 +14,7 @@ public final class Command {
     private Command() {/* no instances */}
 
     private static void printHelp(PrintStream err) {
-        err.println("USAGE: bibata <command> [<args>]");
+        err.println("USAGE: mousegen <command> [<args>]");
         err.println();
         err.println("Commands: {svgsize|wincur|render}");
     }
@@ -31,7 +31,7 @@ public final class Command {
         } else if ("wincur".equals(cmd)) {
             CursorCompiler.main(cmdArgs);
         } else if ("render".equals(cmd)) {
-            BitmapsRenderer.main(cmdArgs);
+            MouseGen.main(cmdArgs);
         } else if (Arrays.asList("-h", "--help").contains(cmd)) {
             printHelp(System.out);
         } else {
