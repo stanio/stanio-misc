@@ -57,9 +57,9 @@ final class CursorRenderer {
     private volatile DocumentColors colorTheme;
     private volatile SVGSizing svgSizing;
     private volatile SVGSizingTool sizingTool;
-    double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
-    double minStrokeWidth;
-    double expandFillLimit;
+    private double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
+    private double minStrokeWidth;
+    private double expandFillLimit;
     private double strokeOffset;
     private double fillOffset;
 
@@ -67,8 +67,6 @@ final class CursorRenderer {
     private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
 
     private CursorBuilder currentFrames;
-
-    private boolean outputSet;
 
     CursorRenderer() {
         this.loadTransformer = new SVGTransformer();
@@ -78,7 +76,18 @@ final class CursorRenderer {
         variantTransformer.setBaseStrokeWidth(baseStrokeWidth);
     }
 
+    private void buildInProgress(String message) {
+        // Current build in progress - renderTargetSize() has been invoked at least once.
+        // Call saveCurrent() to finalize, or setFile() to start a new setup (discards
+        // current).  Full reset() discards any deferred animations and hotspots.
+        if (currentFrames != null)
+            throw new IllegalStateException(message + "\n\tBuild in progress: "
+                    + targetName + ". Call saveCurrent() to complete, or setFile()"
+                    + " to enable a new setup");
+    }
+
     public void setOutputType(OutputType type) {
+        buildInProgress("Can't change output type");
         this.outputType = type;
     }
 
@@ -130,7 +139,6 @@ final class CursorRenderer {
         currentFrames = null;
         resetDocument();
         sizingTool = null;
-        outputSet = false;
     }
 
     private void resetDocument() {
@@ -143,14 +151,14 @@ final class CursorRenderer {
     }
 
     public void setAnimation(Animation animation, Integer frameNum) {
+        buildInProgress("Can't change animation properties");
         this.animation = animation;
         this.frameNum = backend.frameNum = frameNum;
-        outputSet = false;
     }
 
     public void setOutDir(Path dir) {
+        buildInProgress("Can't change output directory");
         this.outDir = dir;
-        outputSet = false;
     }
 
     public void setUpdateExisting(boolean update) {
@@ -221,21 +229,21 @@ final class CursorRenderer {
     }
 
     private void setUpOutput() throws IOException {
-        if (outputSet) return;
+        if (currentFrames != null)
+            return;
 
         try {
             if (animation == null || frameNum == null) {
                 currentFrames = newCursorBuilder();
             } else {
                 assert (animation != null);
-                    currentFrames = deferredFrames.computeIfAbsent(outDir.resolve(targetName),
-                                                                   k -> newCursorBuilder());
+                currentFrames = deferredFrames.computeIfAbsent(outDir.resolve(targetName),
+                                                               k -> newCursorBuilder());
             }
         } catch (UncheckedIOException e) {
             throw e.getCause();
         }
         Files.createDirectories(outDir);
-        outputSet = true;
     }
 
     private CursorBuilder newCursorBuilder() throws UncheckedIOException {
