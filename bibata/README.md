@@ -43,8 +43,8 @@ clarity/sharpness:
 
     Demo in comment to [stanio/Bibata_Cursor@`8cc992f`](https://github.com/stanio/Bibata_Cursor/commit/8cc992faefc8d9327957d0d7a58b0ac1687bcc5f#commitcomment-131173743).
 
-    Details: [SVGCursorMetadata](src/main/java/io/github/stanio/bibata/svg/SVGCursorMetadata.java),
-    [AnchorPoint](src/main/java/io/github/stanio/bibata/svg/AnchorPoint.java).
+    Details: [SVGCursorMetadata](src/main/java/io/github/stanio/mousegen/svg/SVGCursorMetadata.java),
+    [AnchorPoint](src/main/java/io/github/stanio/mousegen/svg/AnchorPoint.java).
 
 ## Build
 

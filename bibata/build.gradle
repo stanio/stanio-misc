@@ -7,7 +7,7 @@ plugins {
 group = 'io.github.stanio'
 
 application {
-    mainClass = 'io.github.stanio.bibata.Command'
+    mainClass = 'io.github.stanio.mousegen.Command'
     def argStr = bibataJvmArgs.trim()
     applicationDefaultJvmArgs = argStr ? argStr.split(' ') as List
                                        : []
@@ -31,7 +31,7 @@ task x11Symlinks(type: JavaExec) {
     group = 'package'
 
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'io.github.stanio.bibata.config.X11Symlinks'
+    mainClass = 'io.github.stanio.mousegen.config.X11Symlinks'
 }
 
 task colorWheel(type: JavaExec) {
@@ -39,7 +39,7 @@ task colorWheel(type: JavaExec) {
     group = 'config'
 
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'io.github.stanio.bibata.source.ColorWheel'
+    mainClass = 'io.github.stanio.mousegen.source.ColorWheel'
 }
 
 task cursorHotspots(type: JavaExec) {
@@ -47,7 +47,7 @@ task cursorHotspots(type: JavaExec) {
     group = 'config'
 
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'io.github.stanio.bibata.source.CursorHotspots'
+    mainClass = 'io.github.stanio.mousegen.source.CursorHotspots'
 }
 
 jar {
