@@ -174,12 +174,7 @@ final class CursorRenderer {
         this.canvasSizing = sizeScheme;
     }
 
-    private void prepareDocument(int targetSize) throws IOException {
-        /* setCanvasSize */ {
-            sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
-                    new SVGSizingTool(canvasSizing.canvasSize, dir.resolve("cursor-hotspots.json")));
-        }
-
+    private void setUpStrokeWidth(int targetSize) throws IOException {
         Double actualStrokeWidth; {
             double hairWidth;
             // It is a bit unfortunate we need to initialize this an extra time upfront.
@@ -217,6 +212,15 @@ final class CursorRenderer {
                 strokeOffset = actualStrokeWidth - baseStrokeWidth;
             }
         }
+    }
+
+    private void prepareDocument(int targetSize) throws IOException {
+        /* setCanvasSize */ {
+            sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
+                    new SVGSizingTool(canvasSizing.canvasSize, dir.resolve("cursor-hotspots.json")));
+        }
+
+        setUpStrokeWidth(targetSize);
 
         boolean resetDocument;
         if (strokeOffset == variantTransformer.strokeDiff()
