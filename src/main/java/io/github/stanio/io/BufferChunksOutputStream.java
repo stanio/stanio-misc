@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
  */
 public class BufferChunksOutputStream extends OutputStream {
 
-    private ByteBufferChunks chunks;
+    private final ByteBufferChunks chunks;
 
     public BufferChunksOutputStream() {
         this(1024);
@@ -32,13 +32,14 @@ public class BufferChunksOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
+        ensureOpen();
+
         chunks.current().put((byte) b);
     }
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        if (chunks.isSealed())
-            throw new IOException("closed");
+        ensureOpen();
 
         int remaining = len;
         while (remaining > 0) {
@@ -47,6 +48,11 @@ public class BufferChunksOutputStream extends OutputStream {
             chunk.put(b, off + (len - remaining), count);
             remaining -= count;
         }
+    }
+
+    private void ensureOpen() throws IOException {
+        if (chunks.isSealed())
+            throw new IOException("closed");
     }
 
     @Override

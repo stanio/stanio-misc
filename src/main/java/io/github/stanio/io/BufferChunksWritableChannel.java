@@ -13,7 +13,7 @@ import java.nio.channels.WritableByteChannel;
  */
 public class BufferChunksWritableChannel implements WritableByteChannel {
 
-    private ByteBufferChunks chunks;
+    private final ByteBufferChunks chunks;
 
     public BufferChunksWritableChannel() {
         this(1024);
@@ -32,12 +32,15 @@ public class BufferChunksWritableChannel implements WritableByteChannel {
 
     @Override
     public int write(ByteBuffer src) throws IOException {
+        if (!isOpen())
+            throw new IOException("closed");
+
         int srcLen = src.remaining();
         int srcLimit = src.limit();
         while (src.hasRemaining()) {
             ByteBuffer dst = chunks.current();
             int count = Math.min(src.remaining(), dst.remaining());
-            src.limit(count);
+            src.limit(src.position() + count);
             dst.put(src);
             src.limit(srcLimit);
         }
@@ -50,7 +53,7 @@ public class BufferChunksWritableChannel implements WritableByteChannel {
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         chunks.seal();
     }
 

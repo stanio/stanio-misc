@@ -20,6 +20,7 @@ final class ByteBufferChunks {
     }
 
     ByteBuffer[] toArray() {
+        // REVISIT: Maybe duplicate() the individual buffers.
         return chunks.toArray(new ByteBuffer[chunks.size()]);
     }
 
