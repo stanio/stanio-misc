@@ -59,6 +59,7 @@ final class CursorRenderer {
     private volatile SVGSizingTool sizingTool;
     private double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
     private double minStrokeWidth;
+    private boolean wholePixelStroke;
     private double expandFillLimit;
     private double strokeOffset;
     private double fillOffset;
@@ -99,6 +100,10 @@ final class CursorRenderer {
 
     public void setMinStrokeWidth(double width) {
         this.minStrokeWidth = width;
+    }
+
+    public void setWholePixelStroke(boolean wholePixel) {
+        this.wholePixelStroke = wholePixel;
     }
 
     public void setExpandFillBase(Double expandLimit) {
@@ -188,6 +193,14 @@ final class CursorRenderer {
                 actualStrokeWidth = hairWidth;
             } else {
                 actualStrokeWidth = strokeWidth.orElse(null);
+            }
+            if (wholePixelStroke) {
+                double sourceWidth = (actualStrokeWidth == null)
+                                     ? baseStrokeWidth
+                                     : actualStrokeWidth;
+                double pixelWidth = sourceWidth * targetSize / sourceCanvasSize;
+                pixelWidth = Math.floor(pixelWidth + 0.25); // round 0.75 up
+                actualStrokeWidth = pixelWidth * sourceCanvasSize / targetSize;
             }
         }
 
@@ -316,6 +329,12 @@ final class CursorRenderer {
 
     public void reset() {
         resetFile();
+        setStrokeWidth(null);
+        setBaseStrokeWidth(null);
+        setMinStrokeWidth(0);
+        setWholePixelStroke(false);
+        setExpandFillBase(null);
+        setPointerShadow(null);
         hotspotsPool.clear();
         deferredFrames.clear();
     }

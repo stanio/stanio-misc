@@ -75,10 +75,11 @@ public class BitmapsRenderer {
         renderer = new CursorRenderer();
     }
 
-    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit) {
+    public BitmapsRenderer withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit, boolean wholePixelWidth) {
         renderer.setBaseStrokeWidth(width);
         renderer.setMinStrokeWidth(minWidth);
         renderer.setExpandFillBase(expandFillLimit);
+        renderer.setWholePixelStroke(wholePixelWidth);
         return this;
     }
 
@@ -114,7 +115,6 @@ public class BitmapsRenderer {
     }
 
     public void render(ThemeConfig... config) throws IOException {
-        renderer.reset();
         try {
             for (var entry : groupByDir(config).entrySet()) {
                 renderDir(entry.getKey(), entry.getValue());
@@ -288,7 +288,7 @@ public class BitmapsRenderer {
             Path projectDir = configFactory.baseDir();
             new BitmapsRenderer(projectDir, projectDir.resolve(cmdArgs.buildDir))
                     .withBaseStrokeWidth(cmdArgs.baseStrokeWidth,
-                            cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit)
+                            cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit, cmdArgs.wholePixelStroke)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .updateExisting(cmdArgs.updateExisting)
@@ -344,6 +344,7 @@ public class BitmapsRenderer {
         double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
         double minStrokeWidth;
         Double expandFillLimit;
+        boolean wholePixelStroke;
         boolean defaultStrokeAlso;
         boolean allVariants;
 
@@ -380,6 +381,7 @@ public class BitmapsRenderer {
                     .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
                     .acceptOption("--min-stroke-width",
                             val -> minStrokeWidth = Double.parseDouble(val))
+                    .acceptFlag("--whole-pixel-stroke", () -> wholePixelStroke = true)
                     .acceptOptionalArg("--expand-fill",
                             val -> expandFillLimit = val.isEmpty() ? Double.MAX_VALUE
                                                                    : Double.parseDouble(val))
