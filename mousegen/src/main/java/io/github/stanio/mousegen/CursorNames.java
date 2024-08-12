@@ -42,11 +42,11 @@ public class CursorNames {
         }
 
         public int jiffies() {
-            return Math.round(60 / (frameRate * rateGain));
+            return Math.max(1, Math.round(60 / (frameRate * rateGain)));
         }
 
         public int delayMillis() {
-            return (int) (1000 / (frameRate * rateGain));
+            return Math.max(1, Math.round(1000 / (frameRate * rateGain)));
         }
 
         public static Animation lookUp(String name) {
