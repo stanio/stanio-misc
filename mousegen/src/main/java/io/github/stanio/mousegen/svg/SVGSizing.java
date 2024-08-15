@@ -275,7 +275,9 @@ public class SVGSizing {
      *          {@code biasValue == 0}
      */
     private static int roundHotspotCoord(double coordinate, double biasValue, boolean beyondCenter) {
-        int rounded = (int) Math.round(coordinate);
+        // Round 0.33-up or 0.66-up depending on bias direction
+        // REVISIT: Does (biasValue == 0) need to be handled specifically with Math.round()?
+        int rounded = (int) Math.floor(coordinate + (biasValue < 0 ? 0.66015625 : 0.33984375));
         if  (biasValue > 0 ||
                 // REVISIT: Should (rounded > coordinate) be ignored when using center heuristics?
                 (biasValue == 0 && (rounded > coordinate
