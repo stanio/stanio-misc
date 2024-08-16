@@ -51,17 +51,20 @@ task windowsInstallScripts {
     def leftHandOpts = project.leftHandOpts
     def windowsSizes = project.windowsSizes
     def strokeWidths = project.strokeWidths
+    def shadowOptions = project.shadowOptions
     doLast {
         cartesianProduct(0, themeShapes.split(',') as List,
                             themeColors.split(',') as List,
-                            leftHandOpts.split(',') as List).each { group ->
+                            leftHandOpts.split(',') as List,
+                            shadowOptions.split(',') as List).each { group ->
             def args = [ shape: group[0],
                          color: group[1],
-                         leftHand: group[2] ]
+                         leftHand: group[2],
+                         shadow: group[3] ]
 
             def themeIndex = 1
             def setupInfo = [
-                name: themeName(args),
+                name: "Bibata ${winCurDir(args, ' ', '')}",
                 comment: themeComment(args),
                 fileSets: [:],
                 destinationDirs: [],
@@ -72,12 +75,12 @@ task windowsInstallScripts {
             cartesianProduct(0, windowsSizes.split(',') as List,
                                 strokeWidths.split(',') as List).each { opts ->
                 args << [ sizing: opts[0],
-                          outline: opts[1],
-                          shadow: null ]
+                          outline: opts[1] ]
+
+                if (args.shadow && args.sizing == 'Extra-Large')
+                    return; // continue
 
                 addSetupInfo(args, themeIndex++, setupInfo)
-                if (args.sizing != 'Extra-Large')
-                    addSetupInfo(args << [shadow: 'Shadow'], themeIndex++, setupInfo)
             }
             writeWindowsInstallScripts(setupInfo)
         }
@@ -155,11 +158,11 @@ def addSetupInfo(Map args, index, setupInfo) {
                          "${schemeNameVar}        = \"${name}\""
 }
 
-def winCurDir(Map args) {
+def winCurDir(Map args, delimiter = '-', defaultSizing = 'Normal') {
     def tags = [ args.leftHand, args.shape, args.color,
-                 args.sizing ? args.sizing : 'Normal',
+                 args.sizing ? args.sizing : defaultSizing,
                  args.outline, args.shadow] - null - ''
-    return tags.join('-')
+    return tags.join(delimiter)
 }
 
 task linuxThemeFiles {
@@ -173,20 +176,21 @@ task linuxThemeFiles {
     def themeColors = project.themeColors
     def leftHandOpts = project.leftHandOpts
     def strokeWidths = project.strokeWidths
+    def shadowOptions = project.shadowOptions
     doLast {
         cartesianProduct(0, themeShapes.split(',') as List,
                             themeColors.split(',') as List,
                             leftHandOpts.split(',') as List,
-                            strokeWidths.split(',') as List).each { row ->
+                            strokeWidths.split(',') as List,
+                            shadowOptions.split(',') as List).each { row ->
             def args = [ shape: row[0],
                          color: row[1],
                          leftHand: row[2],
                          sizing: null,
                          outline: row[3],
-                         shadow: null ]
+                         shadow: row[4] ]
 
             writeLinuxThemeFiles(args)
-            writeLinuxThemeFiles(args << [shadow: 'Shadow'])
         }
     }
 }
