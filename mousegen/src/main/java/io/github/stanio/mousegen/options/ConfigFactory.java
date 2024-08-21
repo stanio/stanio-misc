@@ -4,6 +4,8 @@
  */
 package io.github.stanio.mousegen.options;
 
+import static io.github.stanio.collect.DataSets.cartesianProduct;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -195,12 +197,12 @@ public final class ConfigFactory {
         List<ThemeConfig> result = new ArrayList<>();
 
         // Minimize source re-transformations by grouping relevant options first.
-        List<List<Object>> optionCombinations =
-                cartesianProduct(0, strokeWidths(strokeOptions, defaultStrokeAlso), // [0]
-                                    setOf(noShadowAlso, pointerShadow), // [1]
-                                    sourceConfigs,                     // [2]
-                                    colorOptions,                      // [3]
-                                    sizeOptions);                      // [4]
+        Collection<List<Object>> optionCombinations =
+                cartesianProduct(strokeWidths(strokeOptions, defaultStrokeAlso), // [0]
+                                 setOf(noShadowAlso, pointerShadow), // [1]
+                                 sourceConfigs,                      // [2]
+                                 setOf(false, colorOptions),         // [3]
+                                 sizeOptions);                       // [4]
 
         for (List<Object> combination : optionCombinations) {
             ThemeConfig source = (ThemeConfig) combination.get(2);
@@ -304,38 +306,6 @@ public final class ConfigFactory {
             }
         }
         result.add(variant);
-    }
-
-    /*
-     * Cartesian product of an arbitrary number of sets
-     * <https://stackoverflow.com/a/714256/4166251>
-     */
-    static List<List<Object>>
-            cartesianProduct(int index, Collection<?>... options) {
-        if (index == options.length) {
-            return List.of(Arrays.asList(new Object[options.length]));
-        }
-
-        Collection<?> optionValues = options[index];
-        if (optionValues.isEmpty()) {
-            // REVISIT: Should this be an illegal argument?
-            optionValues = Collections.singleton(null);
-        }
-
-        List<List<Object>> subProduct = cartesianProduct(index + 1, options);
-        List<List<Object>> combinations =
-                new ArrayList<>(optionValues.size() * subProduct.size());
-        for (Object value : optionValues) {
-            if (subProduct == null) {
-                subProduct = cartesianProduct(index + 1, options);
-            }
-            for (List<Object> row : subProduct) {
-                row.set(index, value);
-                combinations.add(row);
-            }
-            subProduct = null;
-        }
-        return combinations;
     }
 
     static <T> Set<T> setOf(boolean binary, T value) {
