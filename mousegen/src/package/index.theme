@@ -2,7 +2,7 @@
 Name=${curDir}
 Name[en]=${name}
 Comment=${comment} (v${version})
-Inherits="hicolor"
+Inherits=hicolor
 
 # Cursors-only theme
 Directories=
