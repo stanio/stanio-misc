@@ -9,61 +9,103 @@ import java.util.List;
 
 class ProgressOutput {
 
-    private static final String[] itemSeparators = { ".\n\n", ".\n", ";\n\t", ", " };
+    private final String[] prefixes;
+    private final String[] separtors;
+    private final String[] suffixes;
 
-    private static final String[] levelSeparators = { "\n\n", ": " };
-
-    private static final List<Boolean> firstItems = new ArrayList<>();
+    private final List<Boolean> firstItems = new ArrayList<>();
 
     ProgressOutput() {
+        this(new String[] { "",     "\n    ", ": ", " " },
+             new String[] { "\n\n", "\n    ", ";\n        ", ", " },
+             new String[] { "\n",   "",       ".",  "" });
+    }
+
+    ProgressOutput(String[] prefixes,
+                   String[] separtors,
+                   String[] suffixes) {
+        this.prefixes = prefixes;
+        this.separtors = separtors;
+        this.suffixes = suffixes;
         firstItems.add(true);
     }
 
-    private int level() {
+    final int level() {
         return firstItems.size() - 1;
     }
 
-    private String levelSeparator() {
-        int index = level();
-        return (index < levelSeparators.length)
-                ? levelSeparators[index]
-                : " ";
-    }
-
-    private String itemSeparator() {
-        int index = level();
-        return (index < itemSeparators.length)
-                ? itemSeparators[index]
-                : " ";
-    }
-
-    ProgressOutput push(Object category) {
-        next(category);
-        if (!String.valueOf(category).isEmpty()) {
-            System.out.append(levelSeparator());
+    private boolean firstItem() {
+        int level = level();
+        if (firstItems.get(level)) {
+            firstItems.set(level, false);
+            return true;
         }
-        firstItems.add(true);
-        return this;
+        return false;
     }
 
-    ProgressOutput next(Object item) {
-        if (firstItems.get(level())) {
-            firstItems.set(level(), false);
+    private String prefix() {
+        int index = level();
+        return (index < prefixes.length)
+                ? prefixes[index]
+                : "";
+    }
+
+    private String separator() {
+        int index = level();
+        return (index < separtors.length)
+                ? separtors[index]
+                : " ";
+    }
+
+    public void next(Object item) {
+        if (firstItem()) {
+            printPrefix(prefix());
         } else {
-            System.out.append(itemSeparator());
+            printSeparator(separator());
         }
-        System.out.append(String.valueOf(item));
-        return this;
+        printItem(item);
     }
 
-    ProgressOutput pop() {
+    public void push(Object parent) {
+        next(parent);
+        firstItems.add(true);
+    }
+
+    public void pop() {
         int level = level();
         if (level > 0) {
-            firstItems.remove(level);
+            if (!firstItems.remove(level)
+                    && level < suffixes.length) {
+                printSuffix(suffixes[level]);
+            }
         } else {
-            System.out.append(itemSeparators[0]);
+            printSuffix(suffixes[0]);
         }
-        return this;
+    }
+
+    void printPrefix(String prefix) {
+        print(prefix);
+    }
+
+    void printSeparator(String separator) {
+        print(separator);
+    }
+
+    void printSuffix(String suffix) {
+        print(suffix);
+    }
+
+    void printItem(Object item) {
+        print(String.valueOf(item));
+        flush();
+    }
+
+    void print(String text) {
+        System.out.append(text);
+    }
+
+    void flush() {
+        System.out.flush();
     }
 
 }
