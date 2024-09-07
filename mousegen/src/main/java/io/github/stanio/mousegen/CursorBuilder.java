@@ -202,7 +202,7 @@ abstract class CursorBuilder {
 
         static BitmapOutputBuilder newInstance(Path targetPath, Animation animation)
                 throws IOException {
-            Files.createDirectories(targetPath);
+            Files.createDirectories(animation == null ? targetPath.getParent() : targetPath);
             return new BitmapOutputBuilder(targetPath, animation);
         }
 
