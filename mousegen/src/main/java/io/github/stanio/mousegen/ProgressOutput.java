@@ -4,7 +4,9 @@
  */
 package io.github.stanio.mousegen;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 class ProgressOutput {
@@ -28,6 +30,11 @@ class ProgressOutput {
         this.separtors = separtors;
         this.suffixes = suffixes;
         firstItems.add(true);
+    }
+
+    static ProgressOutput newInstance() {
+        return Boolean.getBoolean("mousegen.dynamicOutput") ? new DynamicLineOutput()
+                                                            : new ProgressOutput();
     }
 
     final int level() {
@@ -107,5 +114,80 @@ class ProgressOutput {
     void flush() {
         System.out.flush();
     }
+
+
+    private static class DynamicLineOutput extends ProgressOutput {
+
+        private final StringBuilder lineBuffer = new StringBuilder("\r\033[K");
+        private final Deque<Integer> lineMarks = new ArrayDeque<>(5);
+        private final int resetSize;
+
+        DynamicLineOutput() {
+            super(new String[] { "",     "\n    ", ": ", " " },
+                  new String[] { "\n\n", "\n    ", "; ", ", " },
+                  new String[] { "\n",   "",       " ✔", "" });
+            resetSize = lineBuffer.length();
+        }
+
+        private void pushMark() {
+            lineMarks.push(lineBuffer.length());
+        }
+
+        private void popMark() {
+            lineMarks.poll();
+        }
+
+        private StringBuilder resetLine() {
+            Integer mark = lineMarks.peek();
+            if (mark != null) {
+                lineBuffer.setLength(mark);
+            }
+            return lineBuffer;
+        }
+
+        @Override
+        void printPrefix(String prefix) {
+            pushMark();
+            super.printPrefix(prefix);
+            pushMark();
+        }
+
+        @Override
+        void printItem(Object item) {
+            resetLine();
+            super.printItem(item);
+        }
+
+        @Override
+        void printSuffix(String suffix) {
+            popMark();
+            resetLine();
+            super.printSuffix(suffix);
+            popMark();
+        }
+
+        @Override
+        void print(String text) {
+            int lineBreak = text.lastIndexOf('\n');
+            if (lineBreak < 0) {
+                lineBuffer.append(text);
+                return;
+            }
+            lineBuffer.append(text.substring(0, lineBreak + 1));
+            flush();
+
+            lineMarks.clear();
+            lineBuffer.setLength(resetSize);
+            lineBuffer.append(text.substring(lineBreak + 1));
+        }
+
+        @Override
+        void flush() {
+            super.print(lineBuffer.toString());
+            super.flush();
+        }
+
+    } // class DynamicLineOutput
+
 
 }

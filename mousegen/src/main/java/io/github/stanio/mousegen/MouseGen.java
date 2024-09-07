@@ -64,7 +64,7 @@ public class MouseGen {
 
     private final CursorRenderer renderer;
 
-    private final ProgressOutput progress = new ProgressOutput();
+    private final ProgressOutput progress = ProgressOutput.newInstance();
 
     MouseGen(Path projectDir, Path buildDir) {
         this.projectDir = Objects.requireNonNull(projectDir, "null projectDir");
