@@ -7,10 +7,10 @@ package io.github.stanio.mousegen.ini_files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -100,69 +100,80 @@ public class Template {
 
     private final boolean literalText;
 
-    private final boolean cleanEmptyArgDecoration;
+    private final boolean dynamicDecoration;
 
-    private final Map<String, Template> namedTemplates = new HashMap<>();
-
-    public Template(String template) {
-        this(template, false);
-    }
-
-    public Template(String template, boolean cleanDecoration) {
-        this.fragments = Fragment.parse(template);
+    protected Template(List<Fragment> fragments, boolean dynamicDecoration) {
+        this.fragments = fragments;
         this.literalText = (fragments.size() == 1)
                 && (fragments.get(0) instanceof Fragment.Text);
-        this.cleanEmptyArgDecoration = cleanDecoration;
+        this.dynamicDecoration = dynamicDecoration;
+    }
+
+    public static Template literal(String text) {
+        return new Template(List.of(new Fragment.Text(text)), false);
+    }
+
+    public static Template parse(String template) {
+        return new Template(Fragment.parse(template), false);
+    }
+
+    public static Template parseDynamic(String template) {
+        return new Template(Fragment.parse(template), true);
     }
 
     public static Map<String, Template> vars(Map<String, String> templates) {
-        return templates.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey,
-                        entry -> new Template(entry.getValue(), true)));
+        return vars(Template::parseDynamic, templates);
     }
 
-    public Template withVars(Map<String, Template> templates) {
-        Map<String, Template> named = this.namedTemplates;
-        named.clear();
-        named.putAll(templates);
-        return this;
+    public static Map<String, Template> vars(Function<String, Template> ctor,
+                                             Map<String, String> templates) {
+        return templates.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        entry -> ctor.apply(entry.getValue())));
     }
 
     private boolean processing;
 
     public String apply(String... args) {
+        return apply(Collections.emptyMap(), args);
+    }
+
+    public String apply(Map<String, Template> vars) {
+        return apply(vars, new String[0]);
+    }
+
+    public String apply(Map<String, Template> vars, String... args) {
         if (literalText) {
             return fragments.get(0).toString();
         }
 
         BufferedOutput buf = BufferedOutput.newBuffer();
-        apply(buf, args);
+        apply(buf, vars, args);
         return buf.toString();
     }
 
-    void apply(BufferedOutput parent, String[] args) {
+    void apply(BufferedOutput parent, Map<String, Template> vars, String[] args) {
         if (literalText) {
             parent.appendReplacement(fragments.get(0).toString());
             return;
         }
 
         if (processing)
-            throw new ConcurrentModificationException("Circular dependency: "
-                    + fragments + "\n\t" + namedTemplates);
+            throw new ConcurrentModificationException("Circular dependency: " + fragments);
 
         processing = true;
         try {
-            BufferedOutput out = parent.nestedOutput(cleanEmptyArgDecoration);
+            BufferedOutput out = parent.nestedOutput(dynamicDecoration);
             for (Fragment item : fragments) {
                 if (item instanceof Fragment.NumRef) {
                     int index = ((Fragment.NumRef) item).value;
                     out.appendReplacement(index > args.length ? "" : args[index - 1]);
                 } else if (item instanceof Fragment.NameRef) {
-                    Template sub = namedTemplates.get(((Fragment.NameRef) item).value);
+                    Template sub = vars.get(((Fragment.NameRef) item).value);
                     if (sub == null) {
                         out.appendReplacement("");
                     } else {
-                        sub.apply(out, args);
+                        sub.apply(out, vars, args);
                     }
                 } else {
                     out.appendLiteral(item.toString());
@@ -250,9 +261,7 @@ public class Template {
     public String toString() {
         return "Template(fragments: " + fragments
                 + ", literalText: " + literalText
-                + ", cleanEmptyArgDecoration: " + cleanEmptyArgDecoration
-                // Avoid StackOverflowError in case of circular dependency
-                + ", namedTemplates: " + namedTemplates.keySet() + ")";
+                + ", dynamicDecoration: " + dynamicDecoration;
     }
 
     public static String[] mapArgs(Map<String, String> substitutions, String... args) {

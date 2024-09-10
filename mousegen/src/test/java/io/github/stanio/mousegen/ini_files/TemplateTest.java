@@ -16,82 +16,100 @@ class TemplateTest {
 
     @Test
     void literalText() {
-        String text = "Foo bar baz";
-        String expanded = new Template(text, true).apply();
-        assertThat(expanded).as("expanded").isEqualTo(text);
+        // Given
+        Template template = Template.parseDynamic("Foo bar baz");
+        // When
+        String expanded = template.apply();
+        // Then
+        assertThat(expanded).as("expanded").isEqualTo("Foo bar baz");
     }
 
     @Test
     void stripEmptyArgPrefix() {
-        String template = "Foo $1 baz $2 qux";
-        String expanded = new Template(template, true).apply("bar");
+        // Given
+        Template template = Template.parseDynamic("Foo $1 baz $2 qux");
+        // When
+        String expanded = template.apply("bar");
+        // Then
         assertThat(expanded).as("expanded").isEqualTo("Foo bar qux");
     }
 
     @Test
     void stripEmtpyArgSuffix() {
-        String template = "Foo $1 baz $2 qux";
-        String expanded = new Template(template, true).apply("", "bar");
+        // Given
+        Template template = Template.parseDynamic("Foo $1 baz $2 qux");
+        // When
+        String expanded = template.apply("", "bar");
+        // Then
         assertThat(expanded).as("expanded").isEqualTo("Foo bar qux");
     }
 
     @Test
     void stripEmptyVarPrefix() {
-        String template = "Foo ${a} baz ${b} qux";
-        String expanded = new Template(template, true)
-                .withVars(Map.of("a", new Template("$1"),
-                                           "b", new Template("$2")))
-                .apply("bar", "");
+        // Given
+        Template template = Template.parseDynamic("Foo ${a} baz ${b} qux");
+        Map<String, Template> vars = Template
+                .vars(Template::parse, Map.of("a", "$1", "b", "$2"));
+        // When
+        String expanded = template.apply(vars, "bar", "");
+        // Then
         assertThat(expanded).as("expanded").isEqualTo("Foo bar qux");
     }
 
     @Test
     void stripEmptyVarSuffix() {
-        String template = "Foo ${a} baz ${b} qux";
-        String expanded = new Template(template, true)
-                .withVars(Map.of("a", new Template("$1"),
-                                           "b", new Template("$2")))
-                .apply("", "bar");
+        // Given
+        Template template = Template.parseDynamic("Foo ${a} baz ${b} qux");
+        Map<String, Template> vars = Template
+                .vars(Template::parse, Map.of("a", "$1", "b", "$2"));
+        // When
+        String expanded = template.apply(vars, "", "bar");
+        // Then
         assertThat(expanded).as("expanded").isEqualTo("Foo bar qux");
     }
 
     @Test
     void keepTextAroundEmptyArgs() {
-        String template = "Foo-${a}-bar-$1";
-        String expanded = new Template(template)
-                .withVars(Map.of("a", new Template("", true)))
-                .apply();
+        // Given
+        Template template = Template.parse("Foo-${a}-bar-$1");
+        Map<String, Template> vars = Template.vars(Map.of("a", ""));
+        // When
+        String expanded = template.apply(vars);
+        // Then
         assertThat(expanded).as("expanded").isEqualTo("Foo--bar-");
     }
 
     @Test
     void namedTemplates() {
-        String template = "Foo ${a} baz ${b} qux ${c}";
-        String expanded = new Template(template, true)
-                .withVars(Template.vars(Map.of("a", "[$1]", "b", "bar")))
-                .apply("");
-
+        // Given
+        Template template = Template.parseDynamic("Foo ${a} baz ${b} qux ${c}");
+        Map<String, Template> vars = Template.vars(Map.of("a", "[$1]", "b", "bar"));
+        // When
+        String expanded = template.apply(vars, "");
+        // Then
         assertThat(expanded).as("expanded").isEqualTo("Foo bar");
     }
 
     @Test
     void dollarEscaping() {
-        String template = "Foo $$$${x} bar ${1} baz $y $$$ qux";
-        String expanded = new Template(template, true)
-                .withVars(Template.vars(Map.of("x", "YYY", "y", "ZZZ")))
-                .apply("aaa");
-
+        // Given
+        Template template = Template.parseDynamic("Foo $$$${x} bar ${1} baz $y $$$ qux");
+        Map<String, Template> vars = Template.vars(Map.of("x", "YYY", "y", "ZZZ"));
+        // When
+        String expanded = template.apply(vars, "aaa");
+        // Then
         assertThat(expanded).as("expanded")
                 .isEqualTo("Foo $${x} bar ${1} baz $y $$ qux");
     }
 
     @Test
     void detectCircularDependency() {
-        Template template = new Template("Foo $1 ${bar}", true);
-        template.withVars(Map.of("bar",
-                new Template("${baz}").withVars(Map.of("baz", template))));
-
-        assertThatThrownBy(() -> template.apply()).as("exception")
+        // Given
+        Template template = Template.parseDynamic("Foo $1 ${bar}");
+        Map<String, Template> vars = Map.of("bar", Template.parse("${baz}"),
+                                            "baz", template);
+        // When; Then
+        assertThatThrownBy(() -> template.apply(vars)).as("exception")
                 .isInstanceOf(ConcurrentModificationException.class);
     }
 
