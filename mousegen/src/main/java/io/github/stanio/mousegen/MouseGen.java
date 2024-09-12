@@ -271,6 +271,10 @@ public class MouseGen {
             exitMessage(2, "Could not read \"render.json\" configuration: ", e);
             return;
         }
+        if (renderConfig.length == 0) {
+            exitMessage(4, "Internal Error: No configurations/themes to render");
+            return;
+        }
 
         Map<String, String> nameMapping;
         try {
