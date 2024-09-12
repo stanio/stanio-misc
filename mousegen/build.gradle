@@ -24,14 +24,6 @@ tasks.withType(JavaCompile) {
     options.release = 11
 }
 
-task x11Symlinks(type: JavaExec) {
-    description = 'Creates preconfigured XCursor symlinks'
-    group = 'package'
-
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'io.github.stanio.mousegen.config.X11Symlinks'
-}
-
 task colorWheel(type: JavaExec) {
     description = 'Generates/updates animated cursor frame static images'
     group = 'config'

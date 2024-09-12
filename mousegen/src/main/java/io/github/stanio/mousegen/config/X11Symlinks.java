@@ -30,11 +30,16 @@ public class X11Symlinks {
     private static final String BOLD_RED = "1;31";
     private static final String YELLOW = "33";
 
+    private static final int INFO = 1;
+    private static final int WARN = 2;
+
     private static final boolean plainTerm = Boolean.getBoolean("mousegen.plainTerm");
 
     private Map<String, Set<String>> symlinks;
     private Map<String, String> backlinks;
     private Set<String> cursorNames;
+
+    private final Output out = new Output();
 
     public X11Symlinks() {
         try {
@@ -85,15 +90,14 @@ public class X11Symlinks {
                 String name = fileName.toString();
                 if (!cursorNames.contains(name)) {
                     if (!Files.isDirectory(path)) {
-                        System.out.println(withColor(
-                                relativize(path, baseDir), DIM_GRAY));
+                        out.println(withColor(relativize(path, baseDir), DIM_GRAY));
                     }
                     continue;
                 }
 
-                System.out.print(relativize(path, baseDir));
+                out.append(relativize(path, baseDir));
                 if (Files.isDirectory(path)) {
-                    System.out.println(withColor(" (directory!)", YELLOW));
+                    out.println(WARN, withColor(" (directory!)", YELLOW));
                     continue;
                 }
 
@@ -105,10 +109,10 @@ public class X11Symlinks {
                 Set<String> x11Links = symlinks.get(fileName.toString());
                 if (x11Links == null || x11Links.isEmpty()) {
                     if (!symlinks.containsKey(fileName.toString())) {
-                        System.out.print(withColor(" (=/=> "
+                        out.append(WARN, withColor(" (=/=> "
                                 + backlinks.get(fileName.toString()) + ")", YELLOW));
                     }
-                    System.out.println();
+                    out.println();
                     continue;
                 }
 
@@ -116,12 +120,12 @@ public class X11Symlinks {
                     Path link = path.resolveSibling(linkName);
                     if (Files.notExists(link, LinkOption.NOFOLLOW_LINKS)) {
                         Files.createSymbolicLink(link, fileName);
-                        System.out.println();
-                        System.out.append('\t').print(withColor(
+                        out.println();
+                        out.append('\t').append(withColor(
                                 "<- " + link.getFileName(), BOLD_CYAN));
                     }
                 }
-                System.out.println();
+                out.println();
             }
         }
     }
@@ -129,21 +133,21 @@ public class X11Symlinks {
     private void printLinkInfo(Path file, Path baseDir) throws IOException {
         String linkName = file.getFileName().toString();
         String actualTarget = Files.readSymbolicLink(file).toString();
-        System.out.append(" -> ");
+        out.append(" -> ");
         if (Files.exists(file.resolveSibling(actualTarget), LinkOption.NOFOLLOW_LINKS)) {
-            System.out.print(actualTarget);
+            out.append(actualTarget);
         } else {
-            System.out.print(withColor(actualTarget, BOLD_RED));
+            out.append(WARN, withColor(actualTarget, BOLD_RED));
         }
 
         String configuredTarget;
         if (symlinks.containsKey(linkName)) {
-            System.out.println(withColor(" (=/=>)", YELLOW));
+            out.println(withColor(" (=/=>)", YELLOW));
         } else if (actualTarget.equals(configuredTarget = backlinks.get(linkName))) {
-            System.out.println();
+            out.println();
         } else { // actualTarget != configuredTarget
             assert (configuredTarget != null);
-            System.out.println(withColor(" (=/=> " + configuredTarget + ")", YELLOW));
+            out.println(withColor(" (=/=> " + configuredTarget + ")", YELLOW));
         }
     }
 
@@ -177,5 +181,44 @@ public class X11Symlinks {
             }
         }
     }
+
+
+    static class Output {
+
+        private final int minLevel = WARN;
+        private final StringBuilder buf = new StringBuilder();
+        private int bufLevel;
+
+        Output append(Object val) {
+            return append(INFO, val);
+        }
+
+        Output append(int level, Object val) {
+            buf.append(val);
+            if (bufLevel < level) {
+                bufLevel = level;
+            }
+            return this;
+        }
+
+        void println(String str) {
+            println(INFO, str);
+        }
+
+        void println(int level, String str) {
+            append(level, str).println();
+        }
+
+        void println() {
+            if (bufLevel >= minLevel) {
+                System.out.print(buf);
+                System.out.println();
+            }
+            buf.setLength(0);
+            bufLevel = 0;
+        }
+
+    } // class Output
+
 
 }
