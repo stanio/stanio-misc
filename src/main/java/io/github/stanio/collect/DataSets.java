@@ -28,6 +28,10 @@ public final class DataSets {
         return cartesianProduct(0, columns);
     }
 
+    public static Collection<List<Object>> cartesianProduct(Collection<? extends Collection<?>> columns) {
+        return cartesianProduct(columns.toArray(new Collection<?>[0]));
+    }
+
     /*
      * Cartesian product of an arbitrary number of sets
      * <https://stackoverflow.com/a/714256/4166251>

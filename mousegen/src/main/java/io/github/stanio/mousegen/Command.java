@@ -9,6 +9,9 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.function.Consumer;
 
+import io.github.stanio.mousegen.ini_files.LinuxThemeFiles;
+import io.github.stanio.mousegen.ini_files.WindowsInstallScripts;
+
 public final class Command {
 
     private Command() {/* no instances */}
@@ -16,7 +19,7 @@ public final class Command {
     private static void printHelp(PrintStream err) {
         err.println("USAGE: mousegen <command> [<args>]");
         err.println();
-        err.println("Commands: {svgsize|wincur|render}");
+        err.println("Commands: {svgsize|wincur|render|linuxThemeFiles|windowsInstallScripts}");
     }
 
     public static void main(String[] args) throws Exception {
@@ -32,6 +35,10 @@ public final class Command {
             CursorCompiler.main(cmdArgs);
         } else if ("render".equals(cmd)) {
             MouseGen.main(cmdArgs);
+        } else if ("linuxThemeFiles".equals(cmd)) {
+            LinuxThemeFiles.main(cmdArgs);
+        } else if ("windowsInstallScripts".equals(cmd)) {
+            WindowsInstallScripts.main(cmdArgs);
         } else if (Arrays.asList("-h", "--help").contains(cmd)) {
             printHelp(System.out);
         } else {

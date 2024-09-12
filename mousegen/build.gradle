@@ -24,8 +24,6 @@ tasks.withType(JavaCompile) {
     options.release = 11
 }
 
-apply from: 'package.gradle'
-
 task x11Symlinks(type: JavaExec) {
     description = 'Creates preconfigured XCursor symlinks'
     group = 'package'
