@@ -4,6 +4,8 @@
  */
 package io.github.stanio.mousegen.ini_files;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
@@ -24,12 +26,12 @@ public class Template {
     abstract static class Fragment {
 
         static class Text extends Fragment {
-            final String value;
-            Text(String text) {
+            final CharSequence value;
+            Text(CharSequence text) {
                 this.value = Objects.requireNonNull(text);
             }
             @Override public String toString() {
-                return value;
+                return value.toString();
             }
         }
 
@@ -58,8 +60,8 @@ public class Template {
                           + " | \\$\\{ (" + "[a-z]\\w*" + ") }"
                           + " | (?: \\${2} [^$]* )+");
 
-        static List<Fragment> parse(String template) {
-            if (template.isEmpty())
+        static List<Fragment> parse(CharSequence template) {
+            if (template.length() == 0)
                 return Collections.singletonList(new Text(""));
 
             List<Fragment> fragments = new ArrayList<>();
@@ -77,20 +79,22 @@ public class Template {
                 }
 
                 if (pos < m.start()) {
-                    fragments.add(new Text(template
-                            .substring(pos, m.start()).replace("$$", "$")));
+                    fragments.add(unescape(template, pos, m.start()));
                 }
                 fragments.add(item);
                 pos = m.end();
             }
             if (pos < template.length()) {
-                fragments.add(new Text(template
-                        .substring(pos, template.length()).replace("$$", "$")));
+                fragments.add(unescape(template, pos, template.length()));
             }
             if (fragments.size() == 1 && fragments.get(0) instanceof Text) {
                 return Collections.singletonList(fragments.get(0));
             }
             return Collections.unmodifiableList(fragments);
+        }
+
+        private static Text unescape(CharSequence text, int start, int end) {
+            return new Text(text.subSequence(start, end).toString().replace("$$", "$"));
         }
 
     } // class Fragment
@@ -109,50 +113,71 @@ public class Template {
         this.dynamicDecoration = dynamicDecoration;
     }
 
-    public static Template literal(String text) {
+    public static Template plainText(CharSequence text) {
         return new Template(List.of(new Fragment.Text(text)), false);
     }
 
-    public static Template parse(String template) {
+    public static Template parse(CharSequence template) {
         return new Template(Fragment.parse(template), false);
     }
 
-    public static Template parseDynamic(String template) {
+    public static Template parseDynamic(CharSequence template) {
         return new Template(Fragment.parse(template), true);
     }
 
-    public static Map<String, Template> vars(Map<String, String> templates) {
+    public static Map<String, Template> vars(Map<String, CharSequence> templates) {
         return vars(Template::parseDynamic, templates);
     }
 
-    public static Map<String, Template> vars(Function<String, Template> ctor,
-                                             Map<String, String> templates) {
-        return templates.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey,
-                        entry -> ctor.apply(entry.getValue())));
+    public static Map<String, Template> vars(Function<CharSequence, Template> ctor,
+                                             Map<String, CharSequence> templates) {
+        return templates.entrySet().stream().collect(Collectors
+                .toMap(Map.Entry::getKey, entry -> ctor.apply(entry.getValue())));
+    }
+
+    public String apply(CharSequence... args) {
+        return apply(Collections.emptyMap(), args);
+    }
+
+    public String apply(Map<String, Template> vars, CharSequence... args) {
+        if (literalText) {
+            return fragments.get(0).toString();
+        }
+        return appendTo(new StringBuilder(), vars, args).toString();
+    }
+
+    public StringBuilder appendTo(StringBuilder buf, CharSequence... args) {
+        return appendTo(buf, Collections.emptyMap(), args);
+    }
+
+    public StringBuilder appendTo(StringBuilder buf, Map<String, Template> vars, CharSequence... args) {
+        try {
+            return (StringBuilder) expandTo((Appendable) buf, vars, args);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public Appendable expandTo(Appendable out, CharSequence... args) throws IOException {
+        return expandTo(out, Collections.emptyMap(), args);
     }
 
     private boolean processing;
 
-    public String apply(String... args) {
-        return apply(Collections.emptyMap(), args);
-    }
-
-    public String apply(Map<String, Template> vars) {
-        return apply(vars, new String[0]);
-    }
-
-    public String apply(Map<String, Template> vars, String... args) {
+    public Appendable expandTo(Appendable out, Map<String, Template> vars, CharSequence... args) throws IOException {
         if (literalText) {
-            return fragments.get(0).toString();
+            return out.append(fragments.get(0).toString());
         }
 
-        BufferedOutput buf = BufferedOutput.newBuffer();
-        apply(buf, vars, args);
-        return buf.toString();
+        try {
+            apply(BufferedOutput.newOutput(out), vars, args);
+            return out;
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
     }
 
-    void apply(BufferedOutput parent, Map<String, Template> vars, String[] args) {
+    void apply(BufferedOutput parent, Map<String, Template> vars, CharSequence[] args) {
         if (literalText) {
             parent.appendReplacement(fragments.get(0).toString());
             return;
@@ -189,21 +214,21 @@ public class Template {
     static abstract class BufferedOutput {
 
         private final boolean cleanEmptyArgDecoration;
-        private String deferredLiteral;
+        private CharSequence deferredLiteral;
         private boolean replaced;
 
         BufferedOutput(boolean cleanDecoration) {
             this.cleanEmptyArgDecoration = cleanDecoration;
         }
 
-        static BufferedOutput newBuffer() {
-            StringBuilder buf = new StringBuilder();
+        static BufferedOutput newOutput(Appendable out) {
             return new BufferedOutput(false) {
-                @Override void write(String text) {
-                    buf.append(text);
-                }
-                @Override public String toString() {
-                    return buf.toString();
+                @Override void write(CharSequence text) {
+                    try {
+                        out.append(text);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
                 }
             };
         }
@@ -211,13 +236,13 @@ public class Template {
         BufferedOutput nestedOutput(boolean nestedClean) {
             BufferedOutput parent = this;
             return new BufferedOutput(nestedClean) {
-                @Override void write(String text) {
+                @Override void write(CharSequence text) {
                     parent.appendReplacement(text);
                 }
             };
         }
 
-        void appendLiteral(String text) {
+        void appendLiteral(CharSequence text) {
             if (!cleanEmptyArgDecoration) {
                 write(text);
             } else if (deferredLiteral == null) {
@@ -225,8 +250,8 @@ public class Template {
             }
         }
 
-        void appendReplacement(String text) {
-            if (text.isEmpty()) {
+        void appendReplacement(CharSequence text) {
+            if (text.length() == 0) {
                 if (replaced) {
                     deferredLiteral = null;
                 }
@@ -245,7 +270,7 @@ public class Template {
             }
         }
 
-        abstract void write(String text);
+        abstract void write(CharSequence text);
 
         void complete() {
             if (deferredLiteral != null) {
