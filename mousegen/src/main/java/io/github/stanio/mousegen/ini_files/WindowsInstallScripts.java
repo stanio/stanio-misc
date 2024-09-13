@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -150,6 +151,12 @@ public class WindowsInstallScripts extends ThemeFilesCommand {
     private Template installTemplate;
 
     private List<String> winFiles;
+
+    @Override
+    public ThemeFilesCommand withTargetDir(Path dir) {
+        super.withTargetDir(dir);
+        return this;
+    }
 
     @Override
     public WindowsInstallScripts withConfig(ThemesConfig config) {

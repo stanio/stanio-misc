@@ -96,13 +96,14 @@ abstract class ThemeFilesCommand {
         if (resource == null)
             throw new IllegalStateException("Resource not found: " + name);
 
-        URLConnection connection;
         try {
-            connection = resource.openConnection();
+            return readText(resource.openConnection());
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
+    }
 
+    private static String readText(URLConnection connection) throws IOException {
         int contentLength = connection.getContentLength();
         StringBuilder buf = new StringBuilder(contentLength > 0 ? contentLength : 4096);
         try (InputStream in = connection.getInputStream();
@@ -112,8 +113,6 @@ abstract class ThemeFilesCommand {
             while ((count = reader.read(chunk)) != -1) {
                 buf.append(chunk, 0, count);
             }
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
         }
         return buf.toString();
     }

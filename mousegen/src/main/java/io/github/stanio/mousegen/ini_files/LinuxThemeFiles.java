@@ -35,6 +35,17 @@ public class LinuxThemeFiles extends ThemeFilesCommand {
     }
 
     @Override
+    public LinuxThemeFiles withTargetDir(Path dir) {
+        super.withTargetDir(dir);
+        return this;
+    }
+
+    @Override
+    public LinuxThemeFiles withConfig(ThemesConfig config) {
+        return this;
+    }
+
+    @Override
     public void write(Collection<ThemeInfo> themes) throws IOException {
         Set<String> names = new HashSet<>(themes.size(), 1.0f);
         for (ThemeInfo item : themes) {
