@@ -240,6 +240,7 @@ public abstract class AbstractSVGTransformList
         /**
          * Creates a new SVGTransformItem from the given {@link SVGTransform}.
          */
+        @SuppressWarnings("this-escape")
         public SVGTransformItem(SVGTransform transform) {
             assign(transform);
         }
