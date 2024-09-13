@@ -17,7 +17,7 @@ javadoc {
     //failOnError false
     options.encoding = 'UTF-8'
     options.addBooleanOption('Xdoclint:all,-missing', true)
-    options.addStringOption('-release', '17')
+    options.addStringOption('-release', '21')
     options.tags 'min.jdk:C:Minimum Java version:'
 }
 

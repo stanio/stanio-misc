@@ -17,6 +17,10 @@ tasks.withType(JavaCompile) {
     options.compilerArgs.add "-Xlint:${javacLint}"
 }
 
+javadoc {
+    options.links 'https://xmlgraphics.apache.org/batik/javadoc/'
+}
+
 dependencies {
     api('org.apache.xmlgraphics:batik-transcoder:1.17') {
         // Required APIs are part of Java SE, already
