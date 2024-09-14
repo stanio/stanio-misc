@@ -78,7 +78,7 @@ public class LinuxThemeFiles extends ThemeFilesCommand {
                 indexTemplate().expandTo(out, vars);
             }
 
-            try (Writer out = Files.newBufferedWriter(themeDir.resolve("cursors.theme"))) {
+            try (Writer out = Files.newBufferedWriter(themeDir.resolve("cursor.theme"))) {
                 cursorTemplate().expandTo(out, vars);
             }
         }
