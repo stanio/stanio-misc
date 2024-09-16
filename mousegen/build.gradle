@@ -41,20 +41,32 @@ task cursorHotspots(type: JavaExec) {
 }
 
 jar {
-    archiveBaseName = "${project.name}-lib"
     manifest {
         attributes('Main-Class': application.mainClass)
+        attributes('Implementation-Version': project.version)
     }
 }
 
-shadowJar {
-    archiveBaseName = project.name
-    archiveClassifier = ''
+tasks.named('shadowJar') {
+    archiveClassifier = 'shaded'
+    manifest {
+        attributes('Class-Path': 'batik-all.jar xmlgraphics-commons.jar xml-apis-ext.jar')
+    }
+
+    exclude 'META-INF/maven/**'
+    exclude 'META-INF/proguard/**'
+    exclude '**/module-info.class'
+
     minimize {
         exclude dependency('com.google.code.gson:gson')
         exclude dependency('com.github.weisj:jsvg')
+    }
+    dependencies {
         exclude dependency('com.fasterxml.woodstox:woodstox-core')
         exclude dependency('org.apache.xmlgraphics:.*')
+        exclude dependency('xml-apis:xml-apis-ext')
+        exclude dependency('commons-.*:commons-.*')
+        exclude dependency('com.jhlabs:filters')
     }
 }
 
