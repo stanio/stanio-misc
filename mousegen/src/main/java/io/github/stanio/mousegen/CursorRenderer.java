@@ -41,6 +41,7 @@ final class CursorRenderer {
     private final RendererBackend backend;
     private Path sourceFile;
     private Document sourceDocument;
+    private double sourceViewBoxSize = -1;
 
     private String cursorName;
     private Animation animation;
@@ -129,6 +130,7 @@ final class CursorRenderer {
         this.targetName = targetName;
         this.sourceFile = svgFile;
         this.sourceDocument = null;
+        this.sourceViewBoxSize = -1;
     }
 
     private Document sourceDocument() throws IOException {
@@ -174,15 +176,19 @@ final class CursorRenderer {
         this.canvasSizing = sizeScheme;
     }
 
+    private double sourceViewBoxSize() throws IOException {
+        if (sourceViewBoxSize < 0) {
+            // REVISIT: Implement fast-path for obtaining this.
+            sourceViewBoxSize = SVGSizing.forDocument(sourceDocument())
+                    .metadata().sourceViewBox().getWidth();
+        }
+        return sourceViewBoxSize;
+    }
+
     private void setUpStrokeWidth(int targetSize) throws IOException {
         Double actualStrokeWidth; {
             double hairWidth;
-            // It is a bit unfortunate we need to initialize this an extra time upfront.
-            SVGSizing sizing = (svgSizing == null)
-                    ? SVGSizing.forDocument(sourceDocument())
-                    : svgSizing;
-            double sourceCanvasSize = backend.fromDocument(svg ->
-                    sizing.metadata().sourceViewBox().getWidth()) * canvasSizing.canvasSize;
+            double sourceCanvasSize = sourceViewBoxSize() * canvasSizing.canvasSize;
             if (minStrokeWidth > 0 && strokeWidth.orElse(baseStrokeWidth).doubleValue()
                     < (hairWidth = sourceCanvasSize * minStrokeWidth / targetSize)) {
                 actualStrokeWidth = hairWidth;
@@ -242,7 +248,10 @@ final class CursorRenderer {
                 return null;
             });
         }
-        colorTheme.apply(colorMap);
+        backend.fromDocument(svg -> {
+            colorTheme.apply(colorMap);
+            return null;
+        });
     }
 
     private void setUpOutput() throws IOException {
