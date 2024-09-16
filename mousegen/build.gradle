@@ -70,6 +70,41 @@ tasks.named('shadowJar') {
     }
 }
 
+tasks.named('assemble') {
+    dependsOn 'executablePosixScript',
+              'executableWindowsScript'
+}
+
+// https://skife.org/java/unix/2011/06/20/really_executable_jars.html
+tasks.register('executablePosixScript', ConcatFiles) {
+    group = 'Distribution'
+    description = 'Compiles POSIX-shell "really executable jar" script.'
+
+    sources = files('src/scripts/mousegen.sh', shadowJar)
+    target = layout.buildDirectory.file('distributions/mousegen.sh')
+}
+
+tasks.register('executableWindowsScript', ConcatFiles) {
+    group = 'Distribution'
+    description = 'Compiles Windows command (batch) "really executable jar" script.'
+
+    sources = files('src/scripts/mousegen.cmd', shadowJar)
+    target = layout.buildDirectory.file('distributions/mousegen.cmd')
+}
+
+tasks.register('installExecutable', Copy) {
+    group = 'Distribution'
+    description = 'Installs the "really executable jar" on the local machine.'
+
+    from tasks.named(executableArtifact)
+    into "${-> project['installDir']}"
+    doNotTrackState 'Target directory contains unrelated files'
+    rename '.+(?:\\.sh|(\\.[^.]+))', 'mousegen$1'
+    filePermissions {
+        user.execute = true
+    }
+}
+
 repositories {
     // Test with JSVG nightly snapshots
     //maven {
