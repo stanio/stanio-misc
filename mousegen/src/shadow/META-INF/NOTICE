@@ -1,0 +1,14 @@
+Mousegen – SVG-source mouse cursor generator
+Copyright (C) 2023 by Stanio
+Released under BSD Zero Clause License.
+
+Mousegen includes the following third-party libraries:
+
+JSVG  Copyright (c) 2021-2024 Jannis Weis
+Released under MIT License.
+https://github.com/weisJ/jsvg/tree/v1.6.1-rc1
+
+Gson  Copyright 2008 Google Inc.
+Released under the Apache 2.0 license.
+Disclaimer: This is not an officially supported Google product.
+https://github.com/google/gson/tree/gson-parent-2.11.0
