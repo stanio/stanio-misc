@@ -26,4 +26,6 @@ dependencies {
         // Required APIs are part of Java SE, already
         exclude group: 'xml-apis', module: 'xml-apis'
     }
+    // Packages relocated CafeUndZopli classes
+    implementation 'com.github.depsypher:pngtastic:1.8'
 }

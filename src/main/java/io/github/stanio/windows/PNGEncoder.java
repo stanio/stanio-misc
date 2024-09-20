@@ -18,6 +18,7 @@ import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import io.github.stanio.io.BufferChunksOutputStream;
+import io.github.stanio.windows.zopflipng.ZopfliPNGEncoder;
 
 public abstract class PNGEncoder {
 
@@ -29,6 +30,11 @@ public abstract class PNGEncoder {
         String className = System.getProperty("wincur.PNGEncoder", "");
         if (className.isEmpty()) {
             return new ImageIOPNGEncoder();
+        } else if (className.equals("zopfli")) {
+            // Short alias and direct reference to the implementation to
+            // ensure it gets included in a shaded jar.  Exclude the pngtastic
+            // (CafeUndZopfli) dependency from shading, as necessary.
+            return new ZopfliPNGEncoder();
         }
         try {
             return (PNGEncoder) Class.forName(className)
