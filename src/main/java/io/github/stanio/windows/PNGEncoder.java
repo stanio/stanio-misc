@@ -1,0 +1,96 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
+ * SPDX-License-Identifier: 0BSD
+ */
+package io.github.stanio.windows;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Iterator;
+
+import java.awt.image.BufferedImage;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import javax.imageio.stream.MemoryCacheImageOutputStream;
+
+import io.github.stanio.io.BufferChunksOutputStream;
+
+public abstract class PNGEncoder {
+
+    protected PNGEncoder() {
+        // For implicit invocation by subclasses.
+    }
+
+    public static PNGEncoder newInstance() {
+        String className = System.getProperty("wincur.PNGEncoder", "");
+        if (className.isEmpty()) {
+            return new ImageIOPNGEncoder();
+        }
+        try {
+            return (PNGEncoder) Class.forName(className)
+                                     .getDeclaredConstructor()
+                                     .newInstance();
+        } catch (LinkageError | ReflectiveOperationException | ClassCastException e) {
+            e.printStackTrace(System.err);
+            return new ImageIOPNGEncoder();
+        }
+    }
+
+    public abstract ByteBuffer[] encode(BufferedImage image);
+
+}
+
+
+class ImageIOPNGEncoder extends PNGEncoder {
+
+    private final ImageWriter pngWriter;
+
+    private final ImageWriteParam writeParam;
+
+    ImageIOPNGEncoder() {
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("png");
+        if (!writers.hasNext()) {
+            throw new IllegalStateException("PNG image writer not available");
+        }
+        pngWriter = writers.next();
+
+        float compressionQuality;
+        try {
+            compressionQuality = Float.parseFloat(System
+                    .getProperty("wincur.compressionQuality", "-1"));
+        } catch (NumberFormatException e) {
+            System.err.append("wincur.compressionQuality: ").println(e);
+            compressionQuality = -1;
+        }
+        if (compressionQuality >= 0) {
+            ImageWriteParam param = pngWriter.getDefaultWriteParam();
+            assert param.canWriteCompressed();
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(compressionQuality);
+            writeParam = param;
+        } else {
+            writeParam = null;
+        }
+    }
+
+    @Override
+    public ByteBuffer[] encode(BufferedImage image) {
+        BufferChunksOutputStream buf = new BufferChunksOutputStream();
+        // Java 9+ has more concise try-with-resources
+        try (BufferChunksOutputStream buf0 = buf;
+                ImageOutputStream out = new MemoryCacheImageOutputStream(buf0)) {
+            pngWriter.setOutput(out);
+            pngWriter.write(null, new IIOImage(image, null, null), writeParam);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        } finally {
+            pngWriter.setOutput(null);
+        }
+        return buf.chunks();
+    }
+
+}

@@ -23,7 +23,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,15 +40,12 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+
 import javax.imageio.ImageIO;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import io.github.stanio.awt.SmoothDownscale;
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
-import io.github.stanio.io.BufferChunksOutputStream;
 import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
@@ -218,13 +214,7 @@ public class Cursor {
     static final Logger log = Logger.getLogger(Cursor.class.getName());
 
     private static final
-    ThreadLocal<ImageWriter> pngWriter = ThreadLocal.withInitial(() -> {
-        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("png");
-        if (writers.hasNext()) {
-            return writers.next();
-        }
-        throw new IllegalStateException("PNG image writer not available");
-    });
+    ThreadLocal<PNGEncoder> pngEncoder = ThreadLocal.withInitial(PNGEncoder::newInstance);
 
     private final short reserved; // Should be 0 (zero)
     private final short imageType; // 1 - Icon, 2 - Cursor
@@ -406,18 +396,7 @@ public class Cursor {
     }
 
     private void addARGBImage(BufferedImage image, Point hotspot) {
-        ImageWriter imageWriter = pngWriter.get();
-        BufferChunksOutputStream buf = new BufferChunksOutputStream();
-        // Java 9+ has more concise try-with-resources
-        try (BufferChunksOutputStream buf0 = buf;
-                ImageOutputStream out = new MemoryCacheImageOutputStream(buf0)) {
-            imageWriter.setOutput(out);
-            imageWriter.write(image);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        } finally {
-            imageWriter.setOutput(null);
-        }
+        ByteBuffer[] imageData = pngEncoder.get().encode(image);
 
         int width = image.getWidth();
         int height = image.getHeight();
@@ -426,7 +405,7 @@ public class Cursor {
         addEntry(new Image(width, height,
                            (short) clamp(hotspot.x, 0, maxUnsignedShort),
                            (short) clamp(hotspot.y, 0, maxUnsignedShort),
-                           buf.chunks()));
+                           imageData));
     }
 
     private void addEntry(Image entry) {
