@@ -15,6 +15,9 @@ public class BufferChunksOutputStream extends OutputStream {
 
     private final ByteBufferChunks chunks;
 
+    private int markBuffer = -1;
+    private int markPosition = -1;
+
     public BufferChunksOutputStream() {
         this(1024);
     }
@@ -28,6 +31,14 @@ public class BufferChunksOutputStream extends OutputStream {
         //    throw new IllegalStateException();
         //}
         return chunks.toArray();
+    }
+
+    public long size() {
+        long size = 0;
+        for (ByteBuffer item : chunks()) {
+            size = Math.addExact(size, item.limit());
+        }
+        return size;
     }
 
     @Override
@@ -53,6 +64,32 @@ public class BufferChunksOutputStream extends OutputStream {
     private void ensureOpen() throws IOException {
         if (chunks.isSealed())
             throw new IOException("closed");
+    }
+
+    public void mark() {
+        markPosition = chunks.current().position();
+        markBuffer = chunks.size() - 1;
+    }
+
+    public void update(byte[] b) throws IOException {
+        update(b, 0, b.length);
+    }
+
+    public void update(byte[] b, int off, int len) throws IOException {
+        ensureOpen();
+
+        int nextIndex = markBuffer;
+        int nextPosition = markPosition;
+
+        int remaining = len;
+        while (remaining > 0) {
+            ByteBuffer chunk = chunks.get(nextIndex++).duplicate();
+            chunk.position(nextPosition);
+            int count = Math.min(remaining, chunk.remaining());
+            chunk.put(b, off + (len - remaining), count);
+            remaining -= count;
+            nextPosition = 0;
+        }
     }
 
     @Override

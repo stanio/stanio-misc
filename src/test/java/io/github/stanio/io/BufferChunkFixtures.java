@@ -18,6 +18,11 @@ final class BufferChunkFixtures {
                                "size (limit) == %d", expectedSize);
     }
 
+    static Condition<ByteBuffer> bufferPosition(int position) {
+        return new Condition<>(buf -> buf.position() == position,
+                               "position == %d", position);
+    }
+
     static Condition<ByteBuffer[]> totalSize(int expectedSize) {
         return new Condition<>(chunks -> sumLimits(chunks) == expectedSize,
                                "total size (limit sum) == %d", expectedSize);
@@ -30,10 +35,10 @@ final class BufferChunkFixtures {
 
     static byte[] sampleData(int size) {
         byte[] data = new byte[size];
-        byte val = 0;
+        int val = 0;
         for (int i = 0; i < size; i++) {
-            data[i] = val;
-            val = (byte) (Byte.toUnsignedInt(val) + 1);
+            data[i] = (byte) val;
+            val += 1;
         }
         return data;
     }

@@ -4,6 +4,7 @@
  */
 package io.github.stanio.io;
 
+import static io.github.stanio.io.BufferChunkFixtures.bufferPosition;
 import static io.github.stanio.io.BufferChunkFixtures.bufferSize;
 import static io.github.stanio.io.BufferChunkFixtures.sampleData;
 import static io.github.stanio.io.BufferChunkFixtures.sumLimits;
@@ -13,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatIOException;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,18 +105,27 @@ class BufferChunksWritableChannelTest {
     }
 
     /**
-     * Not a settled specification.  The current behavior is for the last
-     * (incomplete) buffer not returned in the chunks array before the channel
-     * is closed.  One may also consider {@code IllegalStateException} as a
+     * Not a settled specification.  The current behavior is to return all
+     * currently buffered chunks, and the last/current has its limit equal to
+     * its capacity (chunk size), while its position is where data would be
+     * added, next.  One may also consider {@code IllegalStateException} as a
      * better behavior.
      */
     @Test
     void resultChunksBeforeClose() throws Exception {
-        outCh.write(ByteBuffer.allocate(chunkSize - 20));
-        assertThat(outCh.chunks()).as("chunks").isEmpty();
+        outCh.write(ByteBuffer.allocate(chunkSize));
+        assertThat(outCh.chunks()).as("chunks").singleElement();
 
-        outCh.write(ByteBuffer.allocate(chunkSize + 20));
-        assertThat(outCh.chunks()).as("chunks").hasSize(1);
+        outCh.write(ByteBuffer.allocate(chunkSize - 1));
+        assertThat(outCh.chunks()).as("chunks")
+                .satisfiesExactly(bufferWithLimitAndPosition(chunkSize, 0),
+                                  bufferWithLimitAndPosition(chunkSize, chunkSize - 1));
+    }
+
+    private static Consumer<ByteBuffer>
+            bufferWithLimitAndPosition(int limit, int position) {
+        return buf -> assertThat(buf).has(bufferSize(limit))
+                                     .has(bufferPosition(position)).as("foo");
     }
 
     // REVISIT: Should we guarantee the chunks are rewinded?  They currently

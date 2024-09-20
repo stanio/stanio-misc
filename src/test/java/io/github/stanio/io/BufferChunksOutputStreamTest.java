@@ -11,6 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIOException;
 
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +82,51 @@ class BufferChunksOutputStreamTest {
 
         assertThat(out.chunks()).as("chunks")
                 .hasSize(2).has(totalSize(data0.length + 1));
+    }
+
+    @Test
+    void markAndUpdate() throws Exception {
+        byte[] initialData = sampleData(chunkSize * 3 / 2); // 1.5
+        byte[] updateData = sampleData(chunkSize / 2);      // 0.5
+        byte[][] expectedData = new byte[][] {
+            Arrays.copyOf(initialData, chunkSize),
+            Arrays.copyOfRange(initialData, chunkSize, 2 * chunkSize)
+        };
+
+        final int updateHalfLength = updateData.length / 2;
+        final int updatePosition = chunkSize - updateHalfLength;
+        System.arraycopy(updateData, 0,
+                expectedData[0], updatePosition, updateHalfLength);
+        System.arraycopy(updateData, updateHalfLength,
+                expectedData[1], 0, updateData.length - updateHalfLength);
+
+        try (BufferChunksOutputStream buf = out) {
+            buf.write(initialData, 0, updatePosition);
+            buf.mark();
+            buf.write(initialData, updatePosition, initialData.length - updatePosition);
+            buf.update(updateData);
+        }
+
+        assertThat(out).as("buffer output")
+                .extracting(buf -> buf.size())
+                .isEqualTo(Long.valueOf(initialData.length));
+        assertThat(out.chunks()).as("chunks")
+                .hasSize(2)
+                .extracting(ByteBuffer::array).as("bufferData")
+                .contains(expectedData);
+    }
+
+    /**
+     * Not a settled specification.  Here to signal change in the behavior.
+     * Currently the reported size prior close is always multiple of the
+     * chunk size (last buffer not flipped, yet).
+     */
+    @Test
+    void sizePriorClose() throws Exception {
+        out.write(sampleData((int) (chunkSize * 1.5)));
+
+        assertThat(out.size()).as("buffer size")
+                .isEqualTo(chunkSize * 2L);
     }
 
     @Test

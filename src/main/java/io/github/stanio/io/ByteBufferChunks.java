@@ -17,20 +17,29 @@ final class ByteBufferChunks {
     ByteBufferChunks(int chunkSize) {
         current = ByteBuffer.allocate(chunkSize)
                             .order(ByteOrder.nativeOrder());
+        chunks.add(current);
     }
 
     ByteBuffer[] toArray() {
-        // REVISIT: Maybe duplicate() the individual buffers.
         return chunks.toArray(new ByteBuffer[chunks.size()]);
+    }
+
+    ByteBuffer get(int index) {
+        return chunks.get(index);
+    }
+
+    int size() {
+        return chunks.size();
     }
 
     ByteBuffer current() {
         ByteBuffer buf = current;
         if (!buf.hasRemaining()) {
-            chunks.add((ByteBuffer) buf.flip());
+            buf.rewind();
             buf = ByteBuffer.allocate(buf.capacity())
                             .order(buf.order());
             current = buf;
+            chunks.add(buf);
         }
         return buf;
     }
@@ -43,7 +52,7 @@ final class ByteBufferChunks {
         if (current == null)
             return;
 
-        chunks.add((ByteBuffer) current.flip());
+        current.flip();
         current = null;
     }
 
