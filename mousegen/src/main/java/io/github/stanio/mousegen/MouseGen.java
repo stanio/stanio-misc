@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -134,8 +135,10 @@ public class MouseGen {
             throws IOException {
         progress.push(svgDir + "/");
         try (Stream<Path> svgStream = listSVGFiles(projectDir.resolve(svgDir))) {
+            Set<Path> uniqueFiles = new HashSet<>();
             for (Path svg : (Iterable<Path>) svgStream::iterator) {
-                renderSVG(svg, config);
+                if (uniqueFiles.add(svg.toRealPath()))
+                    renderSVG(svg, config);
             }
         }
         progress.pop();
