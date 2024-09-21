@@ -59,8 +59,8 @@ import io.github.stanio.mousegen.util.XMLInputFactoryAdapter;
 abstract class RendererBackend {
 
     private static final Map<String, Supplier<RendererBackend>>
-            BACKENDS = Map.of("batik", BatikRendererBackend::new,
-                              "jsvg", JSVGRendererBackend::new);
+            BACKENDS = Map.of("batik", () -> new BatikRendererBackend(),
+                              "jsvg", () -> new JSVGRendererBackend());
 
     Integer frameNum;
 
@@ -73,7 +73,6 @@ abstract class RendererBackend {
             System.err.append("Unknown mousegen.renderer=").println(key);
         }
         return new JSVGRendererBackend();
-        //return new BatikRendererBackend();
     }
 
     public boolean needSVG11Compat() {
