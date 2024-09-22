@@ -592,6 +592,9 @@ public class DynamicImageTranscoder extends SVGAbstractTranscoder {
     public BufferedImage transcodeDynamic(Consumer<? super BridgeContext> update)
             throws TranscoderException
     {
+        // Ensure updateListener initialized, or fail if context not dynamic.
+        getUpdateManager();
+
         updateListener.syncImageUpdate(() -> {
             updateContext(ctx -> {
                 updateListener.setAwaitImage();
