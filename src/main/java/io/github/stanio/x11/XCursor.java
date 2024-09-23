@@ -372,7 +372,7 @@ public class XCursor {
      */
     private int nominalSize(BufferedImage image) {
         int size = ImageChunk.nominalSize(image.getWidth(), image.getHeight());
-        return (int) (Math.ceil(size * nominalFactor) + 1) / 2 * 2; // round to even
+        return (Math.round(size * nominalFactor) + 1) / 2 * 2; // round to even
     }
 
     public void addFrame(Integer frameNum,
