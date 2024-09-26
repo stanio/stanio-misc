@@ -6,7 +6,6 @@ package io.github.stanio.mousegen;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
@@ -269,7 +268,6 @@ final class CursorRenderer {
         } catch (UncheckedIOException e) {
             throw e.getCause();
         }
-        Files.createDirectories(outDir);
     }
 
     private CursorBuilder newCursorBuilder() throws UncheckedIOException {
@@ -329,6 +327,7 @@ final class CursorRenderer {
             entry.getValue().build();
             iterator.remove();
         }
+        CursorBuilder.finishThemes(outputType);
     }
 
     public void saveHotspots() throws IOException {

@@ -55,7 +55,7 @@ import io.github.stanio.mousegen.svg.DropShadow;
 public class MouseGen {
     // REVISIT: Rename to CursorGenerator, MouseGenerator, or just MouseGen for short.
 
-    public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS }
+    public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS, MOUSECAPE_THEME }
 
     private final Path projectDir; // source base
     private final Path buildDir;   // output base
@@ -373,6 +373,8 @@ public class MouseGen {
                             setOutputType(OutputType.WINDOWS_CURSORS, val, "win-names"))
                     .acceptOptionalArg("--linux-cursors", val ->
                             setOutputType(OutputType.LINUX_CURSORS, val, "x11-names"))
+                    .acceptOptionalArg("--mousecape-theme", val ->
+                            setOutputType(OutputType.MOUSECAPE_THEME, val, "mac-names"))
                     .acceptFlag("--all-cursors", () -> allCursors = true)
                     .acceptFlag("--update-existing", () -> updateExisting = true)
                     .acceptOptionalArg("--pointer-shadow",
@@ -398,6 +400,10 @@ public class MouseGen {
                     .withMaxArgs(1);
 
             cmd.arg(0, "<project-path>", Path::of).ifPresent(projectPath::set);
+
+            if (updateExisting && outputType == OutputType.MOUSECAPE_THEME) {
+                throw new ArgumentException("--update-existing not supported for --mousecape-theme");
+            }
         }
 
         private void setOutputType(OutputType type, String explicitNames, String impliedNames) {

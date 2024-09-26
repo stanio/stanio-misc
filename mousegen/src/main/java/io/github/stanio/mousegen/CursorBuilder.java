@@ -9,7 +9,9 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -26,6 +28,7 @@ import io.github.stanio.windows.Cursor;
 import io.github.stanio.x11.XCursor;
 
 import io.github.stanio.mousegen.MouseGen.OutputType;
+import io.github.stanio.macos.MousecapeTheme;
 import io.github.stanio.mousegen.CursorNames.Animation;
 
 /**
@@ -66,6 +69,12 @@ abstract class CursorBuilder {
                 // No updateExisting-specific configuration for bitmaps
                 return BitmapOutputBuilder.newInstance(targetPath, animation);
 
+            case MOUSECAPE_THEME:
+                if (updateExisting) {
+                    throw new IllegalStateException("--update-existing not implemented for --mousecape-theme");
+                }
+                return MousecapeCursorBuilder.newInstance(targetPath, animation);
+
             default:
                 throw new IllegalArgumentException("Unsupported output type: " + type);
             }
@@ -78,6 +87,12 @@ abstract class CursorBuilder {
             throws UncheckedIOException;
 
     abstract void build() throws IOException;
+
+    static void finishThemes(OutputType type) throws IOException {
+        if (type == OutputType.MOUSECAPE_THEME) {
+            MousecapeCursorBuilder.finishThemes();
+        }
+    }
 
     final Integer validFrameNo(Integer num) {
         if (animation.isPresent() && num == null) {
@@ -96,8 +111,9 @@ abstract class CursorBuilder {
 
         private final AnimatedCursor frames;
 
-        WindowsCursorBuilder(Path targetPath, Animation animation) {
+        WindowsCursorBuilder(Path targetPath, Animation animation) throws IOException {
             this(targetPath, animation, null);
+            Files.createDirectories(targetPath.getParent());
         }
 
         private WindowsCursorBuilder(Path targetPath, Animation animation, AnimatedCursor frames) {
@@ -155,8 +171,10 @@ abstract class CursorBuilder {
 
         private final int frameDelay;
 
-        LinuxCursorBuilder(Path targetPath, Animation animation, float targetCanvasSize) {
+        LinuxCursorBuilder(Path targetPath, Animation animation, float targetCanvasSize)
+                throws IOException {
             this(targetPath, animation, new XCursor(targetCanvasSize));
+            Files.createDirectories(targetPath.getParent());
         }
 
         private LinuxCursorBuilder(Path targetPath, Animation animation, XCursor frames) {
@@ -232,6 +250,62 @@ abstract class CursorBuilder {
         void build() {/* no-op */}
 
     } // class BitmapOtputBuilder
+
+
+    private static class MousecapeCursorBuilder extends CursorBuilder {
+
+        private static Map<Path, MousecapeTheme> openThemes = new HashMap<>();
+
+        private final MousecapeTheme theme;
+
+        private final MousecapeTheme.Cursor cursor;
+
+        private MousecapeCursorBuilder(MousecapeTheme owner, Path name, Animation animation) {
+            super(name, animation);
+            this.theme = Objects.requireNonNull(owner);
+            this.cursor = new MousecapeTheme.Cursor(name.getFileName().toString(),
+                    animation == null ? 0 : animation.delayMillis());
+        }
+
+        static MousecapeCursorBuilder newInstance(Path targetPath, Animation animation)
+                throws IOException {
+            MousecapeTheme parent = openThemes.get(targetPath.getParent());
+            if (parent == null) {
+                parent = new MousecapeTheme(targetPath.getParent());
+                boolean success = false;
+                try {
+                    parent.writePreamble();
+                    success = true;
+                } finally {
+                    if (!success)
+                        parent.close();
+                }
+                Files.createDirectories(parent.target().getParent());
+                openThemes.put(parent.target(), parent);
+            }
+            return new MousecapeCursorBuilder(parent, targetPath, animation);
+        }
+
+        @Override
+        void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+            cursor.addFrame(frameNo, image, hotspot);
+        }
+
+        @Override
+        void build() throws IOException {
+            theme.writeCursor(cursor);
+        }
+
+        static void finishThemes() throws IOException {
+            Iterator<Map.Entry<Path, MousecapeTheme>> iterator = openThemes.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Path, MousecapeTheme> entry = iterator.next();
+                entry.getValue().close();
+                iterator.remove();
+            }
+        }
+
+    } // class MousecapeCursorBuilder
 
 
 } // class CursorBuilder
