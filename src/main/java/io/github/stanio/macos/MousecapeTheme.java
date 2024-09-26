@@ -62,7 +62,7 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
 /**
  * A Mousecape theme builder.
  *
- * <blockquote cite="https://github.com/alexzielenski/Mousecape/tree/184f87b5d?tab=readme-ov-file#where-do-i-get-cursors">
+ * <blockquote>
  * There is an example cape file included in this Git Repo located <a
  * href="https://github.com/alexzielenski/Mousecape/blob/184f87b5d/Mousecape/com.maxrudberg.svanslosbluehazard.cape"
  * >here for download</a>.
