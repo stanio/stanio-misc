@@ -5,6 +5,7 @@
 package io.github.stanio.windows;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
@@ -46,7 +47,19 @@ public abstract class PNGEncoder {
         }
     }
 
-    public abstract ByteBuffer[] encode(BufferedImage image);
+    public ByteBuffer[] encode(BufferedImage image) {
+        BufferChunksOutputStream buf = new BufferChunksOutputStream();
+        // Java 9+ has more concise try-with-resources
+        try (BufferChunksOutputStream buf0 = buf) {
+            encode(image, buf0);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return buf.chunks();
+    }
+
+    public abstract void encode(BufferedImage image, OutputStream out)
+            throws IOException;
 
 }
 
@@ -84,19 +97,13 @@ class ImageIOPNGEncoder extends PNGEncoder {
     }
 
     @Override
-    public ByteBuffer[] encode(BufferedImage image) {
-        BufferChunksOutputStream buf = new BufferChunksOutputStream();
-        // Java 9+ has more concise try-with-resources
-        try (BufferChunksOutputStream buf0 = buf;
-                ImageOutputStream out = new MemoryCacheImageOutputStream(buf0)) {
+    public void encode(BufferedImage image, OutputStream target) throws IOException {
+        try (ImageOutputStream out = new MemoryCacheImageOutputStream(target)) {
             pngWriter.setOutput(out);
             pngWriter.write(null, new IIOImage(image, null, null), writeParam);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
         } finally {
             pngWriter.setOutput(null);
         }
-        return buf.chunks();
     }
 
 }

@@ -5,6 +5,7 @@
 package io.github.stanio.windows.zopflipng;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
@@ -87,6 +88,13 @@ public class ZopfliPNGEncoder extends PNGEncoder {
             throw new RuntimeException("Unexpected " + e, e);
         }
         return buf.chunks();
+    }
+
+    @Override
+    public void encode(BufferedImage image, OutputStream out) throws IOException {
+        for (ByteBuffer chunk : encode(image)) {
+            out.write(chunk.array(), 0, chunk.limit());
+        }
     }
 
     private static byte[] pngDataFor(BufferedImage image) {
