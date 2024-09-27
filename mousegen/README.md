@@ -122,3 +122,5 @@ Some references I've stumbled upon:
 -   [quantum5/win2xcur](https://github.com/quantum5/win2xcur) (and x2wincur)
 -   [xcursorgen](https://gitlab.freedesktop.org/xorg/app/xcursorgen)
     (on [ArchWiki](https://wiki.archlinux.org/title/Xcursorgen))
+-   [CursorCreate](https://github.com/isaacrobinson2000/CursorCreate)
+-   [Mousecape](https://github.com/alexzielenski/Mousecape) (macOS)
