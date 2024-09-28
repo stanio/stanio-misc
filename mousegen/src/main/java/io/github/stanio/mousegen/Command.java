@@ -7,6 +7,9 @@ package io.github.stanio.mousegen;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import io.github.stanio.mousegen.config.X11Symlinks;
@@ -15,12 +18,31 @@ import io.github.stanio.mousegen.ini_files.WindowsInstallScripts;
 
 public final class Command {
 
+    @FunctionalInterface
+    private interface Main {
+        void main(String... args) throws Exception;
+    }
+
+    private static final Map<String, Main> availableCommands;
+    static {
+        Map<String, Main> commands = new LinkedHashMap<>();
+        // Klass::main references cause eager class initialization.
+        commands.put("svgsize", args -> SVGSizingTool.main(args));
+        commands.put("wincur", args -> CursorCompiler.main(args));
+        commands.put("render", args -> MouseGen.main(args));
+        commands.put("linuxThemeFiles", args -> LinuxThemeFiles.main(args));
+        commands.put("windowsInstallScripts", args -> WindowsInstallScripts.main(args));
+        commands.put("x11Symlinks", args -> X11Symlinks.main(args));
+        availableCommands = Collections.unmodifiableMap(commands);
+    }
+
     private Command() {/* no instances */}
 
     private static void printHelp(PrintStream err) {
-        err.println("USAGE: mousegen <command> [<args>]");
+        err.println("USAGE: mousegen [-h | --help] <command> [<args>]");
         err.println();
-        err.println("Commands: {svgsize|wincur|render|linuxThemeFiles|windowsInstallScripts|x11Symlinks}");
+        err.append("Commands: {").append(String
+                .join(" | ", availableCommands.keySet())).println("}");
     }
 
     public static void main(String[] args) throws Exception {
@@ -28,24 +50,14 @@ public final class Command {
             exitMessage(1, Command::printHelp, "Error: Specify a command");
         }
 
-        String cmd = args[0];
-        String[] cmdArgs = Arrays.copyOfRange(args, 1, args.length);
-        if ("svgsize".equals(cmd)) {
-            SVGSizingTool.main(cmdArgs);
-        } else if ("wincur".equals(cmd)) {
-            CursorCompiler.main(cmdArgs);
-        } else if ("render".equals(cmd)) {
-            MouseGen.main(cmdArgs);
-        } else if ("linuxThemeFiles".equals(cmd)) {
-            LinuxThemeFiles.main(cmdArgs);
-        } else if ("windowsInstallScripts".equals(cmd)) {
-            WindowsInstallScripts.main(cmdArgs);
-        } else if ("x11Symlinks".equals(cmd)) {
-            X11Symlinks.main(cmdArgs);
-        } else if (Arrays.asList("-h", "--help").contains(cmd)) {
+        String name = args[0];
+        Main cmd = availableCommands.get(name);
+        if (cmd != null) {
+            cmd.main(Arrays.copyOfRange(args, 1, args.length));
+        } else if (Arrays.asList("-h", "--help").contains(name)) {
             printHelp(System.out);
         } else {
-            exitMessage(1, Command::printHelp, "Error: Unknown command");
+            exitMessage(1, Command::printHelp, "Error: Unknown command \"" + name + '"');
         }
     }
 
