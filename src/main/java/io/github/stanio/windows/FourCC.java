@@ -6,38 +6,63 @@ package io.github.stanio.windows;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Locale;
 
+/**
+ * Four-character code.
+ *
+ * @see  <a href="https://en.wikipedia.org/wiki/FourCC">FourCC</a>
+ */
 final class FourCC {
 
     static final int SIZE = 4;
 
     final byte[] bytes = new byte[SIZE];
 
-    boolean equalTo(byte[] another) {
+    boolean matches(byte[] another) {
         return Arrays.equals(bytes, another);
     }
 
     FourCC from(ByteBuffer buf) {
         buf.get(bytes);
-        // REVISIT: Possible validation types:
-        //  - Allow any bytes
+        // REVISIT: Possible validation:
+        //  - Allow any bytes (current)
         //  - Allow 7-bit ASCII-only
         //  - Allow printable ASCII-only, and space only for padding
         return this;
     }
 
-    String detailString() {
-        return String.format(Locale.ROOT, "0x%08X \"%s\"", bytes[3] |
-                (bytes[2] << 8) | (bytes[1] << 16) | (bytes[0] << 24), this);
+    String string() {
+        char[] buf = new char[SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            buf[i] = (char) (bytes[i] & 0xFF); // unsigned
+        }
+        return new String(buf);
     }
 
     @Override
     public String toString() {
-        char[] str = new char[SIZE];
-        for (int i = 0; i < SIZE; i++) {
-            str[i] = (char) bytes[i];
-        }
-        return new String(str);
+        return toString(bytes);
     }
+
+    private static final char[] hexCode = "0123456789ABCDEF".toCharArray();
+
+    static String toString(byte[] bytes) {
+        StringBuilder buf = new StringBuilder(10 + bytes.length * 3 + 5);
+        for (byte b : bytes) {
+            char ch = (char) (b & 0xFF);  // unsigned
+            if (ch > 0x1F && ch < 0x7F) { // printable ASCII
+                buf.append(ch);
+            } else {
+                buf.append('[').append((int) ch).append(']');
+            }
+        }
+        buf.append(' ').append('/').append(' ').append('0').append('x');
+        for (int i = bytes.length - 1; i >= 0; i--) { // little-endian
+            byte b = bytes[i];
+            buf.append(hexCode[(b >> 4) & 0xF]);
+            buf.append(hexCode[ b       & 0xF]);
+        }
+        return buf.toString();
+    }
+
 }

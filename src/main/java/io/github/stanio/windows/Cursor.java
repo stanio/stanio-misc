@@ -4,11 +4,9 @@
  */
 package io.github.stanio.windows;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.Channels;
@@ -21,15 +19,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeMap;
-import java.util.function.Supplier;
 
 import java.util.logging.Logger;
 
@@ -49,6 +41,10 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
+
+import io.github.stanio.windows.CursorReader.BitmapInfo;
+import io.github.stanio.windows.CursorReader.ContentHandler;
+import io.github.stanio.windows.CursorReader.DirEntry;
 
 /**
  * A builder for multi-resolution Windows cursors.  Supports only 32-bit color
@@ -124,7 +120,7 @@ public class Cursor {
     } // class BoxSizing
 
 
-    private static final class Image {
+    static final class Image {
 
         static final int ENTRY_SIZE = 16;
 
@@ -227,7 +223,7 @@ public class Cursor {
         this((short) 0, IMAGE_TYPE);
     }
 
-    private Cursor(short reserved, short imageType) {
+    Cursor(short reserved, short imageType) {
         this.reserved = reserved;
         this.imageType = imageType;
     }
@@ -241,90 +237,39 @@ public class Cursor {
     }
 
     public static Cursor read(ReadableByteChannel ch) throws IOException {
-        ReadableChannelBuffer source = new ReadableChannelBuffer(ch)
-                                       .order(ByteOrder.LITTLE_ENDIAN);
-        long sourcePosition = 0;
+        class Builder implements ContentHandler {
+            private Cursor cursor;
 
-        Cursor cursor;
-        final int numImages;
-        ByteBuffer imageDir;
-        {
-            final short reserved = source.ensure(HEADER_SIZE).getShort();
-            if (reserved != 0)
-                log.fine(() -> "(File header) Non-zero reserved field: 0x"
-                        + toHexString(reserved));
-
-            final short imageType = source.buffer().getShort();
-            if (imageType != IMAGE_TYPE)
-                log.fine(() -> "(File header) Non-cursor image type: " + imageType);
-
-            numImages = Short.toUnsignedInt(source.buffer().getShort());
-
-            final int dirSize = numImages * Image.ENTRY_SIZE;
-            imageDir = source.copyNBytes(dirSize);
-            cursor = new Cursor(reserved, imageType);
-            sourcePosition = HEADER_SIZE + dirSize;
-        }
-
-        Map<Long, Integer> dataOrder = new TreeMap<>(); // sorted
-        for (int i = 0; i < numImages; i++) {
-            final int entryOffset = i * Image.ENTRY_SIZE;
-            final int dataOffsetField = 12;
-            dataOrder.put(Integer.toUnsignedLong(
-                    imageDir.getInt(entryOffset + dataOffsetField)), i);
-        }
-
-        for (Map.Entry<Long, Integer> entry : dataOrder.entrySet()) {
-            final long dataOffset = entry.getKey();
-            final int imageIndex = entry.getValue();
-            imageDir.position(imageIndex * Image.ENTRY_SIZE);
-            Supplier<String> imageTag = () -> "Image #" + (imageIndex + 1);
-
-            int width = Byte.toUnsignedInt(imageDir.get());
-            int height = Byte.toUnsignedInt(imageDir.get());
-            int numColors = Byte.toUnsignedInt(imageDir.get());
-            final byte reserved = imageDir.get();
-            if (reserved != 0)
-                log.fine(() -> imageTag.get() + " entry: "
-                        + "Non-zero reserved field: 0x" + toHexString(reserved));
-
-            final short hotspotX = imageDir.getShort();
-            final short hotspotY = imageDir.getShort();
-            final long dataSize = Integer.toUnsignedLong(imageDir.getInt());
-            if (dataSize > MAX_DATA_SIZE)
-                throw new IOException(imageTag.get()
-                        + " entry: Bitmap data too large: " + dataSize);
-
-            long currentOffset = sourcePosition;
-            if (dataOffset < currentOffset)
-                throw new IOException(imageTag.get() + " data offset 0x"
-                        + toHexString(dataOffset) + " overlaps previous data: current offset 0x"
-                        + toHexString(currentOffset));
-
-            if (dataOffset > currentOffset) {
-                log.fine(() -> "Discarding " + (dataOffset - currentOffset)
-                        + " bytes @ 0x" + toHexString(currentOffset));
-                source.skipNBytes(dataOffset - currentOffset);
-                sourcePosition = dataOffset;
+            @Override public void header(short reserved, short imageType, List<DirEntry> imageDir)
+                    throws DataFormatException {
+                cursor = new Cursor(reserved, imageType);
             }
-            log.fine(() -> imageTag.get() + " offset: 0x" + toHexString(dataOffset));
 
-            BitmapInfo bitmap = new BitmapInfo(source.copyNBytes((int) dataSize));
-            sourcePosition += dataSize;
+            @Override public void image(DirEntry dirEntry, ReadableByteChannel data)
+                    throws IOException {
+                if (dirEntry.dataSize > MAX_DATA_SIZE)
+                    throw new DataFormatException(dirEntry.tag()
+                            + " entry: Bitmap data too large: " + dirEntry.dataSize);
 
-            if (width == 0 && bitmap.width() > 255)
-                width = bitmap.width();
+                BitmapInfo bitmap = new BitmapInfo(new ReadableChannelBuffer(data, 0)
+                                                   .order(ByteOrder.LITTLE_ENDIAN)
+                                                   .copyNBytes((int) dirEntry.dataSize));
 
-            if (height == 0 && bitmap.height() > 255)
-                height = bitmap.height();
+                cursor.entries.add(new Image(dirEntry.width(bitmap.width()),
+                        dirEntry.height(bitmap.height()),
+                        dirEntry.numColors(bitmap.numColors()),
+                        dirEntry.reserved,
+                        dirEntry.hotspotX,
+                        dirEntry.hotspotY,
+                        bitmap.data));
+            }
 
-            if (numColors == 0 && bitmap.numColors() > 255)
-                numColors = bitmap.numColors();
-
-            cursor.entries.add(new Image(width, height, numColors, reserved,
-                    hotspotX, hotspotY, bitmap.data));
+            Cursor create() {
+                assert (cursor != null);
+                return cursor;
+            }
         }
-        return cursor;
+        return new CursorReader().parse(ch, new Builder()).create();
     }
 
     /**
@@ -567,192 +512,6 @@ public class Cursor {
         return HEADER_SIZE;
     }
 
-
-    /**
-     * Basic bitmap info (dimensions and number of colors)
-     * extracted from bitmap data (vs. image entry).
-     */
-    private static final class BitmapInfo {
-
-        enum Format { BMP, PNG }
-
-        private static final byte[] PNG_MAGIC = { (byte) 0x89, 'P', 'N', 'G',
-                                                         0x0D, 0x0A, 0x1A, 0x0A };
-        private static final byte[] PNG_TAG = Arrays.copyOf(PNG_MAGIC, 4);
-
-        final ByteBuffer data;
-
-        private boolean parsed;
-        private Format format;
-        private int width;
-        private int height;
-        private int numColors;
-
-        BitmapInfo(ByteBuffer data) {
-            this.data = data;
-        }
-
-        int width() {
-            return parsed().width;
-        }
-
-        int height() {
-            return parsed().height;
-        }
-
-        int numColors() {
-            return parsed().numColors;
-        }
-
-        private BitmapInfo parsed() {
-            if (parsed) return this;
-
-            ByteBuffer buf = (ByteBuffer) data.rewind();
-            try {
-                byte[] tag = new byte[PNG_TAG.length];
-                buf.get(tag).rewind();
-
-                if (Arrays.equals(tag, PNG_TAG)) {
-                    parsePNGData(buf);
-                } else {
-                    parseBMPData(buf);
-                }
-                if (veryLargeDimension())
-                    throw new DataFormatException("Unsupported BITMAP dimension: "
-                            + width + "x" + height);
-
-            } catch (BufferUnderflowException e) {
-                throw new UncheckedIOException((EOFException)
-                        new EOFException(e.getMessage()).initCause(e));
-            } catch (DataFormatException e) {
-                throw new UncheckedIOException(e);
-            }
-            parsed = true;
-            return this;
-        }
-
-        private void parsePNGData(ByteBuffer buf) throws BufferUnderflowException, DataFormatException {
-            buf.order(ByteOrder.BIG_ENDIAN);
-            format = Format.PNG;
-
-            byte[] magic = new byte[PNG_MAGIC.length];
-            buf.get(magic);
-            if (!Arrays.equals(magic, PNG_MAGIC))
-                throw new DataFormatException("Malformed PNG header: " + Arrays.toString(magic));
-
-            PNGChunk chunk = PNGChunk.read(buf);
-            if (!chunk.name.equals("IHDR"))
-                throw new DataFormatException("Expected IHDR chunk but got: " + chunk.name);
-
-            if (chunk.data.capacity() < 13)
-                throw new DataFormatException("Unsupported IHDR chunk length: " + chunk.data.capacity());
-
-            width = chunk.data.getInt();
-            height = chunk.data.getInt();
-
-            byte bitDepth = chunk.data.get();
-            byte colorType = chunk.data.get();
-            if (bitDepth != 8 || colorType != 6) {
-                // Unsupported PNG type
-            }
-            numColors = Integer.MAX_VALUE;
-        }
-
-        private void parseBMPData(ByteBuffer buf) throws BufferUnderflowException, DataFormatException {
-            buf.order(ByteOrder.LITTLE_ENDIAN);
-            format = Format.BMP;
-
-            final int bmpFileHdrSize = 14;
-            final long bmpInfoHdrSize = Integer.toUnsignedLong(buf.getInt());
-            if (bmpInfoHdrSize < 40)
-                throw new DataFormatException("Unsupported BITMAP header size: " + bmpInfoHdrSize + " < 40");
-
-            width = Math.abs(buf.getInt());
-            height = Math.abs(buf.getInt()) / 2;
-
-            if (buf.getShort() != 1) {
-                // Unexpected number of color planes
-            }
-
-            final int bitCount = Short.toUnsignedInt(buf.getShort());
-            numColors = buf.getInt(46 - bmpFileHdrSize);
-            if (numColors == 0) {
-                numColors = (bitCount > 30) ? Integer.MAX_VALUE : 1 << bitCount;
-            }
-        }
-
-        private boolean veryLargeDimension() {
-            try {
-                // ~ 16_384 x 16_384
-                return Math.multiplyExact(width, height) > 0x1000_0000;
-            } catch (ArithmeticException e) {
-                return true;
-            }
-        }
-
-        @Override
-        public String toString() {
-            return "BitmapInfo(parsed: " + parsed + ", format: " + format
-                    + ", width: " + width + ", height: " + height
-                    + ", numColors: " + numColors + ", bitmapDataSize: "
-                    + (data == null ? "null" : data.capacity()) +")";
-        }
-
-    } // BitmapInfo
-
-
-    private static final class PNGChunk {
-
-        final String name;
-        final ByteBuffer data;
-
-        private PNGChunk(String name, byte[] data) {
-            this.name = Objects.requireNonNull(name);
-            this.data = ByteBuffer.wrap(data);
-        }
-
-        static PNGChunk read(ByteBuffer bitmapData) throws BufferUnderflowException {
-            long size = Integer.toUnsignedLong(bitmapData.getInt());
-
-            char[] name; {
-                byte[] nameBytes = new byte[4];
-                bitmapData.get(nameBytes);
-
-                name = new char[nameBytes.length];
-                for (int i = 0; i < name.length; i++)
-                    name[i] = (char) nameBytes[i];
-            }
-
-            final int dataLimit = 100;
-            byte[] chunkData = new byte[(int) Math.min(size, dataLimit)];
-            bitmapData.get(chunkData);
-
-            return new PNGChunk(new String(name), chunkData);
-        }
-
-        @Override
-        public String toString() {
-            return name + "(" + (data == null ? "null" : data.capacity()) + ")";
-        }
-
-    } // class PNGChunk
-
-
-    private static String toHexString(byte number) {
-        return formatNumber(Byte.toUnsignedLong(number), "%02X");
-    }
-
-    private static String toHexString(short number) {
-        return formatNumber(Short.toUnsignedLong(number), "%04X");
-    }
-
-    private static String toHexString(long number) {
-        return formatNumber(number, "%016X");
-    }
-
-    private static String formatNumber(long number, String format) {
-        return String.format(Locale.ROOT, format, number);
-    }
 
     /**
      * Command-line entry point.
