@@ -339,7 +339,12 @@ public class XCursor {
     }
 
     public void addFrame(BufferedImage image, Point hotspot, int delay) {
-        addFrame(frames.lastKey() + 1, image, hotspot, delay);
+        addFrame(nextFrame(), image, hotspot, delay);
+    }
+
+    private Integer nextFrame() {
+        return frames.isEmpty() ? staticFrame
+                                : Integer.valueOf(frames.lastKey() + 1);
     }
 
     public void addFrame(Integer frameNum, BufferedImage image, Point hotspot, int delay) {
@@ -351,7 +356,7 @@ public class XCursor {
     }
 
     public void addFrame(Path file, Point hotspot) throws IOException {
-        addFrame(frames.lastKey() + 1, file, hotspot, 0);
+        addFrame(nextFrame(), file, hotspot, 0);
     }
 
     public void addFrame(Integer frameNum, Path file, Point hotspot, int delay)
