@@ -115,6 +115,10 @@ repositories {
     //}
 }
 
+configurations {
+    mockitoAgent
+}
+
 dependencies {
     implementation rootProject
     //implementation 'io.github.stanio:stanio-misc'
@@ -124,5 +128,15 @@ dependencies {
     implementation libs.jhlabs.filters
     runtimeOnly    libs.woodstox
 
+    testImplementation libs.mockito
+    testImplementation "org.mockito:mockito-junit-jupiter:${libs.versions.mockito.get()}"
     testImplementation libs.bundles.xmlunit
+
+    mockitoAgent(libs.mockito) { transitive = false }
+}
+
+tasks.named('test') {
+    // Explicitly setting up instrumentation for inline mocking (Java 21+)
+    // https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#mockito-instrumentation
+    jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
 }

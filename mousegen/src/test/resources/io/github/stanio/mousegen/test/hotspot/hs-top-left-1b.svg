@@ -1,0 +1,6 @@
+<?base-stroke-width 2 ?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect id="cursor-shape" x="2.5" y="2.5" width="12.5" height="15.5" fill="#00FF00" stroke="#0000FF" stroke-width="2" />
+  <path id="align-anchor" class="bias-bottom-right-half" d="m 3.5,3.5 v 2 l 2,-2 z" fill="cyan" opacity=".8" display="none" />
+  <circle id="cursor-hotspot" class="bias-top-left-half" cx="1.5" cy="1.5" r="0.5" fill="magenta" opacity=".6" display="none" />
+</svg>

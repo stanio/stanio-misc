@@ -38,14 +38,25 @@ import java.awt.geom.Point2D;
 public class AnchorPoint {
 
 
+    /**
+     * Direction with horizontal and vertical magnitude, and <i>mode</i> specifying
+     * how dynamic offsets (relative to stroke and fill) should be applied.
+     */
     public static class Bias {
+        /* REVISIT: Currently there's no way to specify different alignment/mode
+         * per direction, for example:
+         *
+         * top-outside
+         * left-fill / left-stroke */
 
-        public enum Mode { STROKE_OUTSIDE, FILL, STROKE_BASE }
+        public enum Mode { STROKE_INSIDE, FILL_INSIDE, FILL_OUTSIDE,
+            STROKE_OUTSIDE, STROKE_BASE, STROKE_BASE_OUTSIDE }
 
         private static final String CENTER = "center",
                                     HALF = "half",
-                                    STROKE ="stroke", // default, implied
+                                    STROKE = "stroke", // default
                                     FILL = "fill",
+                                    OUTSIDE = "outside",
                                     BASE = "base";
 
         private static final Pattern
@@ -76,7 +87,7 @@ public class AnchorPoint {
         private final Mode mode;
 
         private Bias(double biasX, double biasY) {
-            this(biasX, biasY, Mode.STROKE_OUTSIDE);
+            this(biasX, biasY, Mode.STROKE_INSIDE);
         }
 
         private Bias(double x, double y, Mode mode) {
@@ -112,18 +123,34 @@ public class AnchorPoint {
                 tokens.remove(CENTER);
             }
 
-            Mode mode;
+            Mode mode = Mode.STROKE_INSIDE;
+            boolean outside = false;
             if (tokens.remove(HALF)) {
+                outside = tokens.remove(OUTSIDE);
+                mode = outside ? Mode.STROKE_BASE_OUTSIDE
+                               : Mode.STROKE_BASE;
                 biasX /= 2;
                 biasY /= 2;
-                mode = Mode.STROKE_BASE;
-            } else if (tokens.remove(FILL)) {
-                mode = Mode.FILL;
             } else if (tokens.remove(BASE)) {
-                mode = Mode.STROKE_BASE;
-            } else {
-                tokens.remove(STROKE);
-                mode = Mode.STROKE_OUTSIDE;
+                outside = tokens.remove(OUTSIDE);
+                mode = outside ? Mode.STROKE_BASE_OUTSIDE
+                               : Mode.STROKE_BASE;
+            } else if (tokens.remove(FILL)) {
+                outside = tokens.remove(OUTSIDE);
+                mode = outside ? Mode.FILL_OUTSIDE
+                               : Mode.FILL_INSIDE;
+            } else if (tokens.remove(STROKE)) {
+                outside = tokens.remove(OUTSIDE);
+                mode = outside ? Mode.STROKE_OUTSIDE
+                               : Mode.STROKE_INSIDE;
+            } else if (tokens.remove(OUTSIDE)) {
+                mode = Mode.FILL_OUTSIDE;
+                outside = true;
+            }
+
+            if (outside) {
+                biasX = -biasX;
+                biasY = -biasY;
             }
 
             if (!tokens.isEmpty()) {
@@ -133,7 +160,7 @@ public class AnchorPoint {
             }
 
             Bias pooled = null;
-            if (mode == Mode.STROKE_OUTSIDE) {
+            if (mode == Mode.STROKE_INSIDE) {
                 pooled = valueMap.getOrDefault(biasX,
                         Collections.emptyMap()).get(biasY);
             }
@@ -257,8 +284,12 @@ public class AnchorPoint {
     public Point2D pointWithOffset(double strokeOffset, double fillOffset) {
         double offset;
         switch (bias.mode()) {
-        case FILL:
+        case FILL_INSIDE:
             offset = fillOffset;
+            break;
+
+        case FILL_OUTSIDE:
+            offset = -fillOffset;
             break;
 
         case STROKE_BASE:
@@ -266,9 +297,16 @@ public class AnchorPoint {
             // no fill is expanded.
             offset = strokeOffset - fillOffset;
             break;
+        case STROKE_BASE_OUTSIDE:
+            offset = fillOffset - strokeOffset;
+            break;
+
+        case STROKE_OUTSIDE:
+            offset = -strokeOffset;
+            break;
 
         default:
-        case STROKE_OUTSIDE:
+        case STROKE_INSIDE:
             offset = strokeOffset;
         }
 

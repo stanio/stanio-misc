@@ -27,7 +27,7 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
 
 /**
  * Creates cursors from SVG sources.  Implements the actual cursor generation,
- * independent from the user UI ({@code BitmapsRenderer}, the CLI tool).
+ * independent from the user UI (the {@code MouseGen} CLI tool).
  *
  * @see  MouseGen
  */
@@ -70,9 +70,13 @@ final class CursorRenderer {
     private CursorBuilder currentFrames;
 
     CursorRenderer() {
+        this(RendererBackend.newInstance());
+    }
+
+    CursorRenderer(RendererBackend backend) {
         this.loadTransformer = new SVGTransformer();
         this.variantTransformer = new SVGTransformer();
-        this.backend = RendererBackend.newInstance();
+        this.backend = backend;
         loadTransformer.setSVG11Compat(backend.needSVG11Compat());
         variantTransformer.setBaseStrokeWidth(baseStrokeWidth);
     }
@@ -270,7 +274,7 @@ final class CursorRenderer {
         }
     }
 
-    private CursorBuilder newCursorBuilder() throws UncheckedIOException {
+    /*VisibleForTesting*/ CursorBuilder newCursorBuilder() throws UncheckedIOException {
         return CursorBuilder.newInstance(outputType,
                 outDir.resolve(targetName), updateExisting,
                 animation, 1 / (float) canvasSizing.nominalSize);

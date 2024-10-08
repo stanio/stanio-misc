@@ -251,9 +251,9 @@ public class SVGSizing {
             Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
             int x = roundHotspotCoord(offsetHotspot.getX(), metadata.hotspot.bias().dX(),
-                        metadata.hotspot.x() >= metadata.sourceViewBox.getCenterX());
+                        metadata.hotspot.x() / metadata.sourceViewBox.getWidth());
             int y = roundHotspotCoord(offsetHotspot.getY(), metadata.hotspot.bias().dY(),
-                        metadata.hotspot.y() >= metadata.sourceViewBox.getCenterY());
+                        metadata.hotspot.y() / metadata.sourceViewBox.getHeight());
             alignedHotspot = new Point(x, y);
         }
         offsetsConsumer.apply(viewBox, objectOffsets);
@@ -269,26 +269,32 @@ public class SVGSizing {
      *
      * @param   coordinate  fractional hotspot coordinate in the target space
      * @param   biasValue  bias value on the given coordinate axis
-     * @param   beyondCenter  whether the source coordinate is larger (or equal)
-     *          to the source canvas/view-box center.  May be used as heuristics
-     *          whether the coordinate is "on the outside of the shape" when
+     * @param   relativeCoordinate  relative coordinate value [0..1].  0 meaning
+     *          "on the leading side/edge", and 1 meaning "on the trailing
+     *          side/edge".  Used to imply rounding bias when
      *          {@code biasValue == 0}
      */
-    private static int roundHotspotCoord(double coordinate, double biasValue, boolean beyondCenter) {
-        // Round 0.33-up or 0.66-up depending on bias direction
-        // REVISIT: Does (biasValue == 0) need to be handled specifically with Math.round()?
-        int rounded = (int) Math.floor(coordinate + (biasValue < 0 ? 0.66015625 : 0.33984375));
-        if  (biasValue > 0 ||
-                // REVISIT: Should (rounded > coordinate) be ignored when using center heuristics?
-                (biasValue == 0 && (rounded > coordinate
-                        || beyondCenter && hotspotCenterHeuristics))) {
-            rounded -= 1;
+    private static int roundHotspotCoord(double coordinate, double biasValue, double relativeCoordinate) {
+        int rounded;
+        if (biasValue < 0 || hotspotCenterHeuristics
+                && biasValue == 0 && relativeCoordinate <= 0.45) {
+            rounded = (int) Math.floor(coordinate + 0.55);
+        } else if (biasValue > 0 || hotspotCenterHeuristics
+                && biasValue == 0 && relativeCoordinate >= 0.55) {
+            rounded = (int) Math.floor(coordinate + 0.45) - 1;
+        } else {
+            rounded = (int) (hotspotCenterHeuristics
+                    // Don't generally round-up near the center, but perform minimal
+                    // adjustment for binary floating-point error: 27.9999999999375 -> 28
+                    ? Math.floor(coordinate + 0.000001)
+                    // standard rounding
+                    : Math.round(coordinate));
         }
         return rounded;
     }
 
     private static final boolean hotspotCenterHeuristics =
-            Boolean.getBoolean("mousegen.hotspot.centerHeuristics");
+            !Boolean.getBoolean("mousegen.hotspot.disableCenterHeuristics");
 
     private static Path resolveLinks(Path path) throws IOException {
         Path target = path;

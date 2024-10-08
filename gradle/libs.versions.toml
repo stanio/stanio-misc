@@ -7,6 +7,7 @@ woodstox = "7.1.0"
 junit = "5.11.4"
 assertj = "3.27.3"
 xmlunit = "2.10.0"
+mockito = "5.15.2"
 
 [libraries]
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
@@ -17,6 +18,7 @@ junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 xmlunit-core = { module = "org.xmlunit:xmlunit-core", version.ref = "xmlunit" }
 xmlunit-assertj3 = { module = "org.xmlunit:xmlunit-assertj3", version.ref = "xmlunit" }
+mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 
 [bundles]
 xmlunit = ["xmlunit-core", "xmlunit-assertj3"]
