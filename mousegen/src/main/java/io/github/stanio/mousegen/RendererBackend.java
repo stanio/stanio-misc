@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.ToDoubleFunction;
 
 import javax.xml.XMLConstants;
 import javax.xml.stream.XMLEventReader;
@@ -29,6 +30,9 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stax.StAXResult;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.events.EventListener;
+import org.w3c.dom.events.EventTarget;
 
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -44,6 +48,9 @@ import com.github.weisj.jsvg.SVGRenderingHints;
 import com.github.weisj.jsvg.parser.LoaderContext;
 import com.github.weisj.jsvg.parser.NodeSupplier;
 import com.github.weisj.jsvg.parser.StaxSVGLoader;
+import com.github.weisj.jsvg.renderer.AnimationState;
+import com.github.weisj.jsvg.renderer.Graphics2DOutput;
+import com.github.weisj.jsvg.renderer.awt.NullPlatformSupport;
 import com.jhlabs.image.ShadowFilter;
 
 import io.github.stanio.batik.DynamicImageTranscoder;
@@ -228,6 +235,20 @@ class JSVGRendererBackend extends RendererBackend {
         return imageTranscoder.transcode();
     }
 
+    @Override
+    public void renderAnimation(Animation animation,
+                                AnimationFrameCallback callback) {
+        final float duration = animation.duration;
+        final float frameRate = animation.frameRate;
+        float currentTime = 0f;
+        for (int frameNo = 1;
+                currentTime < duration;
+                currentTime = frameNo++ / frameRate) {
+            callback.accept(frameNo,
+                    imageTranscoder.transcodeFrame(currentTime));
+        }
+    }
+
 }
 
 
@@ -243,8 +264,12 @@ class JSVGImageTranscoder {
     private Optional<DropShadow> dropShadow = Optional.empty();
     private StaxSVGLoader svgLoader;
 
+    private SVGDocument jsvgDocument;
+    private final EventListener clearSVGListener = evt -> clearSVG();
+
     public void setDropShadow(DropShadow shadow) {
         this.dropShadow = Optional.ofNullable(shadow);
+        clearSVG();
     }
 
     public Document document() {
@@ -252,23 +277,63 @@ class JSVGImageTranscoder {
     }
 
     public void setDocument(Document document) {
+        Document oldDoc = this.document;
+        if (document == oldDoc) return;
+
+        // 1.6.4. Mutation event types
+        // https://www.w3.org/TR/DOM-Level-2-Events/events.html#Events-eventgroupings-mutationevents
+        // DOMSubtreeModified - general event for notification of all changes to the document.
+        final String DOMSubtreeModified = "DOMSubtreeModified";
+        if (oldDoc instanceof EventTarget) {
+            ((EventTarget) oldDoc)
+                    .removeEventListener(DOMSubtreeModified, clearSVGListener, true);
+        }
         this.document = document;
+        clearSVG();
+        if (document instanceof EventTarget) {
+            ((EventTarget) document)
+                    .addEventListener(DOMSubtreeModified, clearSVGListener, true);
+        }
     }
 
     public JSVGImageTranscoder withImageWidth(int width) {
         document().getDocumentElement()
                   .setAttribute("width", String.valueOf(width));
+        clearSVG();
         return this;
     }
 
     public JSVGImageTranscoder withImageHeight(int height) {
         document().getDocumentElement()
                   .setAttribute("height", String.valueOf(height));
+        clearSVG();
         return this;
     }
 
+    private void clearSVG() {
+        jsvgDocument = null;
+    }
+
     private SVGDocument getSVG() {
-        SVGDocument svg;
+        SVGDocument svg = jsvgDocument;
+        if (svg != null) {
+            // The source DOM may not support mutation events - perform basic
+            // heuristics whether the JSVG needs to be rebuilt.
+            Dimension2D size = svg.size();
+            Element sourceSVG = document.getDocumentElement();
+            ToDoubleFunction<String> doubleAttr = attrName -> {
+                try {
+                    return Double.parseDouble(sourceSVG.getAttribute(attrName));
+                } catch (NumberFormatException e) {
+                    return Double.NaN;
+                }
+            };
+            if (doubleAttr.applyAsDouble("width") == size.getWidth()
+                    && doubleAttr.applyAsDouble("height") == size.getHeight()) {
+                return svg;
+            }
+        }
+
         try (InputStream input = DOMInput.fakeStream(document())) {
             String baseURI = document().getDocumentURI();
             svg = svgLoader().load(input, baseURI == null ? null : URI.create(baseURI),
@@ -279,7 +344,7 @@ class JSVGImageTranscoder {
         if (svg == null) {
             throw new IllegalStateException("Could not create SVG document (see previous logs)");
         }
-        return svg;
+        return (jsvgDocument = svg);
     }
 
     private StaxSVGLoader svgLoader() {
@@ -291,6 +356,10 @@ class JSVGImageTranscoder {
     }
 
     public BufferedImage transcode() {
+        return renderImage((svg, g) -> svg.render(null, g));
+    }
+
+    private BufferedImage renderImage(BiConsumer<SVGDocument, Graphics2D> render) {
         SVGDocument svg = getSVG();
         Dimension2D size = svg.size();
         BufferedImage image = new BufferedImage((int) size.getWidth(),
@@ -310,7 +379,7 @@ class JSVGImageTranscoder {
                                SVGRenderingHints.VALUE_SOFT_CLIPPING_ON);
             g.setRenderingHint(SVGRenderingHints.KEY_MASK_CLIP_RENDERING,
                                SVGRenderingHints.VALUE_MASK_CLIP_RENDERING_ACCURACY);
-            svg.render(null, g);
+            render.accept(svg, g);
 
             // REVISIT: Move this as a common post-processing in the base
             // RendererBackend, or even CursorsRenderer, if it is to remain.
@@ -343,6 +412,18 @@ class JSVGImageTranscoder {
                                                shadow.opacity);
         filter.setShadowColor(shadow.color);
         return filter;
+    }
+
+    public BufferedImage transcodeFrame(double snapshotTime) {
+        return renderImage((svg, g) -> {
+            Graphics2DOutput output = new Graphics2DOutput(g);
+            try {
+                svg.renderWithPlatform(NullPlatformSupport.INSTANCE, output, null,
+                        new AnimationState(0, Math.round(snapshotTime * 1000)));
+            } finally {
+                output.dispose();
+            }
+        });
     }
 
 
