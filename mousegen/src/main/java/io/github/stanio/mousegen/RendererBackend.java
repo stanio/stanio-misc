@@ -34,6 +34,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Dimension2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.BufferedImageOp;
 
 import org.apache.batik.transcoder.TranscoderException;
 import org.apache.batik.transcoder.TranscoderOutput;
@@ -325,19 +326,23 @@ class JSVGImageTranscoder {
                     vsize = 256;
                 }
 
-                DropShadow shadow = dropShadow.get();
-                float scale = image.getWidth() / vsize;
-                ShadowFilter filter = new ShadowFilter(shadow.blur * scale,
-                                                       shadow.dx * scale,
-                                                       -shadow.dy * scale,
-                                                       shadow.opacity);
-                filter.setShadowColor(shadow.color);
-                return filter.filter(image, null);
+                return shadowFilter(dropShadow.get(),
+                                    image.getWidth() / vsize)
+                        .filter(image, null);
             }
             return image;
         } finally {
             g.dispose();
         }
+    }
+
+    private static BufferedImageOp shadowFilter(DropShadow shadow, float scale) {
+        ShadowFilter filter = new ShadowFilter(shadow.blur * scale,
+                                               shadow.dx * scale,
+                                               -shadow.dy * scale,
+                                               shadow.opacity);
+        filter.setShadowColor(shadow.color);
+        return filter;
     }
 
 
