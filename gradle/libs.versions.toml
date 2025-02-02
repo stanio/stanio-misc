@@ -1,0 +1,12 @@
+[versions]
+batik = "1.18"
+gson = "2.11.0"
+jsvg = "1.7.0"
+#jsvg = "latest:integration"
+woodstox = "7.1.0"
+
+[libraries]
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+jsvg = { module = "com.github.weisj:jsvg", version.ref = "jsvg" }
+woodstox = { module = "com.fasterxml.woodstox:woodstox-core", version.ref = "woodstox" }
+jhlabs-filters = { group = "com.jhlabs", name = "filters", version = "2.0.235-1" }

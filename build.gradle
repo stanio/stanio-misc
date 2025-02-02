@@ -22,7 +22,7 @@ javadoc {
 }
 
 dependencies {
-    api('org.apache.xmlgraphics:batik-transcoder:1.18') {
+    api("org.apache.xmlgraphics:batik-transcoder:${libs.versions.batik.get()}") {
         // Required APIs are part of Java SE, already
         exclude group: 'xml-apis', module: 'xml-apis'
     }
