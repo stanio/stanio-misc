@@ -107,6 +107,9 @@ public class SVGTransformer {
     }
 
     public void setExpandFillDiff(double fillDiff) {
+        if (fillDiff < 0.0)
+            throw new IllegalArgumentException("negative fillDiff: " + fillDiff);
+
         this.expandFillDiff = fillDiff;
         ifPresent(transformers.get("thinStroke"),
                   this::setStrokeParameters);
@@ -239,24 +242,34 @@ public class SVGTransformer {
     }
 
     public Document loadDocument(Path file) throws IOException {
-        DOMResult result = new DOMResult();
         //SAXSource metadataSource = SVGCursorMetadata.loadingSource(file);
-        //transform(metadataSource, result);
-        transform(new StreamSource(file.toFile()), result);
-        Document document = (Document) Objects.requireNonNull(result.getNode());
-        document.setDocumentURI(file.toUri().toString());
+        //Document document = transform(metadataSource);
+        Document document = loadDocument(file.toUri().toString());
         //document.setUserData(SVGCursorMetadata.USER_DATA,
         //        SVGCursorMetadata.fromSource(metadataSource), null);
         return document;
     }
 
+    public Document loadDocument(String url) throws IOException {
+        return transform(new StreamSource(url));
+    }
+
+    private Document transform(Source source) throws IOException {
+        DOMResult result = new DOMResult();
+        transform(source, result);
+
+        Document document = (Document) Objects.requireNonNull(result.getNode());
+        String baseURI = source.getSystemId();
+        if (baseURI == null && source instanceof DOMSource) {
+            baseURI = ((DOMSource) source).getNode().getBaseURI();
+        }
+        document.setDocumentURI(baseURI);
+        return document;
+    }
+
     public Document transformDocument(Document svgDoc) {
         try {
-            DOMResult result = new DOMResult();
-            transform(new DOMSource(svgDoc), result);
-            Document document = (Document) Objects.requireNonNull(result.getNode());
-            document.setDocumentURI(svgDoc.getDocumentURI());
-            return document;
+            return transform(new DOMSource(svgDoc, svgDoc.getBaseURI()));
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }

@@ -1,0 +1,32 @@
+<?base-stroke-width 2 ?>
+<!-- stroke-diff=-1, fill-diff=0 (target-stroke-width=1) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" stroke-linecap="round" stroke-linejoin="round">
+  <path id="top-left-angle" d="M 3,15 V 4 h 10 M 3,6 A 2,2 0 0,1 5,4" fill="#ff0000" stroke="#0000ff" stroke-width="1">
+    <!-- Stroke painted over the fill (the default) – only the stroke is adjusted (even with expand-fill option) -->
+  </path>
+  <g>
+    <path id="bottom-right-angle-outline" d="M 15,27 H 27 V 18" fill="none" stroke="#0000ff" stroke-width="4" class="fixed-fill">
+      <!-- A stroke-width ≥ (2 × base-stroke-width) assumes a stroke painted under a fill, that is a visible outline of base-stroke-width, and is adjusted with 2 × stroke-diff = 2 × (target-stroke-width - base-stroke-width + fill-diff);  "fixed-fill" class instructs the related fill shape (that could be just this shape) should remain fixed even with fill-diff > 0 (expand-fill), so this stroke-width is adjusted with 2 × (stroke-diff - fill-diff). -->
+    </path>
+    <path id="bottom-right-angle-fill" d="M 15,27 H 27 V 18 M 25,27 A 2,2 0 0,0 27,25" fill="none" stroke="#00ff00" stroke-width="2" class="fixed-stroke">
+      <!-- A stroke used to paint a logical fill, and stroke-width = base-stroke-width.  The "fixed-stroke" class prevents any stroke-width adjustment (see "fill-stroke" further) -->
+    </path>
+  </g>
+  <rect id="rect-shape" x="8" y="10" width="12" height="11" rx="1" ry="1" fill="#ffff00" stroke="#0000ff" stroke-width="2" paint-order="stroke fill">
+    <!-- Stroke painted under the fill, and stroke-width ≥ (2 × base-stroke-width) - should adjust for both stroke-diff and fill-diff -->
+  </rect>
+  <circle id="decoration" cx="15" cy="15" r="3" fill="#ffffff" stroke="#0000ff" stroke-width="1.5">
+    <!-- Stroke-width < base-stroke-width – don't adjust the stroke or fill -->
+  </circle>
+  <path id="decoration-2" d="M 3,19 v 6 a 2,2 0 0 0 2,2 h 4" fill="#00ffff" stroke="#0000ff" stroke-width="2.5">
+    <!-- Stroke-width > base-stroke-width and < 2 × base-stroke-width – don't adjust the stroke or fill -->
+  </path>
+  <g>
+    <path d="M 19,4 h 6 a 2,2 0 0,1 2,2 v 4" fill="none" stroke="#0000ff" stroke-width="4.5">
+      <!-- A stroke-width ≥ (2 × base-stroke-width) assumes a stroke painted under a fill... -->
+    </path>
+    <path d="M 19,4 h 6 a 2,2 0 0,1 2,2 v 4" fill="none" stroke="#ff00ff" stroke-width="2.5" class="fill-stroke">
+      <!-- Stroke-width ≠ base-stroke-width so stroke-width is not automatically adjusted, but "fill-stroke" class instructs this is a stroke used paint a logical fill, so its width is adjusted with the fill-diff amount (expand-fill mode). -->
+    </path>
+  </g>
+</svg>

@@ -54,9 +54,9 @@
     <xsl:attribute name="stroke-width">
       <xsl:value-of select="$stroke-width + $stroke-only-diff" />
     </xsl:attribute>
-    <xsl:attribute name="_stroke-width">
+    <!-- <xsl:attribute name="_stroke-width">
       <xsl:value-of select="$stroke-width" />
-    </xsl:attribute>
+    </xsl:attribute> -->
   </xsl:template>
 
   <xsl:template name="adjust-stroke-under"
@@ -66,9 +66,9 @@
     <xsl:attribute name="stroke-width">
       <xsl:value-of select="$stroke-width + 2 * $stroke-diff" />
     </xsl:attribute>
-    <xsl:attribute name="_stroke-width">
+    <!-- <xsl:attribute name="_stroke-width">
       <xsl:value-of select="$stroke-width" />
-    </xsl:attribute>
+    </xsl:attribute> -->
   </xsl:template>
 
   <xsl:template priority="1"
@@ -97,11 +97,13 @@
          paint-order="stroke fill".  Markers are not accounted for. -->
     <g>
       <xsl:copy-of select="@id" />
+      <xsl:copy-of select="@paint-order" />
       <xsl:copy-of select="@filter" />
       <xsl:copy-of select="@mask" />
       <xsl:copy-of select="@clip-path" />
       <xsl:copy>
         <xsl:copy-of select="@*[not(name() = 'id'
+                                    or name() = 'paint-order'
                                     or name() = 'filter'
                                     or name() = 'mask'
                                     or name() = 'clip-path')]" />
@@ -119,22 +121,25 @@
            doesn't "spill outside the stroke", to "solidify the crack". -->
       <xsl:copy>
         <xsl:copy-of select="@*[not(name() = 'id'
+                                    or name() = 'stroke-width'
+                                    or name() = 'paint-order'
                                     or name() = 'filter'
                                     or name() = 'mask'
                                     or name() = 'clip-path')]" />
         <xsl:attribute name="stroke">none</xsl:attribute>
-        <xsl:attribute name="stroke-width">0</xsl:attribute>
       </xsl:copy>
       <xsl:copy>
         <xsl:copy-of select="@*[not(name() = 'id'
+                                    or name() = 'stroke-width'
+                                    or name() = 'paint-order'
                                     or name() = 'filter'
                                     or name() = 'mask'
                                     or name() = 'clip-path')]" />
         <xsl:attribute name="stroke">none</xsl:attribute>
-        <xsl:attribute name="stroke-width">0</xsl:attribute>
       </xsl:copy>
       <xsl:copy>
         <xsl:copy-of select="@*[not(name() = 'id'
+                                    or name() = 'paint-order'
                                     or name() = 'filter'
                                     or name() = 'mask'
                                     or name() = 'clip-path')]" />
@@ -160,9 +165,9 @@
     <xsl:attribute name="stroke-width">
       <xsl:value-of select="$stroke-width + 2 * $fill-diff" />
     </xsl:attribute>
-    <xsl:attribute name="_stroke-width">
+    <!-- <xsl:attribute name="_stroke-width">
       <xsl:value-of select="$stroke-width" />
-    </xsl:attribute>
+    </xsl:attribute> -->
   </xsl:template>
 
   <xsl:template mode="expand-fill"
@@ -172,9 +177,9 @@
     <xsl:attribute name="stroke-width">
       <xsl:value-of select="$stroke-width + 2 * $stroke-only-diff" />
     </xsl:attribute>
-    <xsl:attribute name="_stroke-width">
+    <!-- <xsl:attribute name="_stroke-width">
       <xsl:value-of select="$stroke-width" />
-    </xsl:attribute>
+    </xsl:attribute> -->
   </xsl:template>
 
   <xsl:template mode="expand-fill" priority="1"
