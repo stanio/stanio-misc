@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'eclipse'
 }
 
@@ -10,7 +11,12 @@ tasks.withType(JavaCompile) {
 }
 
 tasks.named('test') {
+    finalizedBy jacocoTestReport
     useJUnitPlatform()
+}
+
+jacocoTestReport {
+    dependsOn test
 }
 
 javadoc {
