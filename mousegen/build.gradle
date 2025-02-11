@@ -124,6 +124,5 @@ dependencies {
     implementation libs.jhlabs.filters
     runtimeOnly    libs.woodstox
 
-    testImplementation 'org.xmlunit:xmlunit-core:2.10.0'
-    testImplementation 'org.xmlunit:xmlunit-assertj3:2.10.0'
+    testImplementation libs.bundles.xmlunit
 }

@@ -4,9 +4,19 @@ gson = "2.12.1"
 jsvg = "1.7.0"
 #jsvg = "latest:integration"
 woodstox = "7.1.0"
+junit = "5.11.4"
+assertj = "3.27.3"
+xmlunit = "2.10.0"
 
 [libraries]
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 jsvg = { module = "com.github.weisj:jsvg", version.ref = "jsvg" }
 woodstox = { module = "com.fasterxml.woodstox:woodstox-core", version.ref = "woodstox" }
 jhlabs-filters = { group = "com.jhlabs", name = "filters", version = "2.0.235-1" }
+junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+xmlunit-core = { module = "org.xmlunit:xmlunit-core", version.ref = "xmlunit" }
+xmlunit-assertj3 = { module = "org.xmlunit:xmlunit-assertj3", version.ref = "xmlunit" }
+
+[bundles]
+xmlunit = ["xmlunit-core", "xmlunit-assertj3"]
