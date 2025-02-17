@@ -135,13 +135,13 @@ public class AnimatedCursor {
 
     static final Logger log = Logger.getLogger(AnimatedCursor.class.getName());
 
-    private int displayRate;
-    private SortedMap<Integer, Cursor> frames = new TreeMap<>();
+    /*VisibleForTesting*/ int displayRate;
+    /*VisibleForTesting*/ SortedMap<Integer, Cursor> frames = new TreeMap<>();
 
     /**
      * Constructs an empty {@code AnimatedCursor} builder.
      *
-     * @param   jiffies  frame rate (one jiffy equal to 1/60 of a second, or
+     * @param   jiffies  frame rate/delay (one jiffy equal to 1/60 of a second ≈
      *          16.666 ms)
      */
     public AnimatedCursor(int jiffies) {

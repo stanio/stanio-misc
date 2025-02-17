@@ -214,7 +214,7 @@ public class Cursor {
 
     private final short reserved; // Should be 0 (zero)
     private final short imageType; // 1 - Icon, 2 - Cursor
-    private final List<Image> entries = new ArrayList<>();
+    final List<Image> entries = new ArrayList<>();
 
     /**
      * Constructs an empty {@code Cursor} builder.
@@ -512,6 +512,11 @@ public class Cursor {
         return HEADER_SIZE;
     }
 
+
+    /*
+     * TODO: Drop the following implementation in favor
+     * of a more general `mousegen compile` command.
+     */
 
     /**
      * Command-line entry point.

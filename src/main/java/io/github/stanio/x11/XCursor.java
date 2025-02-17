@@ -169,7 +169,7 @@ public class XCursor {
     private static final
     boolean defaultCropToContent = Boolean.getBoolean("xcur.cropToContent");
 
-    private final SortedMap<Integer, List<ImageChunk>> frames = new TreeMap<>();
+    /*VisibleForTesting*/ final SortedMap<Integer, List<ImageChunk>> frames = new TreeMap<>();
 
     /** drawing size / canvas size */
     private float nominalFactor;
@@ -282,7 +282,7 @@ public class XCursor {
                          ? Math.max(bounds.width, bounds.height)
                          // REVISIT: Can we safely have a bigger than the nominal
                          // size, while keeping it uniform / square?
-                         : nominalSize;
+                         : Math.max(image.getWidth(), image.getHeight());
         if (bitmapSize > bounds.width) {
             bounds.x = Math.max(0,
                     bounds.x - (bitmapSize - bounds.width + 1) / 2);
@@ -293,6 +293,9 @@ public class XCursor {
                     bounds.y - (bitmapSize - bounds.height + 1) / 2);
         }
         bounds.height = bitmapSize;
+        if (!cropToContent) {
+            bounds = new Rectangle(bitmapSize, bitmapSize);
+        }
         pixels = IntPixels.resizeCanvas(pixels, image.getWidth(), bounds);
 
         addFrameImage(frameNum, new ImageChunk(nominalSize,
