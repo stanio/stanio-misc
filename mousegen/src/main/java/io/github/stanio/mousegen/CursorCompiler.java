@@ -38,6 +38,10 @@ import io.github.stanio.mousegen.CursorNames.Animation;
 /**
  * Command-line utility creating Windows cursors from pre-rendered bitmaps.
  * <p>
+ * <i><b>REVISIT</b>: Factor this into general cursor "compile" command, a la
+ * <code>xcursorgen</code> with option for output format (Windows, Xcursor,
+ * Mousecape).</i></p>
+ * <p>
  * <i>Usage:</i></p>
  * <pre>
  * java -jar mousegen.jar wincur <var>&lt;bitmaps-dir></var></pre>

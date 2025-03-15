@@ -53,7 +53,6 @@ import io.github.stanio.mousegen.svg.DropShadow;
  * @see  <a href="https://github.com/stanio/Bibata_Cursor">stanio/Bibata_Cursor</a>
  */
 public class MouseGen {
-    // REVISIT: Rename to CursorGenerator, MouseGenerator, or just MouseGen for short.
 
     public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS, MOUSECAPE_THEME }
 
