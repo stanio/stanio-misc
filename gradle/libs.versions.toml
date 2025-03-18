@@ -1,7 +1,7 @@
 [versions]
 batik = "1.18"
 gson = "2.12.1"
-jsvg = "1.7.0"
+jsvg = "1.7.1"
 #jsvg = "latest:integration"
 woodstox = "7.1.0"
 junit = "5.11.4"
