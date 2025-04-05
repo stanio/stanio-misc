@@ -1,0 +1,4 @@
+io.github.stanio.mousegen.dump.providers.AnimatedCursorDumpProvider
+io.github.stanio.mousegen.dump.providers.XCursorDumpProvider
+io.github.stanio.mousegen.dump.providers.MousecapeDumpProvider
+io.github.stanio.mousegen.dump.providers.WindowsCursorDumpProvider

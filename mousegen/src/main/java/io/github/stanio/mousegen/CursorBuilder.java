@@ -101,6 +101,7 @@ abstract class CursorBuilder {
         return (num == null) ? staticFrame : num;
     }
 
+
     /**
      * Builds Windows cursors.
      *
@@ -288,7 +289,7 @@ abstract class CursorBuilder {
 
         @Override
         void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
-            cursor.addFrame(frameNo, image, hotspot);
+            cursor.addFrame(validFrameNo(frameNo), image, hotspot);
         }
 
         @Override

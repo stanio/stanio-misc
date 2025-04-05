@@ -54,6 +54,7 @@ import io.github.stanio.windows.CursorReader.DirEntry;
  *              >ICO (file format)</a> <i>(Wikipedia)</i>
  * @see  <a href="https://learn.microsoft.com/previous-versions/ms997538(v=msdn.10)"
  *              >Icons</a> <i>(Microsoft Learn)</i>
+ * @see  CursorReader
  */
 public class Cursor {
 
@@ -145,9 +146,9 @@ public class Cursor {
                 short hotspotX, short hotspotY,
                 ByteBuffer... data)
         {
-            if (width < 0 || height < 0) {
-                throw new IllegalArgumentException("width and height"
-                        + " must be positive: " + width + " x " + height);
+            if (width < 0 || height < 0 || width > 0xFFFF || height > 0xFFFF) {
+                throw new IllegalArgumentException("width and height must be "
+                        + "positive and not exceed 0xFFFF: " + width + " x " + height);
             }
             if (numColors < 0) {
                 throw new IllegalArgumentException("numColors"
@@ -251,9 +252,9 @@ public class Cursor {
                     throw new DataFormatException(dirEntry.tag()
                             + " entry: Bitmap data too large: " + dirEntry.dataSize);
 
-                BitmapInfo bitmap = new BitmapInfo(new ReadableChannelBuffer(data, 0)
-                                                   .order(ByteOrder.LITTLE_ENDIAN)
-                                                   .copyNBytes((int) dirEntry.dataSize));
+                BitmapInfo bitmap = BitmapInfo.parse(new ReadableChannelBuffer(data, 0)
+                                                     .order(ByteOrder.LITTLE_ENDIAN)
+                                                     .copyNBytes((int) dirEntry.dataSize));
 
                 cursor.entries.add(new Image(dirEntry.width(bitmap.width()),
                         dirEntry.height(bitmap.height()),

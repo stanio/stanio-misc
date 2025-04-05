@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import io.github.stanio.mousegen.config.X11Symlinks;
+import io.github.stanio.mousegen.dump.DumpCommand;
 import io.github.stanio.mousegen.ini_files.LinuxThemeFiles;
 import io.github.stanio.mousegen.ini_files.WindowsInstallScripts;
 
@@ -27,6 +28,7 @@ public final class Command {
     static {
         Map<String, Main> commands = new LinkedHashMap<>();
         // Klass::main references cause eager class initialization.
+        commands.put("dump", args -> DumpCommand.main(args));
         commands.put("svgsize", args -> SVGSizingTool.main(args));
         commands.put("wincur", args -> CursorCompiler.main(args));
         commands.put("render", args -> MouseGen.main(args));

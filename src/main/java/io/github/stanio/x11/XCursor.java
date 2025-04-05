@@ -164,6 +164,10 @@ public class XCursor {
     static final int FILE_VERSION = 0x1_0000;
     static final int TOC_ENTRY_SIZE = 3 * Integer.BYTES;
 
+    public static byte[] magic() {
+        return Xcur.clone();
+    }
+
     static final Integer staticFrame = 1;
 
     private static final
@@ -258,6 +262,33 @@ public class XCursor {
         return frames.isEmpty();
     }
 
+    public int[] sizes() {
+        return frames.values().stream().flatMap(List::stream)
+                .mapToInt(ImageChunk::nominalSize).distinct().sorted().toArray();
+    }
+
+    public int frameCount() {
+        return frames.size();
+    }
+
+    public int totalImages() {
+        return Math.toIntExact(frames.values()
+                .stream().mapToInt(List::size).sum());
+    }
+
+    public XCursor consistent() {
+        if (isEmpty())
+            throw new IllegalStateException("Empty cursor (no images)");
+
+        if (frames.values().stream()
+                .map(images -> images.stream()
+                        .map(ImageChunk::nominalSize).collect(Collectors.toSet()))
+                .distinct().count() > 1) {
+            throw new IllegalStateException("Frames contain different size sets");
+        }
+        return this;
+    }
+
     /**
      * {@return nominal size for the given image adjusted to the initialized
      * scale factor}
@@ -314,7 +345,7 @@ public class XCursor {
         {
             int currentIndex = 0;
             for (ImageChunk item : sizes) {
-                int order = item.nominalSize() - image.nominalSize();
+                int order = image.nominalSize() - item.nominalSize();
                 if (order == 0) {
                     index = currentIndex;
                     break find_index;
@@ -427,6 +458,6 @@ public class XCursor {
     }
 
     private static final ThreadLocal<ByteBuffer> localBuffer = ThreadLocal
-            .withInitial(() -> ByteBuffer.allocateDirect(16 * 1024).order(ByteOrder.LITTLE_ENDIAN));
+            .withInitial(() -> ByteBuffer.allocateDirect(8 * 1024).order(ByteOrder.LITTLE_ENDIAN));
 
 }
