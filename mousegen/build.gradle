@@ -111,7 +111,7 @@ tasks.register('installExecutable', Copy) {
 repositories {
     // Test with JSVG nightly snapshots
     //maven {
-    //    url 'https://oss.sonatype.org/content/repositories/snapshots/'
+    //    url = 'https://oss.sonatype.org/content/repositories/snapshots/'
     //}
 }
 
