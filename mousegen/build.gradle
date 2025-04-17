@@ -100,7 +100,7 @@ tasks.register('installExecutable', Copy) {
     description = 'Installs the "really executable jar" on the local machine.'
 
     from tasks.named(executableArtifact)
-    into "${-> project['installDir']}"
+    into project.provider { project.installDir }
     doNotTrackState 'Target directory contains unrelated files'
     rename '.+(?:\\.sh|(\\.[^.]+))', 'mousegen$1'
     filePermissions {
