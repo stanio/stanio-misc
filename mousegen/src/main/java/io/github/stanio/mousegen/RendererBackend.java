@@ -44,13 +44,14 @@ import org.apache.batik.transcoder.TranscoderException;
 import org.apache.batik.transcoder.TranscoderOutput;
 
 import com.github.weisj.jsvg.SVGDocument;
-import com.github.weisj.jsvg.SVGRenderingHints;
 import com.github.weisj.jsvg.parser.LoaderContext;
-import com.github.weisj.jsvg.parser.NodeSupplier;
-import com.github.weisj.jsvg.parser.StaxSVGLoader;
-import com.github.weisj.jsvg.renderer.AnimationState;
-import com.github.weisj.jsvg.renderer.Graphics2DOutput;
-import com.github.weisj.jsvg.renderer.awt.NullPlatformSupport;
+import com.github.weisj.jsvg.parser.impl.NodeSupplier;
+import com.github.weisj.jsvg.parser.impl.StaxSVGLoader;
+import com.github.weisj.jsvg.renderer.NullPlatformSupport;
+import com.github.weisj.jsvg.renderer.SVGRenderingHints;
+import com.github.weisj.jsvg.renderer.animation.AnimationState;
+import com.github.weisj.jsvg.renderer.impl.output.Graphics2DOutput;
+
 import com.jhlabs.image.ShadowFilter;
 
 import io.github.stanio.batik.DynamicImageTranscoder;
