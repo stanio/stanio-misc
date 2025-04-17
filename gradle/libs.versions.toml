@@ -4,10 +4,10 @@ gson = "2.13.1"
 jsvg = "1.7.2"
 #jsvg = "latest.integration"
 woodstox = "7.1.0"
-junit = "5.12.1"
+junit = "5.12.2"
 assertj = "3.27.3"
 xmlunit = "2.10.0"
-mockito = "5.16.1"
+mockito = "5.17.0"
 
 [libraries]
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
