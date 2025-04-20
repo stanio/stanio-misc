@@ -6,10 +6,8 @@ package io.github.stanio.mousegen;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -45,12 +43,12 @@ import org.apache.batik.transcoder.TranscoderOutput;
 
 import com.github.weisj.jsvg.SVGDocument;
 import com.github.weisj.jsvg.parser.LoaderContext;
-import com.github.weisj.jsvg.parser.impl.NodeSupplier;
-import com.github.weisj.jsvg.parser.impl.StaxSVGLoader;
+import com.github.weisj.jsvg.parser.SVGLoader;
+import com.github.weisj.jsvg.parser.XMLInput;
 import com.github.weisj.jsvg.renderer.NullPlatformSupport;
 import com.github.weisj.jsvg.renderer.SVGRenderingHints;
 import com.github.weisj.jsvg.renderer.animation.AnimationState;
-import com.github.weisj.jsvg.renderer.impl.output.Graphics2DOutput;
+import com.github.weisj.jsvg.renderer.output.Output;
 
 import com.jhlabs.image.ShadowFilter;
 
@@ -263,7 +261,8 @@ class JSVGImageTranscoder {
     private Document document;
 
     private Optional<DropShadow> dropShadow = Optional.empty();
-    private StaxSVGLoader svgLoader;
+    private SVGLoader svgLoader;
+    private XMLInputFactory inputFactory;
 
     private SVGDocument jsvgDocument;
     private final EventListener clearSVGListener = evt -> clearSVG();
@@ -335,25 +334,30 @@ class JSVGImageTranscoder {
             }
         }
 
-        try (InputStream input = DOMInput.fakeStream(document())) {
-            String baseURI = document().getDocumentURI();
-            svg = svgLoader().load(input, baseURI == null ? null : URI.create(baseURI),
-                                          LoaderContext.createDefault());
-        } catch (IOException | XMLStreamException e) {
-            throw new IllegalStateException(e);
-        }
+        XMLInput input = () -> inputFactory()
+                .createXMLEventReader(new DOMSource(document()));
+        String baseURI = document().getDocumentURI();
+        svg = svgLoader().load(input,
+                baseURI == null ? null : URI.create(baseURI),
+                LoaderContext.createDefault());
         if (svg == null) {
             throw new IllegalStateException("Could not create SVG document (see previous logs)");
         }
         return (jsvgDocument = svg);
     }
 
-    private StaxSVGLoader svgLoader() {
+    private SVGLoader svgLoader() {
         if (svgLoader == null) {
-            //svgLoader = new SVGLoader();
-            svgLoader = DOMInput.newSVGLoader();
+            svgLoader = new SVGLoader();
         }
         return svgLoader;
+    }
+
+    private XMLInputFactory inputFactory() {
+        if (inputFactory == null) {
+            inputFactory = new DOMSourceInputFactory();
+        }
+        return inputFactory;
     }
 
     public BufferedImage transcode() {
@@ -417,7 +421,7 @@ class JSVGImageTranscoder {
 
     public BufferedImage transcodeFrame(double snapshotTime) {
         return renderImage((svg, g) -> {
-            Graphics2DOutput output = new Graphics2DOutput(g);
+            Output output = Output.createForGraphics(g);
             try {
                 svg.renderWithPlatform(NullPlatformSupport.INSTANCE, output, null,
                         new AnimationState(0, Math.round(snapshotTime * 1000)));
@@ -426,46 +430,6 @@ class JSVGImageTranscoder {
             }
         });
     }
-
-
-    interface DOMInput {
-
-        Document document();
-
-        default DOMSource asDOMSource() {
-            return new DOMSource(document());
-        }
-
-        @SuppressWarnings("unchecked")
-        static <T extends InputStream & DOMInput> T fakeStream(Document source) {
-            return (T) new DOMInputFakeStream(source);
-        }
-
-        static StaxSVGLoader newSVGLoader() {
-            return DOMSourceInputFactory.newSVGLoader();
-        }
-
-    } // interface DOMInput
-
-
-    static final class DOMInputFakeStream
-            extends ByteArrayInputStream implements DOMInput {
-
-        private static final byte[] EMPTY = new byte[0];
-
-        private final Document document;
-
-        DOMInputFakeStream(Document document) {
-            super(EMPTY);
-            this.document = Objects.requireNonNull(document);
-        }
-
-        @Override
-        public Document document() {
-            return document;
-        }
-
-    } // class DOMInputFakeStream
 
 
     /**
@@ -501,11 +465,6 @@ class JSVGImageTranscoder {
             return defaultDelegate;
         }
 
-        protected final XMLEventReader createXMLEventReader(DOMInput input)
-                throws XMLStreamException {
-            return createXMLEventReader(input.asDOMSource());
-        }
-
         @Override
         public XMLEventReader createXMLEventReader(Source source)
                 throws UnsupportedOperationException, XMLStreamException {
@@ -532,28 +491,6 @@ class JSVGImageTranscoder {
                 throw new IllegalStateException(e);
             }
             return bufferWriter.getBuffer();
-        }
-
-        @Override
-        public XMLEventReader createXMLEventReader(InputStream stream)
-                throws XMLStreamException {
-            return (stream instanceof DOMInput)
-                    ? createXMLEventReader((DOMInput) stream)
-                    : super.createXMLEventReader(stream);
-        }
-
-        @Override
-        public XMLEventReader createXMLEventReader(InputStream stream, String encoding)
-                throws XMLStreamException {
-            return (stream instanceof DOMInput)
-                    ? createXMLEventReader((DOMInput) stream)
-                    : super.createXMLEventReader(stream, encoding);
-        }
-
-        private static final NodeSupplier NODE_SUPPLIER = new NodeSupplier();
-
-        public static StaxSVGLoader newSVGLoader() {
-            return new StaxSVGLoader(NODE_SUPPLIER, new DOMSourceInputFactory());
         }
 
     } // class DOMSourceInputFactory
