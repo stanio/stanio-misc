@@ -42,18 +42,27 @@ public final class ConfigFactory {
     private static final String[] JSON_EXTS = { ".json", ".jsonc", ".json5" };
 
     private final Path baseDir;
+    private final Path configBase;
     private final Path configFile;
     private final ThemeNames themeNames = new ThemeNames();
     private final ColorRegistry colorRegistry;
     private final double baseStrokeWidth;
 
-    public ConfigFactory(Path projectPath, double baseStrokeWidth) {
+    public ConfigFactory(Path projectPath, String config, double baseStrokeWidth) {
         if (Files.isDirectory(projectPath)) {
             baseDir = projectPath;
-            configFile = projectPath.resolve("render.json");
+            Path configPath = projectPath.resolve(config);
+            if (Files.isDirectory(configPath)) {
+                configBase = configPath;
+                configFile = baseDir.resolve("render.json");
+            } else {
+                configFile = configPath;
+                configBase = getParent(configPath);
+            }
         } else {
             configFile = projectPath;
             baseDir = getParent(projectPath);
+            configBase = baseDir.resolve(config);
         }
         colorRegistry = new ColorRegistry();
         this.baseStrokeWidth = baseStrokeWidth;
@@ -72,11 +81,11 @@ public final class ConfigFactory {
     public void loadColors(String colorsFile) throws IOException {
         Path path;
         if (colorsFile == null) {
-            path = resolveExisting(baseDir, "colors", JSON_EXTS);
+            path = resolveExisting(configBase, "colors", JSON_EXTS);
             if (path == null)
                 return;
         } else {
-            path = baseDir.resolve(colorsFile);
+            path = configBase.resolve(colorsFile);
         }
         colorRegistry.read(path.toUri().toURL());
     }
@@ -97,11 +106,11 @@ public final class ConfigFactory {
             throws IOException, JsonParseException {
         Path path;
         if (animationsFile == null) {
-            path = resolveExisting(baseDir, "animations", JSON_EXTS);
+            path = resolveExisting(configBase, "animations", JSON_EXTS);
             if (path == null)
                 return;
         } else {
-            path = baseDir.resolve(animationsFile);
+            path = configBase.resolve(animationsFile);
         }
         Animation.define(path.toUri().toURL());
     }
@@ -110,11 +119,11 @@ public final class ConfigFactory {
             throws IOException, JsonParseException {
         Path path;
         if (implied) {
-            path = resolveExisting(baseDir, namesFile, JSON_EXTS);
+            path = resolveExisting(configBase, namesFile, JSON_EXTS);
             if (path == null)
                 return Collections.emptyMap();
         } else {
-            path = baseDir.resolve(namesFile);
+            path = configBase.resolve(namesFile);
         }
 
         try (InputStream bytes = Files.newInputStream(path);

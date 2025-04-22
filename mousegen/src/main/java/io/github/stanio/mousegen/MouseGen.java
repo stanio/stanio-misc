@@ -241,6 +241,7 @@ public class MouseGen {
         }
 
         ConfigFactory configFactory = new ConfigFactory(cmdArgs.projectPath.get(),
+                                                        cmdArgs.configPath,
                                                         cmdArgs.baseStrokeWidth);
         try {
             configFactory.loadColors(cmdArgs.colorsFile);
@@ -336,6 +337,7 @@ public class MouseGen {
         final Set<String> colors = new LinkedHashSet<>();
         String colorsFile;
         String animationsFile;
+        String configPath = "";
         String buildDir = "themes";
         String namesFile;
         boolean impliedNames = true;
@@ -393,6 +395,7 @@ public class MouseGen {
                     .acceptFlag("--default-stroke-also", () -> defaultStrokeAlso = true)
                     .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptOption("--build-dir", val -> buildDir = val)
+                    .acceptOption("--config", val -> configPath = val)
                     .acceptFlag("-h", () -> exitMessage(0, CommandArgs::printHelp))
                     .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
@@ -449,12 +452,13 @@ public class MouseGen {
         }
 
         public static void printHelp(PrintStream out) {
-            out.println("USAGE: render [<project-path>] [--build-dir <dir>]"
+            out.println("USAGE: render [<project-path>] [--config <path>]"
                     + " [--source <svg-dir>]... [--name <theme-name>]..."
-                    + " [--animations <animations.json>]"
+                    + " [--build-dir <dir>] [--animations <animations.json>]"
                     + " [--color <color>]... [--color-map <colors.json>]"
                     + " [--windows-cursors[=<win-names.json>]]"
                     + " [--linux-cursors[=<x11-names.json>]]"
+                    + " [--mousecape-theme[=<mac-names.json>]]"
                     + " [--pointer-shadow] [--no-shadow-also]"
                     + " [--stroke-width=<width>[:<name>]] [--default-stroke-also]"
                     + " [--base-stroke-width <width>] [--min-stroke-width <width>]"
