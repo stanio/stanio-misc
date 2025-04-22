@@ -13,14 +13,19 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+
+import io.github.stanio.cli.CommandLine;
+import io.github.stanio.cli.CommandLine.ArgumentException;
 
 public class X11Symlinks {
 
@@ -41,15 +46,7 @@ public class X11Symlinks {
 
     private final Output out = new Output();
 
-    public X11Symlinks() {
-        try {
-            loadSymlinks(X11Symlinks.class.getResource("x11-symlinks.json"));
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    public X11Symlinks(URL symlinks) throws IOException {
+    X11Symlinks(URL symlinks) throws IOException {
         loadSymlinks(symlinks);
     }
 
@@ -166,19 +163,24 @@ public class X11Symlinks {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length == 0) {
-            System.err.println("USAGE: x11Symlinks <dir>...");
+        CommandArgs cmdArgs;
+        try {
+            cmdArgs = new CommandArgs(args);
+        } catch (ArgumentException e) {
+            System.err.println(e.getMessage());
+            System.err.println();
+            System.err.println("USAGE: x11Symlinks [-c <links-map>] <dir>...");
             System.exit(1);
+            return;
         }
 
-        X11Symlinks links = new X11Symlinks();
-        for (String str : args) {
-            try {
-                links.create(Path.of(str));
-            } catch (Exception e) {
-                System.err.println();
-                throw e;
+        try {
+            X11Symlinks links = new X11Symlinks(cmdArgs.linksFile.toUri().toURL());
+            for (Path dir : cmdArgs.targetDirs) {
+                links.create(dir);
             }
+        } catch (Exception e) {
+            System.err.println();
         }
     }
 
@@ -219,6 +221,28 @@ public class X11Symlinks {
         }
 
     } // class Output
+
+
+    static class CommandArgs {
+
+        Path linksFile = Path.of("x11-symlinks.json");
+
+        final List<Path> targetDirs = new ArrayList<>();
+
+        public CommandArgs(String... args) {
+            CommandLine.ofUnixStyle()
+                    .acceptOption("-c", p -> linksFile = p, Path::of)
+                    //.acceptFlag("-h", () -> exitMessage(0, printHelp))
+                    //.acceptSynonyms("-h", "--help")
+                    .parseOptions(args)
+                    .arguments()
+                    .forEach(a -> targetDirs.add(Path.of(a)));
+
+            if (targetDirs.isEmpty())
+                throw new ArgumentException("No target <dir> specified");
+        }
+
+    } // class CommandArgs
 
 
 }
