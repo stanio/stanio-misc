@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.mousegen;
+package io.github.stanio.mousegen.builder;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -23,20 +23,21 @@ import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
+import io.github.stanio.macos.MousecapeTheme;
 import io.github.stanio.windows.AnimatedCursor;
 import io.github.stanio.windows.Cursor;
 import io.github.stanio.x11.XCursor;
 
 import io.github.stanio.mousegen.MouseGen.OutputType;
-import io.github.stanio.macos.MousecapeTheme;
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.CursorRenderer;
 
 /**
  * Abstract cursor builder interface for use by the {@code CursorRenderer}.
  *
  * @see  CursorRenderer
  */
-abstract class CursorBuilder {
+public abstract class CursorBuilder {
 
     static final Integer staticFrame = 1;
 
@@ -49,7 +50,7 @@ abstract class CursorBuilder {
         this.animation = Optional.ofNullable(animation);
     }
 
-    static CursorBuilder newInstance(OutputType type,
+    public static CursorBuilder newInstance(OutputType type,
                                      Path targetPath,
                                      boolean updateExisting,
                                      Animation animation,
@@ -83,12 +84,12 @@ abstract class CursorBuilder {
         }
     }
 
-    abstract void addFrame(Integer frameNo, BufferedImage image, Point hotspot)
+    public abstract void addFrame(Integer frameNo, BufferedImage image, Point hotspot)
             throws UncheckedIOException;
 
-    abstract void build() throws IOException;
+    public abstract void build() throws IOException;
 
-    static void finishThemes(OutputType type) throws IOException {
+    public static void finishThemes(OutputType type) throws IOException {
         if (type == OutputType.MOUSECAPE_THEME) {
             MousecapeCursorBuilder.finishThemes();
         }
@@ -143,13 +144,13 @@ abstract class CursorBuilder {
         }
 
         @Override
-        void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+        public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
             frames.prepareFrame(validFrameNo(frameNo))
                     .addImage(image, hotspot);
         }
 
         @Override
-        void build() throws IOException {
+        public void build() throws IOException {
             if (animation.isEmpty()) {
                 frames.prepareFrame(staticFrame)
                         .write(targetPath.resolveSibling(targetPath.getFileName() + ".cur"));
@@ -193,12 +194,12 @@ abstract class CursorBuilder {
         }
 
         @Override
-        void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+        public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
             frames.addFrame(validFrameNo(frameNo), image, hotspot, frameDelay);
         }
 
         @Override
-        void build() throws IOException {
+        public void build() throws IOException {
             frames.writeTo(targetPath);
         }
 
@@ -226,7 +227,7 @@ abstract class CursorBuilder {
         }
 
         @Override
-        void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+        public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
             // REVISIT: Eliminate suffix when rendering just "source" dimension
             String sizeSuffix = (image.getWidth() < 100 ? "-0" : "-") + image.getWidth();
             String fileName = targetPath.getFileName() + sizeSuffix
@@ -248,7 +249,7 @@ abstract class CursorBuilder {
         }
 
         @Override
-        void build() {/* no-op */}
+        public void build() {/* no-op */}
 
     } // class BitmapOtputBuilder
 
@@ -288,12 +289,12 @@ abstract class CursorBuilder {
         }
 
         @Override
-        void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+        public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
             cursor.addFrame(validFrameNo(frameNo), image, hotspot);
         }
 
         @Override
-        void build() throws IOException {
+        public void build() throws IOException {
             theme.writeCursor(cursor);
         }
 

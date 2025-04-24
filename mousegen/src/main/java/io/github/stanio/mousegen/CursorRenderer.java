@@ -22,6 +22,7 @@ import io.github.stanio.io.DataFormatException;
 
 import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.svg.DropShadow;
@@ -35,7 +36,7 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
  *
  * @see  MouseGen
  */
-final class CursorRenderer {
+public final class CursorRenderer {
 
     protected OutputType outputType;
 

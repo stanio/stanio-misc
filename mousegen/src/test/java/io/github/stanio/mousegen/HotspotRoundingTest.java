@@ -37,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 
 import io.github.stanio.mousegen.MouseGen.OutputType;
+import io.github.stanio.mousegen.builder.CursorBuilder;
 
 /**
  * Uses {@code CursorRenderer} as unit under test.  Indirectly verifies the
@@ -57,11 +58,12 @@ class HotspotRoundingTest {
             super(Path.of(System.getProperty("java.io.tmpdir", "")), null);
         }
 
-        @Override void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+        @Override
+        public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
             hotspots.put(new Dimension(image.getWidth(), image.getHeight()), hotspot);
         }
 
-        @Override void build() { /* no-op */ }
+        @Override public void build() { /* no-op */ }
     }
 
     private static final String DEFAULT_STROKE = "default";
