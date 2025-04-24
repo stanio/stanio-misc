@@ -50,7 +50,7 @@ jar {
 tasks.named('shadowJar') {
     archiveClassifier = 'shaded'
     manifest {
-        attributes('Class-Path': 'batik-all.jar xmlgraphics-commons.jar xml-apis-ext.jar pngtastic.jar')
+        attributes('Class-Path': 'woodstox-core.jar stax2-api.jar batik-all.jar xmlgraphics-commons.jar xml-apis-ext.jar pngtastic.jar')
     }
 
     from 'src/shadow'
