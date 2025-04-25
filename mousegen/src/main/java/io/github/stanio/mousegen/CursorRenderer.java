@@ -23,6 +23,7 @@ import io.github.stanio.io.DataFormatException;
 import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
+import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.svg.DropShadow;
@@ -38,7 +39,7 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
  */
 public final class CursorRenderer {
 
-    protected OutputType outputType;
+    private final CursorBuilderFactory builderFactory;
 
     private final SVGTransformer loadTransformer;
     private final SVGTransformer variantTransformer;
@@ -74,14 +75,19 @@ public final class CursorRenderer {
 
     private CursorBuilder currentFrames;
 
-    CursorRenderer() {
-        this(RendererBackend.newInstance());
+    CursorRenderer(OutputType outputType) {
+        this(CursorBuilderFactory.newInstance(Objects.requireNonNull(outputType)));
     }
 
-    CursorRenderer(RendererBackend backend) {
+    CursorRenderer(CursorBuilderFactory builderFactory) {
+        this(RendererBackend.newInstance(), builderFactory);
+    }
+
+    CursorRenderer(RendererBackend backend, CursorBuilderFactory builderFactory) {
         this.loadTransformer = new SVGTransformer();
         this.variantTransformer = new SVGTransformer();
         this.backend = backend;
+        this.builderFactory = builderFactory;
         loadTransformer.setSVG11Compat(backend.needSVG11Compat());
         variantTransformer.setBaseStrokeWidth(baseStrokeWidth);
     }
@@ -94,11 +100,6 @@ public final class CursorRenderer {
             throw new IllegalStateException(message + "\n\tBuild in progress: "
                     + targetName + ". Call saveCurrent() to complete, or setFile()"
                     + " to enable a new setup");
-    }
-
-    public void setOutputType(OutputType type) {
-        buildInProgress("Can't change output type");
-        this.outputType = type;
     }
 
     public void setBaseStrokeWidth(Double width) {
@@ -285,10 +286,13 @@ public final class CursorRenderer {
         }
     }
 
-    /*VisibleForTesting*/ CursorBuilder newCursorBuilder() throws UncheckedIOException {
-        return CursorBuilder.newInstance(outputType,
-                outDir.resolve(targetName), updateExisting,
-                animation, 1 / (float) canvasSizing.nominalSize);
+    private CursorBuilder newCursorBuilder() throws UncheckedIOException {
+        try {
+            return builderFactory.builderFor(outDir.resolve(targetName),
+                    updateExisting, animation, 1 / (float) canvasSizing.nominalSize);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public void renderTargetSize(int size) throws IOException {
@@ -342,7 +346,7 @@ public final class CursorRenderer {
             entry.getValue().build();
             iterator.remove();
         }
-        CursorBuilder.finishThemes(outputType);
+        builderFactory.finalizeThemes();
     }
 
     public void saveHotspots() throws IOException {

@@ -5,8 +5,6 @@
 package io.github.stanio.mousegen;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -36,8 +34,9 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 
-import io.github.stanio.mousegen.MouseGen.OutputType;
+import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
+import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 
 /**
  * Uses {@code CursorRenderer} as unit under test.  Indirectly verifies the
@@ -151,14 +150,18 @@ class HotspotRoundingTest {
 
     @BeforeAll
     void suiteSetUp() throws Exception {
-        renderer = spy(new CursorRenderer(new MockRendererBackend()));
+        builder = new MockCursorBuilder();
+        renderer = new CursorRenderer(new MockRendererBackend(),
+                new CursorBuilderFactory() {
+                    @Override public CursorBuilder builderFor(Path targetPath,
+                            boolean updateExisting, Animation animation, float targetCanvasFactor) {
+                        return builder;
+                    }
+                });
         renderer.setBaseStrokeWidth(2.0);
         renderer.setMinStrokeWidth(0.5);
         renderer.setExpandFillBase(1.0);
-        renderer.setOutputType(OutputType.WINDOWS_CURSORS);
         renderer.setOutDir(Path.of(System.getProperty("java.io.tmpdir", "")));
-        builder = new MockCursorBuilder();
-        doReturn(builder).when(renderer).newCursorBuilder();
     }
 
     @BeforeEach

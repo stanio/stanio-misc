@@ -63,13 +63,15 @@ public class MouseGen {
     private int[] resolutions = { -1 }; // original/source
 
     private final CursorRenderer renderer;
+    private final OutputType outputType;
 
     private final ProgressOutput progress = ProgressOutput.newInstance();
 
-    MouseGen(Path projectDir, Path buildDir) {
+    MouseGen(Path projectDir, Path buildDir, OutputType type) {
         this.projectDir = Objects.requireNonNull(projectDir, "null projectDir");
         this.buildDir = Objects.requireNonNull(buildDir, "null buildDir");
-        renderer = new CursorRenderer();
+        renderer = new CursorRenderer(type);
+        this.outputType = type;
     }
 
     public MouseGen withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit, boolean wholePixelWidth) {
@@ -99,11 +101,6 @@ public class MouseGen {
 
     public MouseGen updateExisting(boolean update) {
         renderer.setUpdateExisting(update);
-        return this;
-    }
-
-    public MouseGen buildCursors(OutputType type) {
-        renderer.setOutputType(type);
         return this;
     }
 
@@ -142,7 +139,7 @@ public class MouseGen {
         }
         progress.pop();
         renderer.saveDeferred();
-        if (renderer.outputType == OutputType.BITMAPS)
+        if (outputType == OutputType.BITMAPS)
             renderer.saveHotspots();
     }
 
@@ -205,7 +202,7 @@ public class MouseGen {
         SizeScheme scheme = config.sizeScheme();
 
         Path outDir = buildDir.resolve(config.name());
-        if (renderer.outputType == OutputType.LINUX_CURSORS) {
+        if (outputType == OutputType.LINUX_CURSORS) {
             outDir = outDir.resolve("cursors");
         }
         renderer.setOutDir(outDir);
@@ -290,13 +287,12 @@ public class MouseGen {
 
         try {
             Path projectDir = configFactory.baseDir();
-            new MouseGen(projectDir, projectDir.resolve(cmdArgs.buildDir))
+            new MouseGen(projectDir, projectDir.resolve(cmdArgs.buildDir), cmdArgs.outputType)
                     .withBaseStrokeWidth(cmdArgs.baseStrokeWidth,
                             cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit, cmdArgs.wholePixelStroke)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .updateExisting(cmdArgs.updateExisting)
-                    .buildCursors(cmdArgs.outputType)
                     .render(renderConfig);
         } catch (IOException e) {
             exitMessage(3, "Error: ", e);
