@@ -242,6 +242,8 @@ public class SVGTransformer {
     }
 
     public Document loadDocument(Path file) throws IOException {
+        // NOTE: If the pipeline contains anything but the identity transform,
+        // the loaded SVGCursorMetadata may not be valid for the final result.
         //SAXSource metadataSource = SVGCursorMetadata.loadingSource(file);
         //Document document = transform(metadataSource);
         Document document = loadDocument(file.toUri().toString());

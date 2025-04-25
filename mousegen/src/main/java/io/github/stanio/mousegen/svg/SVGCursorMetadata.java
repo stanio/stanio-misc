@@ -238,47 +238,19 @@ public class SVGCursorMetadata {
         }
 
         private void setViewBox(Attributes attributes) throws SAXException {
-            Rectangle2D box = parseViewBox(attributes.getValue("_viewBox"));
-            if (box == null) {
-                box = parseViewBox(attributes.getValue("viewBox"));
+            String spec = attributes.getValue("_viewBox");
+            if (spec == null) {
+                spec = attributes.getValue("viewBox");
             }
-            if (box == null) {
-                try {
-                    box = new Rectangle2D.Double(0, 0,
-                            parseDimension(attributes.getValue("width")),
-                            parseDimension(attributes.getValue("height")));
-                } catch (NullPointerException | NumberFormatException e) {
-                    error(new SAXParseException("Invalid width or height", locator, e));
-                }
-            }
-            if (box != null) {
-                sourceViewBox = box;
-            }
-        }
-
-        private Rectangle2D parseViewBox(String spec) throws SAXException {
-            if (spec == null) return null;
-
-            final String spaceAndOrComma = "\\s+(?:,\\s*)?|,\\s*";
-            String[] viewBox = spec.strip().split(spaceAndOrComma, 5);
-            if (viewBox.length == 1) return null; // empty
-
             try {
-                double x = Double.parseDouble(viewBox[0]);
-                double y = Double.parseDouble(viewBox[1]);
-                double width = Double.parseDouble(viewBox[2]);
-                double height = Double.parseDouble(viewBox[3]);
-                return new Rectangle2D.Double(x, y, width, height);
-            } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-                error(new SAXParseException("Invalid viewBox: " + spec, locator, e));
-                return null;
+                Rectangle2D box = parseViewBox(spec,
+                    attributes.getValue("width"), attributes.getValue("height"));
+                if (box != null) {
+                    sourceViewBox = box;
+                }
+            } catch (IllegalArgumentException e) {
+                error(new SAXParseException("Could not determine viewBox", locator, e));
             }
-        }
-
-        private static double parseDimension(String length) {
-            // Treat 'pt' as 'px', for the time being.
-            return Double.parseDouble(length.replaceFirst("(?ix) \\+? "
-                    + "((?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?) (?:p[xt])?", "$1"));
         }
 
         private void setHotspot(String shapeType, Attributes attributes) {
@@ -345,5 +317,41 @@ public class SVGCursorMetadata {
 
     } // class ParseHandler
 
+
+    public static Rectangle2D parseViewBox(String viewBox, String width, String height)
+            throws IllegalArgumentException {
+        Rectangle2D box = parseViewBox(viewBox);
+        if (box == null) {
+            try {
+                box = new Rectangle2D.Double(0, 0,
+                        parseDimension(width), parseDimension(height));
+            } catch (NullPointerException e) {}
+        }
+        return box;
+    }
+
+    private static double parseDimension(String length) {
+        // Treat 'pt' as 'px', for the time being.
+        return Double.parseDouble(length.replaceFirst("(?ix) \\+? "
+                + "((?:\\d*\\.\\d+|\\d+) (?:e[-+]?\\d+)?) (?:p[xt])?", "$1"));
+    }
+
+    public static Rectangle2D parseViewBox(String spec) throws IllegalArgumentException {
+        if (spec == null) return null;
+
+        final String spaceAndOrComma = "\\s+(?:,\\s*)?|,\\s*";
+        String[] viewBox = spec.strip().split(spaceAndOrComma, 5);
+        if (viewBox.length == 1) return null; // empty
+
+        try {
+            double x = Double.parseDouble(viewBox[0]);
+            double y = Double.parseDouble(viewBox[1]);
+            double width = Double.parseDouble(viewBox[2]);
+            double height = Double.parseDouble(viewBox[3]);
+            return new Rectangle2D.Double(x, y, width, height);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            throw new IllegalArgumentException("Not enough number tokens (4)", e);
+        }
+    }
 
 } // class SVGCursorMetadata

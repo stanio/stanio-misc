@@ -14,14 +14,18 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import java.awt.Point;
+
+import io.github.stanio.io.DataFormatException;
 
 import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.svg.DropShadow;
+import io.github.stanio.mousegen.svg.SVGCursorMetadata;
 import io.github.stanio.mousegen.svg.SVGSizing;
 import io.github.stanio.mousegen.svg.SVGTransformer;
 
@@ -181,9 +185,15 @@ final class CursorRenderer {
 
     private double sourceViewBoxSize() throws IOException {
         if (sourceViewBoxSize < 0) {
-            // REVISIT: Implement fast-path for obtaining this.
-            sourceViewBoxSize = SVGSizing.forDocument(sourceDocument())
-                    .metadata().sourceViewBox().getWidth();
+            Element svg = sourceDocument().getDocumentElement();
+            try {
+                sourceViewBoxSize = SVGCursorMetadata
+                        .parseViewBox(svg.getAttribute("viewBox"),
+                                      svg.getAttribute("width"),
+                                      svg.getAttribute("height")).getWidth();
+            } catch (IllegalArgumentException e) {
+                throw new DataFormatException(e.getMessage(), e);
+            }
         }
         return sourceViewBoxSize;
     }
