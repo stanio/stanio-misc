@@ -57,7 +57,7 @@ class HotspotRoundingTest {
         }
 
         @Override
-        public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+        public void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int delayMillis) {
             hotspots.put(new Dimension(image.getWidth(), image.getHeight()), hotspot);
         }
 
@@ -153,7 +153,7 @@ class HotspotRoundingTest {
         renderer = new CursorRenderer(new MockRendererBackend(),
                 new CursorBuilderFactory() {
                     @Override public CursorBuilder builderFor(Path targetPath,
-                            boolean updateExisting, int frameDelay, float targetCanvasFactor) {
+                            boolean updateExisting, int frameDelay) {
                         return builder;
                     }
                 });

@@ -24,9 +24,9 @@ public class LinuxCursorFactory extends CursorBuilderFactory {
 
     @Override
     public CursorBuilder builderFor(Path targetPath, boolean updateExisting,
-            int frameDelayMillis, float targetCanvasFactor) throws IOException {
-        return updateExisting ? LinuxCursorBuilder.forUpdate(targetPath, frameDelayMillis, targetCanvasFactor)
-                              : new LinuxCursorBuilder(targetPath, frameDelayMillis, targetCanvasFactor);
+            int frameDelayMillis) throws IOException {
+        return updateExisting ? LinuxCursorBuilder.forUpdate(targetPath, frameDelayMillis)
+                              : new LinuxCursorBuilder(targetPath, frameDelayMillis);
     }
 
 }
@@ -41,31 +41,27 @@ class LinuxCursorBuilder extends CursorBuilder {
 
     private final XCursor frames;
 
-    private final int frameDelay;
-
-    LinuxCursorBuilder(Path targetPath, int frameDelayMillis, float targetCanvasSize)
+    LinuxCursorBuilder(Path targetPath, int frameDelayMillis)
             throws IOException {
-        this(targetPath, frameDelayMillis, new XCursor(targetCanvasSize));
+        this(targetPath, frameDelayMillis, new XCursor());
         Files.createDirectories(targetPath.getParent());
     }
 
     private LinuxCursorBuilder(Path targetPath, int frameDelayMillis, XCursor frames) {
         super(targetPath, frameDelayMillis > 0);
         this.frames = frames;
-        this.frameDelay = frameDelayMillis;
     }
 
-    static LinuxCursorBuilder forUpdate(Path targetPath, int frameDelayMillis, float targetCanvasSize)
+    static LinuxCursorBuilder forUpdate(Path targetPath, int frameDelayMillis)
             throws IOException {
         return Files.exists(targetPath)
-                ? new LinuxCursorBuilder(targetPath, frameDelayMillis,
-                        XCursor.read(targetPath).withNominalFactor(targetCanvasSize))
-                : new LinuxCursorBuilder(targetPath, frameDelayMillis, targetCanvasSize);
+                ? new LinuxCursorBuilder(targetPath, frameDelayMillis, XCursor.read(targetPath))
+                : new LinuxCursorBuilder(targetPath, frameDelayMillis);
     }
 
     @Override
-    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
-        frames.addFrame(validFrameNo(frameNo), image, hotspot, frameDelay);
+    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int frameDelay) {
+        frames.addFrame(validFrameNo(frameNo), nominalSize, image, hotspot, frameDelay);
     }
 
     @Override

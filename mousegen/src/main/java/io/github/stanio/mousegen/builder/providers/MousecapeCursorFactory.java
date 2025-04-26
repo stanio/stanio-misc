@@ -30,7 +30,7 @@ public class MousecapeCursorFactory extends CursorBuilderFactory {
 
     @Override
     public CursorBuilder builderFor(Path targetPath, boolean updateExisting,
-            int frameDelayMillis, float targetCanvasFactor) throws IOException {
+            int frameDelayMillis) throws IOException {
         if (updateExisting) {
             throw new IllegalStateException("--update-existing not implemented for --mousecape-theme");
         }
@@ -79,7 +79,7 @@ class MousecapeCursorBuilder extends CursorBuilder {
     }
 
     @Override
-    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int delayMillis) {
         cursor.addFrame(validFrameNo(frameNo), image, hotspot);
     }
 

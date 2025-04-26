@@ -288,11 +288,14 @@ public final class CursorRenderer {
     private CursorBuilder newCursorBuilder() throws UncheckedIOException {
         try {
             return builderFactory.builderFor(outDir.resolve(targetName),
-                    updateExisting, animation == null ? 0 : animation.delayMillis(),
-                    1 / (float) canvasSizing.nominalSize);
+                    updateExisting, frameMillis());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private int frameMillis() {
+        return animation == null ? 0 : animation.delayMillis();
     }
 
     public void renderTargetSize(int size) throws IOException {
@@ -301,13 +304,15 @@ public final class CursorRenderer {
 
         Point hotspot = applySizing(size);
         try {
+            int nominalSize = (Math.round(size / (float)
+                    canvasSizing.nominalSize) + 1) / 2 * 2; // round to even
             if (animation == null || frameNum != null) {
                 // Static cursor or animation frame from static image
-                currentFrames.addFrame(frameNum, backend.renderStatic(), hotspot);
+                currentFrames.addFrame(frameNum, backend.renderStatic(), hotspot, nominalSize, frameMillis());
             } else {
                 assert (animation != null);
-                backend.renderAnimation(animation,
-                        (frameNo, image) -> currentFrames.addFrame(frameNo, image, hotspot));
+                backend.renderAnimation(animation, (frameNo, image) ->
+                        currentFrames.addFrame(frameNo, image, hotspot, nominalSize, frameMillis()));
             }
         } catch (UncheckedIOException e) {
             throw e.getCause();

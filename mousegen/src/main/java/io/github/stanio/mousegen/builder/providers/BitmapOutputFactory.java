@@ -31,8 +31,7 @@ public class BitmapOutputFactory extends CursorBuilderFactory {
     @Override
     public CursorBuilder builderFor(Path targetPath,
                                     boolean updateExisting,
-                                    int frameDelayMillis,
-                                    float targetCanvasFactor)
+                                    int frameDelayMillis)
             throws IOException {
         // No updateExisting-specific configuration for bitmaps, yet.
         return BitmapOutputBuilder.newInstance(targetPath, frameDelayMillis > 0);
@@ -62,7 +61,7 @@ class BitmapOutputBuilder extends CursorBuilder {
     }
 
     @Override
-    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int delayMillis) {
         // REVISIT: Eliminate suffix when rendering just "source" dimension
         String sizeSuffix = (image.getWidth() < 100 ? "-0" : "-") + image.getWidth();
         String fileName = targetPath.getFileName() + sizeSuffix

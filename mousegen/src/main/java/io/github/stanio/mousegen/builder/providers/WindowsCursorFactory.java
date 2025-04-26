@@ -25,7 +25,7 @@ public class WindowsCursorFactory extends CursorBuilderFactory {
 
     @Override
     public CursorBuilder builderFor(Path targetPath, boolean updateExisting,
-            int frameDelayMillis, float targetCanvasFactor) throws IOException {
+            int frameDelayMillis) throws IOException {
         return updateExisting ? WindowsCursorBuilder.forUpdate(targetPath, frameDelayMillis)
                               : new WindowsCursorBuilder(targetPath, frameDelayMillis);
     }
@@ -78,7 +78,7 @@ class WindowsCursorBuilder extends CursorBuilder {
     }
 
     @Override
-    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot) {
+    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int delayMillis) {
         frames.prepareFrame(validFrameNo(frameNo))
                 .addImage(image, hotspot);
     }

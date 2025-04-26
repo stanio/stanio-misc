@@ -16,8 +16,7 @@ public abstract class CursorBuilderFactory {
 
     public abstract CursorBuilder builderFor(Path targetPath,
                                              boolean updateExisting,
-                                             int frameDelayMillis,
-                                             float targetCanvasFactor)
+                                             int frameDelayMillis)
             throws IOException;
 
     public void finalizeThemes() throws IOException {
