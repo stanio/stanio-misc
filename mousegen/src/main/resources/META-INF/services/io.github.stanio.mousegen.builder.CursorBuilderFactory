@@ -1,0 +1,4 @@
+io.github.stanio.mousegen.builder.providers.BitmapOutputFactory
+io.github.stanio.mousegen.builder.providers.LinuxCursorFactory
+io.github.stanio.mousegen.builder.providers.MousecapeCursorFactory
+io.github.stanio.mousegen.builder.providers.WindowsCursorFactory

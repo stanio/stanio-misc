@@ -20,9 +20,12 @@ import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
+import io.github.stanio.mousegen.builder.OutputFormat;
 
+@OutputFormat(OutputType.BITMAPS)
 public class BitmapOutputFactory extends CursorBuilderFactory {
 
     @Override

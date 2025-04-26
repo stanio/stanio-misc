@@ -17,9 +17,12 @@ import java.awt.image.BufferedImage;
 
 import io.github.stanio.macos.MousecapeTheme;
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
+import io.github.stanio.mousegen.builder.OutputFormat;
 
+@OutputFormat(OutputType.MOUSECAPE_THEME)
 public class MousecapeCursorFactory extends CursorBuilderFactory {
 
     private final Map<Path, MousecapeTheme> openThemes = new HashMap<>();

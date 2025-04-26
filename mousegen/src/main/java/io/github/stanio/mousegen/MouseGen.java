@@ -54,7 +54,14 @@ import io.github.stanio.mousegen.svg.DropShadow;
  */
 public class MouseGen {
 
-    public enum OutputType { BITMAPS, WINDOWS_CURSORS, LINUX_CURSORS, MOUSECAPE_THEME }
+    public static final class OutputType {
+        public static final String
+                BITMAPS = "BITMAPS",
+                WINDOWS_CURSORS = "WINDOWS_CURSORS",
+                LINUX_CURSORS = "LINUX_CURSORS",
+                MOUSECAPE_THEME = "MOUSECAPE_THEME";
+        private OutputType() {}
+    }
 
     private final Path projectDir; // source base
     private final Path buildDir;   // output base
@@ -63,11 +70,11 @@ public class MouseGen {
     private int[] resolutions = { -1 }; // original/source
 
     private final CursorRenderer renderer;
-    private final OutputType outputType;
+    private final String outputType;
 
     private final ProgressOutput progress = ProgressOutput.newInstance();
 
-    MouseGen(Path projectDir, Path buildDir, OutputType type) {
+    MouseGen(Path projectDir, Path buildDir, String type) {
         this.projectDir = Objects.requireNonNull(projectDir, "null projectDir");
         this.buildDir = Objects.requireNonNull(buildDir, "null buildDir");
         renderer = new CursorRenderer(type);
@@ -139,7 +146,7 @@ public class MouseGen {
         }
         progress.pop();
         renderer.saveDeferred();
-        if (outputType == OutputType.BITMAPS)
+        if (outputType.equals(OutputType.BITMAPS))
             renderer.saveHotspots();
     }
 
@@ -202,7 +209,7 @@ public class MouseGen {
         SizeScheme scheme = config.sizeScheme();
 
         Path outDir = buildDir.resolve(config.name());
-        if (outputType == OutputType.LINUX_CURSORS) {
+        if (outputType.equals(OutputType.LINUX_CURSORS)) {
             outDir = outDir.resolve("cursors");
         }
         renderer.setOutDir(outDir);
@@ -338,7 +345,7 @@ public class MouseGen {
         String namesFile;
         boolean impliedNames = true;
 
-        OutputType outputType = OutputType.BITMAPS;
+        String outputType = OutputType.BITMAPS;
         DropShadow pointerShadow;
         boolean noShadowAlso;
         final List<StrokeWidth> strokeWidths = new ArrayList<>();
@@ -404,7 +411,7 @@ public class MouseGen {
             }
         }
 
-        private void setOutputType(OutputType type, String explicitNames, String impliedNames) {
+        private void setOutputType(String type, String explicitNames, String impliedNames) {
             outputType = type;
             if (explicitNames.isEmpty()) {
                 this.namesFile = impliedNames;
@@ -426,7 +433,7 @@ public class MouseGen {
         Set<SizeScheme> sizes() {
             if (sizes.isEmpty()) {
                 switch (outputType) {
-                case WINDOWS_CURSORS:
+                case OutputType.WINDOWS_CURSORS:
                     sizes.addAll(List.of(SizeScheme.N, SizeScheme.L, SizeScheme.XL));
                     break;
                 default:

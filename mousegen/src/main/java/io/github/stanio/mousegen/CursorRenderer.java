@@ -20,7 +20,6 @@ import java.awt.Point;
 
 import io.github.stanio.io.DataFormatException;
 
-import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
@@ -75,8 +74,8 @@ public final class CursorRenderer {
 
     private CursorBuilder currentFrames;
 
-    CursorRenderer(OutputType outputType) {
-        this(CursorBuilderFactory.newInstance(Objects.requireNonNull(outputType)));
+    CursorRenderer(String outputType) {
+        this(CursorBuilderFactory.newInstance(outputType));
     }
 
     CursorRenderer(CursorBuilderFactory builderFactory) {

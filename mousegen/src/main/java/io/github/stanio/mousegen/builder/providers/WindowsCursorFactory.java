@@ -12,11 +12,14 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
+import io.github.stanio.mousegen.builder.OutputFormat;
 import io.github.stanio.windows.AnimatedCursor;
 import io.github.stanio.windows.Cursor;
 
+@OutputFormat(OutputType.WINDOWS_CURSORS)
 public class WindowsCursorFactory extends CursorBuilderFactory {
 
     @Override

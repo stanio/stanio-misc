@@ -12,10 +12,13 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
+import io.github.stanio.mousegen.builder.OutputFormat;
 import io.github.stanio.x11.XCursor;
 
+@OutputFormat(OutputType.LINUX_CURSORS)
 public class LinuxCursorFactory extends CursorBuilderFactory {
 
     @Override

@@ -6,13 +6,13 @@ package io.github.stanio.mousegen.builder;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Objects;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
-import io.github.stanio.mousegen.MouseGen.OutputType;
-import io.github.stanio.mousegen.builder.providers.BitmapOutputFactory;
-import io.github.stanio.mousegen.builder.providers.LinuxCursorFactory;
-import io.github.stanio.mousegen.builder.providers.MousecapeCursorFactory;
-import io.github.stanio.mousegen.builder.providers.WindowsCursorFactory;
 
 public abstract class CursorBuilderFactory {
 
@@ -26,26 +26,25 @@ public abstract class CursorBuilderFactory {
         // Base implementation does nothing.
     }
 
-    public static CursorBuilderFactory newInstance(OutputType type) {
-        // REVISIT: Drop dependency on OutputType and direct implementations.
-        // Look up an implementation via the service loading mechanism,
-        // observing classes annotated with format name string, instead.
-        switch (type) {
-        case BITMAPS:
-            return new BitmapOutputFactory();
+    public static CursorBuilderFactory newInstance(String formatName) {
+        Objects.requireNonNull(formatName);
+        Predicate<Provider<CursorBuilderFactory>> isProviderForFormat = provider -> {
+            OutputFormat format = provider.type().getAnnotation(OutputFormat.class);
+            return format != null && formatName.equals(format.value());
+        };
+        return ServiceLoader.load(CursorBuilderFactory.class).stream()
+                .filter(isProviderForFormat).findFirst().map(Provider::get)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported format: " + formatName));
+    }
 
-        case WINDOWS_CURSORS:
-            return new WindowsCursorFactory();
-
-        case LINUX_CURSORS:
-            return new LinuxCursorFactory();
-
-        case MOUSECAPE_THEME:
-            return new MousecapeCursorFactory();
-
-        default:
-            throw new IllegalArgumentException("Unsupported output type: " + type);
-        }
+    public static String[] formatNames() {
+        Function<Provider<CursorBuilderFactory>, String> formatName = provider -> {
+            OutputFormat format = provider.type().getAnnotation(OutputFormat.class);
+            return (format == null) ? "" : format.value();
+        };
+        return ServiceLoader.load(CursorBuilderFactory.class)
+                .stream().map(formatName).filter(Predicate.not(String::isEmpty))
+                .distinct().toArray(String[]::new);
     }
 
 }
