@@ -78,7 +78,7 @@ class WindowsCursorBuilder extends CursorBuilder {
     }
 
     @Override
-    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int delayMillis) {
+    public void addFrame(Integer frameNo, int nominalSize, Point hotspot, BufferedImage image, int delayMillis) {
         frames.prepareFrame(validFrameNo(frameNo))
                 .addImage(image, hotspot);
     }

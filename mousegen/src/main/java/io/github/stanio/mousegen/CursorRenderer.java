@@ -308,11 +308,11 @@ public final class CursorRenderer {
                     canvasSizing.nominalSize) + 1) / 2 * 2; // round to even
             if (animation == null || frameNum != null) {
                 // Static cursor or animation frame from static image
-                currentFrames.addFrame(frameNum, backend.renderStatic(), hotspot, nominalSize, frameMillis());
+                currentFrames.addFrame(frameNum, nominalSize, hotspot, backend.renderStatic(), frameMillis());
             } else {
                 assert (animation != null);
                 backend.renderAnimation(animation, (frameNo, image) ->
-                        currentFrames.addFrame(frameNo, image, hotspot, nominalSize, frameMillis()));
+                        currentFrames.addFrame(frameNo, nominalSize, hotspot, image, frameMillis()));
             }
         } catch (UncheckedIOException e) {
             throw e.getCause();

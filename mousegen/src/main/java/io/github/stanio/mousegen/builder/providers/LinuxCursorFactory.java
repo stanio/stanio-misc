@@ -60,7 +60,7 @@ class LinuxCursorBuilder extends CursorBuilder {
     }
 
     @Override
-    public void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int frameDelay) {
+    public void addFrame(Integer frameNo, int nominalSize, Point hotspot, BufferedImage image, int frameDelay) {
         frames.addFrame(validFrameNo(frameNo), nominalSize, image, hotspot, frameDelay);
     }
 

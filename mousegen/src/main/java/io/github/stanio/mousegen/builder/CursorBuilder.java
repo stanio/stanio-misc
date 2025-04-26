@@ -32,7 +32,7 @@ public abstract class CursorBuilder {
         this.animated = animated;
     }
 
-    public abstract void addFrame(Integer frameNo, BufferedImage image, Point hotspot, int nominalSize, int delayMillis)
+    public abstract void addFrame(Integer frameNo, int nominalSize, Point hotspot, BufferedImage image, int delayMillis)
             throws UncheckedIOException;
 
     public abstract void build() throws IOException;
