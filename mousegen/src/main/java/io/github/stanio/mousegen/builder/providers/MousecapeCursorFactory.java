@@ -16,8 +16,9 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 
 import io.github.stanio.macos.MousecapeTheme;
-import io.github.stanio.mousegen.CursorNames.Animation;
+
 import io.github.stanio.mousegen.MouseGen.OutputType;
+
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 import io.github.stanio.mousegen.builder.OutputFormat;
@@ -29,7 +30,7 @@ public class MousecapeCursorFactory extends CursorBuilderFactory {
 
     @Override
     public CursorBuilder builderFor(Path targetPath, boolean updateExisting,
-            Animation animation, float targetCanvasFactor) throws IOException {
+            int frameDelayMillis, float targetCanvasFactor) throws IOException {
         if (updateExisting) {
             throw new IllegalStateException("--update-existing not implemented for --mousecape-theme");
         }
@@ -48,7 +49,7 @@ public class MousecapeCursorFactory extends CursorBuilderFactory {
             Files.createDirectories(parent.target().getParent());
             openThemes.put(parent.target(), parent);
         }
-        return new MousecapeCursorBuilder(parent, targetPath, animation);
+        return new MousecapeCursorBuilder(parent, targetPath, frameDelayMillis);
     }
 
     @Override
@@ -70,11 +71,11 @@ class MousecapeCursorBuilder extends CursorBuilder {
 
     private final MousecapeTheme.Cursor cursor;
 
-    MousecapeCursorBuilder(MousecapeTheme owner, Path name, Animation animation) {
-        super(name, animation);
+    MousecapeCursorBuilder(MousecapeTheme owner, Path name, int frameDelayMillis) {
+        super(name, frameDelayMillis > 0);
         this.theme = Objects.requireNonNull(owner);
         this.cursor = new MousecapeTheme.Cursor(name.getFileName().toString(),
-                animation == null ? 0 : animation.delayMillis());
+                frameDelayMillis);
     }
 
     @Override

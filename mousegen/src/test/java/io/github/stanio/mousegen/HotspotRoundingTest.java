@@ -34,7 +34,6 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 
-import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 
@@ -54,7 +53,7 @@ class HotspotRoundingTest {
         final Map<Dimension, Point> hotspots = new LinkedHashMap<>();
 
         MockCursorBuilder() {
-            super(Path.of(System.getProperty("java.io.tmpdir", "")), null);
+            super(Path.of(System.getProperty("java.io.tmpdir", "")), false);
         }
 
         @Override
@@ -154,7 +153,7 @@ class HotspotRoundingTest {
         renderer = new CursorRenderer(new MockRendererBackend(),
                 new CursorBuilderFactory() {
                     @Override public CursorBuilder builderFor(Path targetPath,
-                            boolean updateExisting, Animation animation, float targetCanvasFactor) {
+                            boolean updateExisting, int frameDelay, float targetCanvasFactor) {
                         return builder;
                     }
                 });

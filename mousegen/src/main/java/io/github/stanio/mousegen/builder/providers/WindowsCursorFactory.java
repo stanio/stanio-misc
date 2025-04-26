@@ -11,22 +11,23 @@ import java.nio.file.Path;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 
-import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.windows.AnimatedCursor;
+import io.github.stanio.windows.Cursor;
+
 import io.github.stanio.mousegen.MouseGen.OutputType;
+
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 import io.github.stanio.mousegen.builder.OutputFormat;
-import io.github.stanio.windows.AnimatedCursor;
-import io.github.stanio.windows.Cursor;
 
 @OutputFormat(OutputType.WINDOWS_CURSORS)
 public class WindowsCursorFactory extends CursorBuilderFactory {
 
     @Override
     public CursorBuilder builderFor(Path targetPath, boolean updateExisting,
-            Animation animation, float targetCanvasFactor) throws IOException {
-        return updateExisting ? WindowsCursorBuilder.forUpdate(targetPath, animation)
-                              : new WindowsCursorBuilder(targetPath, animation);
+            int frameDelayMillis, float targetCanvasFactor) throws IOException {
+        return updateExisting ? WindowsCursorBuilder.forUpdate(targetPath, frameDelayMillis)
+                              : new WindowsCursorBuilder(targetPath, frameDelayMillis);
     }
 
 }
@@ -42,22 +43,26 @@ class WindowsCursorBuilder extends CursorBuilder {
 
     private final AnimatedCursor frames;
 
-    WindowsCursorBuilder(Path targetPath, Animation animation) throws IOException {
-        this(targetPath, animation, null);
+    WindowsCursorBuilder(Path targetPath, int frameDelayMillis) throws IOException {
+        this(targetPath, frameDelayMillis, null);
         Files.createDirectories(targetPath.getParent());
     }
 
-    private WindowsCursorBuilder(Path targetPath, Animation animation, AnimatedCursor frames) {
-        super(targetPath, animation);
+    private WindowsCursorBuilder(Path targetPath, int frameDelayMillis, AnimatedCursor frames) {
+        super(targetPath, frameDelayMillis > 0);
         this.frames = (frames == null)
-                      ? new AnimatedCursor(animation == null ? 0 : animation.jiffies())
+                      ? new AnimatedCursor(jiffiesOfMillis(frameDelayMillis))
                       : frames;
     }
 
-    static WindowsCursorBuilder forUpdate(Path targetPath, Animation animation)
+    private static int jiffiesOfMillis(int millis) {
+        return (millis == 0) ? 0 : Math.max(1, Math.round(60 * millis / 1000f));
+    }
+
+    static WindowsCursorBuilder forUpdate(Path targetPath, int frameDelayMillis)
             throws IOException {
         AnimatedCursor existing = null;
-        if (animation == null) {
+        if (frameDelayMillis > 0) {
             Path curFile = targetPath.resolveSibling(targetPath.getFileName() + ".cur");
             if (Files.exists(curFile)) {
                 existing = new AnimatedCursor(0);
@@ -69,7 +74,7 @@ class WindowsCursorBuilder extends CursorBuilder {
                 existing = AnimatedCursor.read(aniFile);
             }
         }
-        return new WindowsCursorBuilder(targetPath, animation, existing);
+        return new WindowsCursorBuilder(targetPath, frameDelayMillis, existing);
     }
 
     @Override
@@ -80,7 +85,7 @@ class WindowsCursorBuilder extends CursorBuilder {
 
     @Override
     public void build() throws IOException {
-        if (animation.isEmpty()) {
+        if (!animated) {
             frames.prepareFrame(staticFrame)
                     .write(targetPath.resolveSibling(targetPath.getFileName() + ".cur"));
         } else {

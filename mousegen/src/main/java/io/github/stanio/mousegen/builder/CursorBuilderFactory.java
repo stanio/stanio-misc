@@ -12,13 +12,11 @@ import java.util.ServiceLoader.Provider;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import io.github.stanio.mousegen.CursorNames.Animation;
-
 public abstract class CursorBuilderFactory {
 
     public abstract CursorBuilder builderFor(Path targetPath,
                                              boolean updateExisting,
-                                             Animation animation,
+                                             int frameDelayMillis,
                                              float targetCanvasFactor)
             throws IOException;
 

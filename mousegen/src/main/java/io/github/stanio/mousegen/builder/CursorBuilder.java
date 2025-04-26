@@ -8,12 +8,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.Optional;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 
-import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.CursorRenderer;
 
 /**
@@ -27,11 +25,11 @@ public abstract class CursorBuilder {
 
     protected final Path targetPath;
 
-    protected final Optional<Animation> animation;
+    protected final boolean animated;
 
-    protected CursorBuilder(Path targetPath, Animation animation) {
+    protected CursorBuilder(Path targetPath, boolean animated) {
         this.targetPath = Objects.requireNonNull(targetPath);
-        this.animation = Optional.ofNullable(animation);
+        this.animated = animated;
     }
 
     public abstract void addFrame(Integer frameNo, BufferedImage image, Point hotspot)
@@ -40,7 +38,7 @@ public abstract class CursorBuilder {
     public abstract void build() throws IOException;
 
     protected final Integer validFrameNo(Integer num) {
-        if (animation.isPresent() && num == null) {
+        if (animated && num == null) {
             throw new IllegalArgumentException("Frame number is required for animations");
         }
         return (num == null) ? staticFrame : num;

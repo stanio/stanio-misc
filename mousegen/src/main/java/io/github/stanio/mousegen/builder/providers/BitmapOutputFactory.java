@@ -19,8 +19,8 @@ import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
-import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.MouseGen.OutputType;
+
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 import io.github.stanio.mousegen.builder.OutputFormat;
@@ -31,11 +31,11 @@ public class BitmapOutputFactory extends CursorBuilderFactory {
     @Override
     public CursorBuilder builderFor(Path targetPath,
                                     boolean updateExisting,
-                                    Animation animation,
+                                    int frameDelayMillis,
                                     float targetCanvasFactor)
             throws IOException {
         // No updateExisting-specific configuration for bitmaps, yet.
-        return BitmapOutputBuilder.newInstance(targetPath, animation);
+        return BitmapOutputBuilder.newInstance(targetPath, frameDelayMillis > 0);
     }
 
 }
@@ -51,14 +51,14 @@ class BitmapOutputBuilder extends CursorBuilder {
         throw new IllegalStateException("PNG image writer not registered/available");
     });
 
-    private BitmapOutputBuilder(Path targetPath, Animation animation) {
-        super(targetPath, animation);
+    private BitmapOutputBuilder(Path targetPath, boolean animated) {
+        super(targetPath, animated);
     }
 
-    static BitmapOutputBuilder newInstance(Path targetPath, Animation animation)
+    static BitmapOutputBuilder newInstance(Path targetPath, boolean animated)
             throws IOException {
-        Files.createDirectories(animation == null ? targetPath.getParent() : targetPath);
-        return new BitmapOutputBuilder(targetPath, animation);
+        Files.createDirectories(animated ? targetPath : targetPath.getParent());
+        return new BitmapOutputBuilder(targetPath, animated);
     }
 
     @Override
@@ -66,8 +66,8 @@ class BitmapOutputBuilder extends CursorBuilder {
         // REVISIT: Eliminate suffix when rendering just "source" dimension
         String sizeSuffix = (image.getWidth() < 100 ? "-0" : "-") + image.getWidth();
         String fileName = targetPath.getFileName() + sizeSuffix
-                + animation.map(a -> "-" + validFrameNo(frameNo)).orElse("") + ".png";
-        Path pngFile = (animation == null || frameNo == null)
+                + (animated ? "-" + validFrameNo(frameNo) : "") + ".png";
+        Path pngFile = (!animated || frameNo == null)
                        ? targetPath.resolveSibling(fileName)
                        : targetPath.resolve(fileName);
         ImageWriter imageWriter = pngWriter.get();

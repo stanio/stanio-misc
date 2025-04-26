@@ -288,7 +288,8 @@ public final class CursorRenderer {
     private CursorBuilder newCursorBuilder() throws UncheckedIOException {
         try {
             return builderFactory.builderFor(outDir.resolve(targetName),
-                    updateExisting, animation, 1 / (float) canvasSizing.nominalSize);
+                    updateExisting, animation == null ? 0 : animation.delayMillis(),
+                    1 / (float) canvasSizing.nominalSize);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
