@@ -17,14 +17,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.function.BinaryOperator;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -46,9 +43,8 @@ public final class ConfigFactory {
     private final Path configFile;
     private final ThemeNames themeNames = new ThemeNames();
     private final ColorRegistry colorRegistry;
-    private final double baseStrokeWidth;
 
-    public ConfigFactory(Path projectPath, String config, double baseStrokeWidth) {
+    public ConfigFactory(Path projectPath, String config) {
         if (Files.isDirectory(projectPath)) {
             baseDir = projectPath;
             Path configPath = projectPath.resolve(config);
@@ -65,7 +61,6 @@ public final class ConfigFactory {
             configBase = baseDir.resolve(config);
         }
         colorRegistry = new ColorRegistry();
-        this.baseStrokeWidth = baseStrokeWidth;
     }
 
     @SuppressWarnings("resource")
@@ -139,10 +134,8 @@ public final class ConfigFactory {
     public ThemeConfig[] create(Collection<String> themeFilter,
                                 Collection<String> colorOptions,
                                 Collection<SizeScheme> sizeOptions,
-                                Collection<StrokeWidth> strokeWidths,
-                                boolean defaultStrokeAlso,
-                                DropShadow pointerShadow,
-                                boolean noShadowAlso)
+                                Collection<LabeledOption<Double>> strokeWidths,
+                                Collection<LabeledOption<DropShadow>> shadowOptions)
             throws IOException, JsonParseException
     {
         List<ThemeConfig> sourceConfigs =
@@ -169,17 +162,15 @@ public final class ConfigFactory {
         });
 
         return interpolate(sourceConfigs, colorOptions, sizeOptions,
-                strokeWidths, defaultStrokeAlso, pointerShadow, noShadowAlso);
+                strokeWidths, shadowOptions);
     }
 
     public ThemeConfig[] create(List<String> sourceDirectories,
                                 List<String> baseNames,
                                 Collection<String> colorOptions,
                                 Collection<SizeScheme> sizeOptions,
-                                Collection<StrokeWidth> strokeWidths,
-                                boolean defaultStrokeAlso,
-                                DropShadow pointerShadow,
-                                boolean noShadowAlso) {
+                                Collection<LabeledOption<Double>> strokeWidths,
+                                Collection<LabeledOption<DropShadow>> shadowOptions) {
         for (int i = 0, n = sourceDirectories.size(); i < n; i++) {
             String dir = sourceDirectories.get(i);
             String name = i < baseNames.size() ? baseNames.get(i)
@@ -192,80 +183,37 @@ public final class ConfigFactory {
                 sourceConfigs.add(new ThemeConfig(name, dir, null)));
 
         return interpolate(sourceConfigs, colorOptions, sizeOptions,
-                strokeWidths, defaultStrokeAlso, pointerShadow, noShadowAlso);
+                strokeWidths, shadowOptions);
     }
 
     private ThemeConfig[] interpolate(Collection<ThemeConfig> sourceConfigs,
                                       Collection<String> colorOptions,
                                       Collection<SizeScheme> sizeOptions,
-                                      Collection<StrokeWidth> strokeOptions,
-                                      boolean defaultStrokeAlso,
-                                      DropShadow pointerShadow,
-                                      boolean noShadowAlso)
+                                      Collection<LabeledOption<Double>> strokeOptions,
+                                      Collection<LabeledOption<DropShadow>> shadowOptions)
     {
         List<ThemeConfig> result = new ArrayList<>();
 
         // Minimize source re-transformations by grouping relevant options first.
         Collection<List<Object>> optionCombinations =
-                cartesianProduct(strokeWidths(strokeOptions, defaultStrokeAlso), // [0]
-                                 setOf(noShadowAlso, pointerShadow), // [1]
+                cartesianProduct(setOf(false, strokeOptions),        // [0]
+                                 setOf(false, shadowOptions),        // [1]
                                  sourceConfigs,                      // [2]
                                  setOf(false, colorOptions),         // [3]
                                  sizeOptions);                       // [4]
 
         for (List<Object> combination : optionCombinations) {
             ThemeConfig source = (ThemeConfig) combination.get(2);
+            @SuppressWarnings("unchecked")
             ThemeConfig candidate = variant(source,
                                             (String) combination.get(3),
                                             (SizeScheme) combination.get(4),
-                                            (Double) combination.get(0),
-                                            (DropShadow) combination.get(1));
+                                            (LabeledOption<Double>) combination.get(0),
+                                            (LabeledOption<DropShadow>) combination.get(1));
             updateResult(result, candidate, candidate == source);
         }
 
         return result.toArray(ThemeConfig[]::new);
-    }
-
-    private Map<Double, String> strokeNames = Collections.emptyMap();
-
-    private Collection<Double> strokeWidths(Collection<StrokeWidth> strokeOptions,
-                                            boolean defaultStrokeAlso) {
-        Map<Double, String> widthNames = new HashMap<>();
-        Set<String> allNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        if (defaultStrokeAlso || strokeOptions.isEmpty()) {
-            allNames.add("");
-            widthNames.put(null, "");
-        }
-
-        strokeOptions.forEach(item -> {
-            String name = widthNames.get(item.value);
-            if (name == null && item.value == baseStrokeWidth) {
-                name = widthNames.get(null);
-            }
-            if (name != null && (!name.isEmpty() || item.name.isEmpty()))
-                return;
-
-            name = item.name(baseStrokeWidth, "");
-            for (int i = 2; !allNames.add(name); i++) {
-                name = item.name(baseStrokeWidth, "Stroke") + i;
-            }
-            widthNames.put(item.value, name);
-        });
-
-        strokeNames = widthNames;
-
-        List<Double> widths = new ArrayList<>(widthNames.keySet());
-        widths.sort(Comparator.nullsFirst(Comparator.reverseOrder()));
-        return widths;
-    }
-
-    public static void main(String[] args) throws Exception {
-        List<Double> foo = new ArrayList<>();
-        foo.add(1.0);
-        foo.add(Double.NaN);
-        foo.add(null);
-        foo.sort(Comparator.nullsFirst(Comparator.reverseOrder()));
-        System.out.println(foo);
     }
 
     private static final Pattern WILDCARD = Pattern.compile("\\*");
@@ -273,12 +221,14 @@ public final class ConfigFactory {
     private ThemeConfig variant(ThemeConfig source,
                                 String colorName,
                                 SizeScheme sizeScheme,
-                                Double strokeWidth,
-                                DropShadow pointerShadow) {
+                                LabeledOption<Double> strokeOption,
+                                LabeledOption<DropShadow> pointerShadow) {
         Map<String, String> colors = (colorName == null)
                                      ? source.colors()
                                      : colorRegistry.get(colorName);
-        if (source.hasEqualOptions(colors, sizeScheme, strokeWidth, pointerShadow))
+        DropShadow shadowValue = pointerShadow == null ? null : pointerShadow.value();
+        Double strokeWidth = strokeOption == null ? null : strokeOption.value();
+        if (source.hasEqualOptions(colors, sizeScheme, strokeWidth, shadowValue))
             // Use the original/source config with its original name
             return source;
 
@@ -287,15 +237,15 @@ public final class ConfigFactory {
         tags.add(prefixSuffix[0]);
         tags.addAll(Arrays.asList(colorName == null ? "" : colorName,
                 sizeScheme.name == null ? "" : sizeScheme.name,
-                strokeNames.get(strokeWidth),
-                pointerShadow == null ? "" : "Shadow"));
+                strokeOption == null ? "" : strokeOption.label(),
+                pointerShadow == null ? "" : pointerShadow.label()));
         if (prefixSuffix.length > 1) {
             tags.add(prefixSuffix[1].replace("*", ""));
         }
         String name = tags.stream()
                 .filter(Predicate.not(String::isBlank))
                 .collect(Collectors.joining("-"));
-        return source.copyWith(name, colors, sizeScheme, strokeWidth, pointerShadow);
+        return source.copyWith(name, colors, sizeScheme, strokeWidth, shadowValue);
     }
 
     private static void updateResult(List<ThemeConfig> result,

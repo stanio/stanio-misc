@@ -39,6 +39,7 @@ import io.github.stanio.cli.CommandLine.ArgumentException;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.options.ConfigFactory;
+import io.github.stanio.mousegen.options.LabeledOption;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.options.ThemeConfig;
@@ -245,8 +246,7 @@ public class MouseGen {
         }
 
         ConfigFactory configFactory = new ConfigFactory(cmdArgs.projectPath.get(),
-                                                        cmdArgs.configPath,
-                                                        cmdArgs.baseStrokeWidth);
+                                                        cmdArgs.configPath);
         try {
             configFactory.loadColors(cmdArgs.colorsFile);
         } catch (IOException | JsonParseException e) {
@@ -266,13 +266,13 @@ public class MouseGen {
             if (cmdArgs.sourceDirs.isEmpty()) {
                 renderConfig = configFactory.create(cmdArgs.themeFilter,
                         cmdArgs.colors, cmdArgs.sizes(),
-                        cmdArgs.strokeWidths, cmdArgs.defaultStrokeAlso(),
-                        cmdArgs.pointerShadow, cmdArgs.noShadowAlso());
+                        cmdArgs.strokeWidths(),
+                        cmdArgs.shadowOptions());
             } else {
                 renderConfig = configFactory.create(cmdArgs.sourceDirs, cmdArgs.themeNames,
                         cmdArgs.colors, cmdArgs.sizes(),
-                        cmdArgs.strokeWidths, cmdArgs.defaultStrokeAlso(),
-                        cmdArgs.pointerShadow, cmdArgs.noShadowAlso());
+                        cmdArgs.strokeWidths(),
+                        cmdArgs.shadowOptions());
             }
         } catch (IOException | JsonParseException e) {
             exitMessage(2, "Could not read \"render.json\" configuration: ", e);
@@ -346,14 +346,14 @@ public class MouseGen {
         boolean impliedNames = true;
 
         String outputType = OutputType.BITMAPS;
-        DropShadow pointerShadow;
-        boolean noShadowAlso;
-        final List<StrokeWidth> strokeWidths = new ArrayList<>();
+        LabeledOption<DropShadow> pointerShadow;
+        LabeledOption<DropShadow> noShadowAlso;
+        final List<LabeledOption<Double>> strokeWidths = new ArrayList<>();
         double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
         double minStrokeWidth;
         Double expandFillLimit;
         boolean wholePixelStroke;
-        boolean defaultStrokeAlso;
+        LabeledOption<Double> defaultStrokeAlso;
         boolean allVariants;
 
         boolean updateExisting;
@@ -381,21 +381,25 @@ public class MouseGen {
                             setOutputType(OutputType.MOUSECAPE_THEME, val, "mac-names"))
                     .acceptFlag("--all-cursors", () -> allCursors = true)
                     .acceptFlag("--update-existing", () -> updateExisting = true)
-                    .acceptOptionalArg("--pointer-shadow",
-                            val -> pointerShadow = DropShadow.decode(val))
-                    .acceptFlag("--no-shadow-also", () -> noShadowAlso = true)
+                    .acceptOptionalArg("--pointer-shadow", val -> pointerShadow =
+                            LabeledOption.parse((s) -> "Shadow", val, DropShadow::decode))
+                    .acceptOptionalArg("--no-shadow-also",
+                            val -> noShadowAlso = new LabeledOption<>(val, null))
                     .acceptOption("--base-stroke-width",
                             val -> baseStrokeWidth = val, Double::valueOf)
                     .acceptOptionalArg("--thin-stroke", strokeWidths::add,
-                            val -> StrokeWidth.valueOf(val.isEmpty() ? "12" : val))
-                    .acceptOption("--stroke-width", strokeWidths::add, StrokeWidth::valueOf)
+                            val -> LabeledOption.parse((v) -> "Thin", val,
+                                    (v) -> v.isEmpty() ? 12.0 : Double.valueOf(v)))
+                    .acceptOption("--stroke-width", strokeWidths::add,
+                            val -> LabeledOption.parse((v) -> "S" + val, val, Double::valueOf))
                     .acceptOption("--min-stroke-width",
                             val -> minStrokeWidth = Double.parseDouble(val))
                     .acceptFlag("--whole-pixel-stroke", () -> wholePixelStroke = true)
                     .acceptOptionalArg("--expand-fill",
                             val -> expandFillLimit = val.isEmpty() ? Double.MAX_VALUE
                                                                    : Double.parseDouble(val))
-                    .acceptFlag("--default-stroke-also", () -> defaultStrokeAlso = true)
+                    .acceptOptionalArg("--default-stroke-also",
+                            val -> defaultStrokeAlso = new LabeledOption<>(val, null))
                     .acceptFlag("--all-variants", () -> allVariants = true)
                     .acceptOption("--build-dir", val -> buildDir = val)
                     .acceptOption("--config", val -> configPath = val)
@@ -422,12 +426,30 @@ public class MouseGen {
             }
         }
 
-        public boolean defaultStrokeAlso() {
-            return allVariants || defaultStrokeAlso;
+        public List<LabeledOption<Double>> strokeWidths() {
+            List<LabeledOption<Double>> opts = new ArrayList<>();
+            if (defaultStrokeAlso != null) {
+                opts.add(defaultStrokeAlso);
+            } else if (allVariants) {
+                opts.add(new LabeledOption<>("", null));
+            }
+            opts.addAll(strokeWidths);
+            // REVISIT: Validate distinct labels
+            return opts;
         }
 
-        public boolean noShadowAlso() {
-            return allVariants || noShadowAlso;
+        public List<LabeledOption<DropShadow>> shadowOptions() {
+            List<LabeledOption<DropShadow>> opts = new ArrayList<>();
+            if (noShadowAlso != null) {
+                opts.add(noShadowAlso);
+            } else if (allVariants) {
+                opts.add(new LabeledOption<>("", null));
+            }
+            if (pointerShadow != null) {
+                opts.add(pointerShadow);
+            }
+            // REVISIT: Validate distinct labels
+            return opts;
         }
 
         Set<SizeScheme> sizes() {
