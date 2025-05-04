@@ -26,6 +26,8 @@ import io.github.stanio.io.DataFormatException;
 
 public class ThemesConfig {
 
+    static final String DEFAULT_FILE_NAME = "themes";
+
 
     public static class ThemeInfo {
         public String name;

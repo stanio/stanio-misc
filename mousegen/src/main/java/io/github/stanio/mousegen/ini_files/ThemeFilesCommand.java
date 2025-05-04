@@ -27,6 +27,7 @@ import java.util.Objects;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
+import io.github.stanio.mousegen.cli.ConfigFiles;
 import io.github.stanio.mousegen.ini_files.ThemesConfig.ThemeInfo;
 
 abstract class ThemeFilesCommand {
@@ -177,7 +178,8 @@ abstract class ThemeFilesCommand {
             if (cmdArgs.themesConfig == null) {
                 stored = new ThemesConfig();
             } else {
-                stored = ThemesConfig.loadFrom(cmdArgs.themesConfig.toUri().toURL());
+                stored = ThemesConfig.loadFrom(ConfigFiles.resolve(cmdArgs
+                        .themesConfig, ThemesConfig.DEFAULT_FILE_NAME).toUri().toURL());
             }
         }
 

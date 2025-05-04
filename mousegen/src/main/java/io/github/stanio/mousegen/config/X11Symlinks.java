@@ -26,6 +26,7 @@ import com.google.gson.reflect.TypeToken;
 
 import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
+import io.github.stanio.mousegen.cli.ConfigFiles;
 
 public class X11Symlinks {
 
@@ -225,7 +226,9 @@ public class X11Symlinks {
 
     static class CommandArgs {
 
-        Path linksFile = Path.of("x11-symlinks.json");
+        private static final String DEFAULT_CONFIG_FILE = "x11-symlinks";
+
+        Path linksFile = Path.of("");
 
         final List<Path> targetDirs = new ArrayList<>();
 
@@ -240,6 +243,8 @@ public class X11Symlinks {
 
             if (targetDirs.isEmpty())
                 throw new ArgumentException("No target <dir> specified");
+
+            linksFile = ConfigFiles.resolve(linksFile, DEFAULT_CONFIG_FILE);
         }
 
     } // class CommandArgs

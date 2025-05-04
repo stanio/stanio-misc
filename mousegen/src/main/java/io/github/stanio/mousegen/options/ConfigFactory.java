@@ -32,11 +32,10 @@ import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.cli.ConfigFiles;
 import io.github.stanio.mousegen.svg.DropShadow;
 
 public final class ConfigFactory {
-
-    private static final String[] JSON_EXTS = { ".json", ".jsonc", ".json5" };
 
     private final Path baseDir;
     private final Path configBase;
@@ -76,7 +75,7 @@ public final class ConfigFactory {
     public void loadColors(String colorsFile) throws IOException {
         Path path;
         if (colorsFile == null) {
-            path = resolveExisting(configBase, "colors", JSON_EXTS);
+            path = ConfigFiles.resolveExisting(configBase, "colors", ConfigFiles.JSON_EXTS);
             if (path == null)
                 return;
         } else {
@@ -85,23 +84,11 @@ public final class ConfigFactory {
         colorRegistry.read(path.toUri().toURL());
     }
 
-    static Path resolveExisting(Path parent, String name, String... extensions) {
-        String[] suffixes = (extensions.length == 0)
-                            ? new String[] { "" }
-                            : extensions;
-        for (String ext : suffixes) {
-            Path path = parent.resolve(name + ext);
-            if (Files.exists(path))
-                return path;
-        }
-        return null;
-    }
-
     public void deifineAnimations(String animationsFile)
             throws IOException, JsonParseException {
         Path path;
         if (animationsFile == null) {
-            path = resolveExisting(configBase, "animations", JSON_EXTS);
+            path = ConfigFiles.resolveExisting(configBase, "animations", ConfigFiles.JSON_EXTS);
             if (path == null)
                 return;
         } else {
@@ -114,7 +101,7 @@ public final class ConfigFactory {
             throws IOException, JsonParseException {
         Path path;
         if (implied) {
-            path = resolveExisting(configBase, namesFile, JSON_EXTS);
+            path = ConfigFiles.resolveExisting(configBase, namesFile, ConfigFiles.JSON_EXTS);
             if (path == null)
                 return Collections.emptyMap();
         } else {
