@@ -74,6 +74,19 @@ Utility creating Bibata Windows cursors from pre-rendered bitmaps a la
     > java -jar mousegen.jar wincur --help
     USAGE: wincur [--all-cursors] <bitmaps-dir>
 
+> [!NOTE]
+> This will be eventually replaced by a `compile` command using `xcursorgen`
+> config files but providing options for differernt output formats as supported
+> by mousegen.
+
+### `dump`
+
+Dumps (decompiles) one or more supported-format cursor files (Windows, XCursor,
+Mousecape) to individual bitmaps and a `*.cursor` (Xcursorgen) config file with
+the relevant metadata (nominal size, hotspot, bitmap file, animation duration).
+
+    > java -jar mousegen.jar dump [-d <output-dir>] <cursor-file>...
+
 ### `render`
 
 Utility for rendering Bibata cursor bitmap images.  Alternative to `cbmp`
@@ -103,7 +116,7 @@ Generates `install.inf` installation scripts.
 
 For manual setup on Windows see:
 
--   [ful1e5/Bibata_Cursor/issues/137](https://github.com/ful1e5/Bibata_Cursor/issues/137#issuecomment-1731713946):
+-   [ful1e5/Bibata_Cursor#137](https://github.com/ful1e5/Bibata_Cursor/issues/137#issuecomment-1731713946):
     Install under Windows user account doesn't work
 
 ### `x11Symlinks`
