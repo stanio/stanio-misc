@@ -354,7 +354,7 @@ public class Cursor {
                            imageData));
     }
 
-    private void addEntry(Image entry) {
+    private /*synchronized*/ void addEntry(Image entry) {
         int index = findIndex(entry);
         if (index < 0) {
             entries.add(-index - 1, entry);
@@ -483,7 +483,7 @@ public class Cursor {
         }
     }
 
-    private void write(BufferedChannelOutput leOut) throws IOException {
+    private /*synchronized*/ void write(BufferedChannelOutput leOut) throws IOException {
         leOut.buffer().order(ByteOrder.LITTLE_ENDIAN);
 
         long dataOffset = writeHeader(leOut) + imageCount() * Image.ENTRY_SIZE;

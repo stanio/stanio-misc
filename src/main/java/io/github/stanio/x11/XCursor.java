@@ -337,7 +337,7 @@ public class XCursor {
                                                bounds.width * bounds.height));
     }
 
-    void addFrameImage(Integer frameNum, ImageChunk image) {
+    /*synchronized*/ void addFrameImage(Integer frameNum, ImageChunk image) {
         List<ImageChunk> sizes = frames.computeIfAbsent(frameNum, k -> new ArrayList<>());
         int index = 0;
 
@@ -431,7 +431,7 @@ public class XCursor {
         return images;
     }
 
-    private void write(BufferedChannelOutput out) throws IOException {
+    private /*synchronized*/ void write(BufferedChannelOutput out) throws IOException {
         out.buffer().order(ByteOrder.LITTLE_ENDIAN);
 
         List<Chunk> content = sortedContent();

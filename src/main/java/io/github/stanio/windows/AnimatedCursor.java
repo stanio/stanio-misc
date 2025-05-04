@@ -226,7 +226,7 @@ public class AnimatedCursor {
         return frames.size();
     }
 
-    public Cursor prepareFrame(Integer frameNum) {
+    public /*synchronized*/ Cursor prepareFrame(Integer frameNum) {
         return frames.computeIfAbsent(frameNum, k -> new Cursor());
     }
 
@@ -235,7 +235,7 @@ public class AnimatedCursor {
      *
      * @param   frame  cursor frame to add to this animation
      */
-    public void addFrame(Cursor frame) {
+    public /*synchronized*/ void addFrame(Cursor frame) {
         frames.put(frames.isEmpty() ? 1 : frames.lastKey() + 1, frame);
     }
 
@@ -285,7 +285,7 @@ public class AnimatedCursor {
         }
     }
 
-    private void write(BufferedChannelOutput leOut) throws IOException {
+    private /*synchronized*/ void write(BufferedChannelOutput leOut) throws IOException {
         List<Frame> frameData = frames.values().stream()
                 .map(Frame::of).collect(Collectors.toList());
 

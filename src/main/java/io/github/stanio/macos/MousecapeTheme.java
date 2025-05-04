@@ -330,7 +330,7 @@ public class MousecapeTheme implements Closeable {
         }
     }
 
-    public void writeCursor(Cursor pointer) throws IOException {
+    public /*synchronized*/ void writeCursor(Cursor pointer) throws IOException {
         if (xmlWriter == null)
             throw new IllegalStateException("writePreamble first");
 
@@ -459,7 +459,7 @@ public class MousecapeTheme implements Closeable {
     }
 
     @Override
-    public void close() throws IOException {
+    public /*synchronized*/ void close() throws IOException {
         if (fileOut != null) {
             writeEnd();
         }
