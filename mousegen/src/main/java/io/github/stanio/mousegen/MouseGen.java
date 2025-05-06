@@ -6,6 +6,7 @@ package io.github.stanio.mousegen;
 
 import static io.github.stanio.mousegen.Command.endsWithIgnoreCase;
 import static io.github.stanio.mousegen.Command.exitMessage;
+import static io.github.stanio.mousegen.CursorRenderer.targetException;
 import static io.github.stanio.cli.CommandLine.splitOnComma;
 
 import java.io.IOException;
@@ -25,12 +26,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import org.w3c.dom.Document;
 
 import com.google.gson.JsonParseException;
 
@@ -80,6 +88,13 @@ public class MouseGen {
         this.buildDir = Objects.requireNonNull(buildDir, "null buildDir");
         renderer = new CursorRenderer(type);
         this.outputType = type;
+
+        ThreadFactory dtf = Executors.defaultThreadFactory();
+        renderThread = Executors.newSingleThreadExecutor(r -> {
+            Thread th = dtf.newThread(r);
+            th.setDaemon(true);
+            return th;
+        });
     }
 
     public MouseGen withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit, boolean wholePixelWidth) {
@@ -145,6 +160,7 @@ public class MouseGen {
                     renderSVG(svg, config);
             }
         }
+        awaitCurrentRender();
         progress.pop();
         renderer.saveDeferred();
         if (outputType.equals(OutputType.BITMAPS))
@@ -183,8 +199,37 @@ public class MouseGen {
         if (targetName == null)
             return;
 
+        Document svg = renderer.preload(svgFile);
+        awaitCurrentRender();
         progress.push(cursorName);
-        renderer.setFile(cursorName, svgFile, targetName);
+        currentRender = renderThread.submit(() -> {
+            renderSVG(cursorName, svg, targetName, animation, frameNum, renderConfig);
+            return null;
+        });
+    }
+
+    // This synchronizes the use of the progress output, as well.
+    private void awaitCurrentRender() throws IOException {
+        if (currentRender == null) return;
+
+        try {
+            currentRender.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted", e);
+        } catch (ExecutionException e) {
+            throw targetException(e.getCause(), IOException.class);
+        }
+        currentRender = null;
+    }
+
+    private Future<?> currentRender;
+    private final ExecutorService renderThread;
+
+    private void renderSVG(String cursorName, Document svg, String targetName,
+                           Animation animation, Integer frameNum,
+                           Collection<ThemeConfig> renderConfig) throws IOException {
+        renderer.setDocument(cursorName, svg, targetName);
 
         for (ThemeConfig config : renderConfig) {
             // REVISIT: Test cursorName or animation.lowerName

@@ -7,6 +7,8 @@ package io.github.stanio.mousegen;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashMap;
@@ -146,6 +148,19 @@ public final class CursorRenderer {
 
     public void setStrokeWidth(Double width) {
         strokeWidth = Optional.ofNullable(width);
+    }
+
+    public Document preload(Path svgFile) throws IOException {
+        return loadTransformer.loadDocument(svgFile);
+    }
+
+    public void setDocument(String cursorName, Document svg, String targetName) {
+        resetFile();
+        this.cursorName = cursorName;
+        this.targetName = targetName;
+        this.sourceFile = null;
+        this.sourceDocument = svg;
+        this.sourceViewBoxSize = -1;
     }
 
     public void setFile(String cursorName, Path svgFile, String targetName) throws IOException {
@@ -397,25 +412,35 @@ public final class CursorRenderer {
         }
 
         Future<?> poll = encodeQueue.poll();
+        Duration timeout = Duration.of(1, ChronoUnit.MINUTES);
         while (poll != null) {
             try {
-                poll.get(1, TimeUnit.MINUTES);
-            } catch (TimeoutException | InterruptedException e) {
-                throw new IllegalStateException(e);
+                poll.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted", e);
+            } catch (TimeoutException e) {
+                throw new IllegalStateException("Timed out after " + timeout, e);
             } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof UncheckedIOException) {
-                    throw ((UncheckedIOException) cause).getCause();
-                } else if (cause instanceof IOException) {
-                    throw (IOException) cause;
-                } else if (cause instanceof RuntimeException) {
-                    throw (RuntimeException) cause;
-                }
-                throw new IOException(cause);
+                throw targetException(e.getCause(), IOException.class);
             }
             poll = encodeQueue.poll();
         }
         builderFactory.finalizeThemes();
+    }
+
+    static <T extends Exception> T targetException(Throwable e, Class<T> targetClass) {
+        if (e instanceof Error) {
+            throw (Error) e;
+        } else if (targetClass == IOException.class
+                && e instanceof UncheckedIOException) {
+            return targetClass.cast(e.getCause());
+        } else if (e instanceof RuntimeException) {
+            throw (RuntimeException) e;
+        } else if (targetClass.isInstance(e)) {
+            return targetClass.cast(e);
+        }
+        throw new RuntimeException(e);
     }
 
     public void saveHotspots() throws IOException {
@@ -455,7 +480,7 @@ public final class CursorRenderer {
     {
         ThreadFactory dtf = Executors.defaultThreadFactory();
         ThreadPoolExecutor pool = new ThreadPoolExecutor(0,
-                Runtime.getRuntime().availableProcessors(),
+                Math.max(1, Runtime.getRuntime().availableProcessors() - 1),
                 60L, TimeUnit.SECONDS,
                 new SynchronousQueue<>(), r -> {
             Thread th = dtf.newThread(r);
