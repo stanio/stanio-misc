@@ -1,5 +1,5 @@
 [versions]
-batik = "1.18"
+batik = "1.19"
 gson = "2.13.1"
 jsvg = "2.0.0"
 #jsvg = "latest.integration"
