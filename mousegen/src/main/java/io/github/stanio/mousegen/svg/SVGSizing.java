@@ -278,10 +278,10 @@ public class SVGSizing {
         int rounded;
         if (biasValue < 0 || hotspotCenterHeuristics
                 && biasValue == 0 && relativeCoordinate <= 0.45) {
-            rounded = (int) Math.floor(coordinate + 0.55);
+            rounded = (int) Math.floor(coordinate + 0.51);
         } else if (biasValue > 0 || hotspotCenterHeuristics
                 && biasValue == 0 && relativeCoordinate >= 0.55) {
-            rounded = (int) Math.floor(coordinate + 0.45) - 1;
+            rounded = (int) Math.floor(coordinate + 0.49) - 1;
         } else {
             rounded = (int) (hotspotCenterHeuristics
                     // Don't generally round-up near the center, but perform minimal
