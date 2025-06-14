@@ -192,6 +192,7 @@ public class SVGCursorMetadata {
         AnchorPoint hotspot;
         AnchorPoint rootAnchor = AnchorPoint.defaultValue(); // REVISIT: or 128,128?
         Map<ElementPath, AnchorPoint> childAnchors = new HashMap<>(1);
+        private Map<String, AnchorPoint> anchorDefs = new HashMap<>(1);
 
         private final ContentStack contentStack = new ContentStack();
         private final Matcher anchorMatcher = ANCHOR_POINT.matcher("");
@@ -205,6 +206,7 @@ public class SVGCursorMetadata {
             contentStack.push(qname);
 
             String id = attributes.getValue("id");
+            String anchorRef;
             if (contentStack.currentDepth() == 1 && qname.equals("svg")) {
                 setViewBox(attributes);
             } else if ("cursor-hotspot".equals(id) || "hotspot".equals(id)) {
@@ -214,6 +216,10 @@ public class SVGCursorMetadata {
             } else if (hasClass(attributes, "align-anchor")) {
                 parseAnchor(localName, attributes, anchor ->
                         childAnchors.put(contentStack.currentPath().parent(), anchor));
+            } else if (hasClass(attributes, "align-anchor-def")) {
+                parseAnchor(localName, attributes, anchor -> anchorDefs.put(id, anchor));
+            } else if ((anchorRef = attributes.getValue("align-anchor")) != null) {
+                childAnchors.put(contentStack.currentPath(), anchorDefs.get(anchorRef));
             }
             super.startElement(uri, localName, qname, attributes);
         }
