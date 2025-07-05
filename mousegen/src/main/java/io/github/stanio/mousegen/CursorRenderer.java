@@ -443,14 +443,14 @@ public final class CursorRenderer {
         throw new RuntimeException(e);
     }
 
-    public void saveHotspots() throws IOException {
-        var iterator = hotspotsPool.values().iterator();
-        while (iterator.hasNext()) {
-            var hotspots = iterator.next();
-            hotspots.saveHotspots();
-            iterator.remove();
-        }
-    }
+    //public void saveHotspots() throws IOException {
+    //    var iterator = hotspotsPool.values().iterator();
+    //    while (iterator.hasNext()) {
+    //        var hotspots = iterator.next();
+    //        hotspots.saveHotspots();
+    //        iterator.remove();
+    //    }
+    //}
 
     public void reset() {
         resetFile();
