@@ -277,16 +277,15 @@ public class SVGSizing {
     private static int roundHotspotCoord(double coordinate, double biasValue, double relativeCoordinate) {
         int rounded;
         if (biasValue < 0 || hotspotCenterHeuristics
-                && biasValue == 0 && relativeCoordinate <= 0.45) {
+                && biasValue == 0 && relativeCoordinate < 0.33) {
             rounded = (int) Math.floor(coordinate + 0.51);
         } else if (biasValue > 0 || hotspotCenterHeuristics
-                && biasValue == 0 && relativeCoordinate >= 0.55) {
+                && biasValue == 0 && relativeCoordinate > 0.67) {
             rounded = (int) Math.floor(coordinate + 0.49) - 1;
         } else {
             rounded = (int) (hotspotCenterHeuristics
-                    // Don't generally round-up near the center, but perform minimal
-                    // adjustment for binary floating-point error: 27.9999999999375 -> 28
-                    ? Math.floor(coordinate + 0.000001)
+                    // Assume the hotspot is a circle with 0.5 radius.
+                    ? Math.floor(coordinate - 0.01)
                     // standard rounding
                     : Math.round(coordinate));
         }
