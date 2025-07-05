@@ -4,6 +4,8 @@
  */
 package io.github.stanio.mousegen.dump;
 
+import static io.github.stanio.mousegen.Command.exitMessage;
+
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.channels.ReadableByteChannel;
@@ -25,6 +27,11 @@ public class DumpCommand {
 
     public static void printHelp(PrintStream out) {
         out.println("USAGE: dump [-d <output-dir>] <cursor-file>...");
+        out.println();
+        out.println("Supported formats:");
+        out.println();
+        ServiceLoader.load(DumpProvider.class).forEach(provider ->
+                out.append("  * ").println(provider.formatName()));
     }
 
     private static final Logger log = Logger.getLogger(DumpCommand.class.getName());
@@ -95,6 +102,8 @@ public class DumpCommand {
         private CommandArgs(String... args) {
             CommandLine.ofUnixStyle()
                     .acceptOption("-d", p -> outputDir = p, Path::of)
+                    .acceptFlag("-h", () -> exitMessage(0, DumpCommand::printHelp))
+                    .acceptSynonyms("-h", "--help")
                     .parseOptions(args)
                     .arguments()
                     .forEach(a -> inputFiles.add(Path.of(a)));

@@ -14,9 +14,16 @@ public interface DumpProvider {
      * {@return the format display name}
      */
     String formatName();
+        // REVISIT: Maybe define a class annotation for specifying the name,
+        // skipping provider initialization when just listing the supported formats.
 
     /**
      * Tests whether this provider recognizes the given data as a supported format.
+     * <p>
+     * The given channel may supply just partial data, so implementations should try
+     * reading as little data as possible to identify the data format as supported or
+     * not.  For example, recognizing "magic" number that should appear in the header
+     * of the format.</p>
      *
      * @param   channel  the source data to test
      * @param   fileSize  the data size

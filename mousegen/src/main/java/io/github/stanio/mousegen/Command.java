@@ -67,7 +67,7 @@ public final class Command {
         exitMessage(status, (Consumer<PrintStream>) null, message);
     }
 
-    static void exitMessage(int status,
+    public static void exitMessage(int status,
             Consumer<PrintStream> help, Object... message) {
         PrintStream out = (status == 0) ? System.out : System.err;
         for (Object item : message) {
