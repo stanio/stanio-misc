@@ -163,8 +163,8 @@ public class MouseGen {
         awaitCurrentRender();
         progress.pop();
         renderer.saveDeferred();
-        if (outputType.equals(OutputType.BITMAPS))
-            renderer.saveHotspots();
+        //if (outputType.equals(OutputType.BITMAPS))
+        //    renderer.saveHotspots();
     }
 
     private final Matcher svgExt = Pattern.compile("(?i)\\.svg$").matcher("");

@@ -24,6 +24,7 @@ import io.github.stanio.mousegen.MouseGen.OutputType;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 import io.github.stanio.mousegen.builder.OutputFormat;
+import io.github.stanio.mousegen.compile.CursorGenConfig;
 
 @OutputFormat(OutputType.BITMAPS)
 public class BitmapOutputFactory extends CursorBuilderFactory {
@@ -50,8 +51,12 @@ class BitmapOutputBuilder extends CursorBuilder {
         throw new IllegalStateException("PNG image writer not registered/available");
     });
 
+    private CursorGenConfig hotspots;
+
     private BitmapOutputBuilder(Path targetPath, boolean animated) {
         super(targetPath, animated);
+        hotspots = new CursorGenConfig(targetPath.getParent()
+                .resolve(targetPath.getFileName() + ".cursor"));
     }
 
     static BitmapOutputBuilder newInstance(Path targetPath, boolean animated)
@@ -80,11 +85,14 @@ class BitmapOutputBuilder extends CursorBuilder {
             //imageWriter.reset();
             imageWriter.setOutput(null);
         }
+        hotspots.put(frameNo == null ? 0 : frameNo,
+            nominalSize, hotspot.x, hotspot.y, fileName, delayMillis);
     }
 
     @Override
-    public void build() {
-        // REVISIT: Should collect and output a *.cursor config file.
+    public void build() throws IOException {
+        hotspots.sortSizes();
+        hotspots.close();
     }
 
 } // class BitmapOtputBuilder

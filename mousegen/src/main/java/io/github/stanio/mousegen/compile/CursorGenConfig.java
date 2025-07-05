@@ -24,8 +24,8 @@ import java.util.Objects;
  * </blockquote>
  * <p>Supports comment lines starting with {@code #} but not blank lines.</p>
  *
- * @see  <a href="https://wiki.archlinux.org/title/Xcursorgen">xcursorgen</a>
- *              <span>– configuration file</span>
+ * @see  <a href="https://www.x.org/archive/X11R7.7/doc/man/man1/xcursorgen.1.xhtml#heading3"
+ *              >xcursorgen(1)</a>
  * @see  <a href="https://gitlab.freedesktop.org/xorg/app/xcursorgen/-/blob/281ebaaaf4/xcursorgen.c#L86-103"
  *              ><samp>xcursorgen.c:86-103</samp></a>
  */
@@ -104,7 +104,13 @@ public class CursorGenConfig implements Closeable {
         Image img1 = (Image) line1;
         Image img2 = (Image) line2;
         int order = img1.numColors - img2.numColors;
-        return (order == 0) ? img1.nominalSize - img2.nominalSize : order;
+        if (order == 0) {
+            order = img1.nominalSize - img2.nominalSize;
+        }
+        if (order == 0) {
+            order = img1.frameNo - img2.frameNo;
+        }
+        return order;
     }
 
     @Override
