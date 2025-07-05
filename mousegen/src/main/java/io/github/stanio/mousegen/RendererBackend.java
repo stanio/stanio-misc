@@ -456,6 +456,7 @@ class JSVGImageTranscoder {
 
         DOMSourceInputFactory() {
             defaultDelegate = XMLInputFactory.newInstance();
+            defaultDelegate.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
             defaultDelegate.setXMLResolver(
                     (publicID, systemID, baseURI, namespace) -> EMPTY_ENTITY);
         }
