@@ -8,39 +8,19 @@ import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.net.URI;
-import java.net.URL;
+import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Base64;
+import java.nio.file.StandardOpenOption;
 import java.util.Locale;
-import java.util.Base64.Decoder;
-import java.util.Objects;
+import java.util.function.Supplier;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.transform.ErrorListener;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.sax.SAXSource;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
-
-import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.XMLFilter;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.XMLFilterImpl;
 
 import java.awt.Dimension;
 import java.awt.Graphics2D;
@@ -50,6 +30,7 @@ import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 
+import io.github.stanio.macos.MousecapeReader;
 import io.github.stanio.mousegen.compile.CursorGenConfig;
 import io.github.stanio.xml.XMLDoctype;
 
@@ -71,107 +52,7 @@ import io.github.stanio.xml.XMLDoctype;
  */
 public class MousecapeDumpProvider extends AbstractDumpProvider {
 
-    private static final ThreadLocal<Decoder>
-            localDecoder = ThreadLocal.withInitial(Base64::getMimeDecoder);
-
-    private static final ThreadLocal<XMLReader>
-            localCapeReader = ThreadLocal.withInitial(() -> {
-        try {
-            SAXParserFactory spf = SAXParserFactory.newInstance();
-            spf.setNamespaceAware(true);
-            spf.setValidating(true);
-            spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-
-            SAXParser parser = spf.newSAXParser();
-            parser.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-
-            XMLReader xmlReader = parser.getXMLReader();
-            xmlReader.setEntityResolver((publicId, systemId) -> {
-                if ("-//Apple//DTD PLIST 1.0//EN".equalsIgnoreCase(publicId)
-                        || systemId.matches(
-                                "(?i)https?://www\\.apple\\.com/DTDs/PropertyList-1\\.0\\.dtd")) {
-                    return new InputSource(getResource("PropertyList-Mousecape.dtd").toString());
-                }
-                return new InputSource(new StringReader(""));
-            });
-            xmlReader.setErrorHandler(new ErrorHandler() {
-                private void print(String tag, SAXParseException exception) {
-                    String fileName;
-                    try {
-                        URI uri = URI.create(exception.getSystemId());
-                        fileName = (uri.getPath() == null) ? uri.getSchemeSpecificPart()
-                                                           : uri.getPath();
-                    } catch (Exception e) {
-                        fileName = exception.getSystemId();
-                    }
-                    System.err.printf("%s:%s:%d:%d: %s%n", tag, fileName,
-                            exception.getLineNumber(), exception.getColumnNumber(), exception.getLocalizedMessage());
-                }
-                @Override public void warning(SAXParseException exception) {
-                    print("warning", exception);
-                }
-                @Override public void error(SAXParseException exception) {
-                    print("error", exception);
-                }
-                @Override public void fatalError(SAXParseException exception) throws SAXException {
-                    throw exception;
-                }
-            });
-            return xmlReader;
-        } catch (ParserConfigurationException | SAXException e) {
-            throw new IllegalStateException(e);
-        }
-    });
-
-    private static final ThreadLocal<Transformer>
-            localDumpTransformer = ThreadLocal.withInitial(() -> {
-        TransformerFactory tf = TransformerFactory.newInstance();
-        try {
-            // secure-processing=false to allow use of extension functions
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
-
-            Transformer transformer = tf.newTransformer(
-                    new StreamSource(getResource("dump-cape.xslt").toString()));
-            transformer.setErrorListener(new ErrorListener() {
-                private void print(String tag, TransformerException exception) {
-                    System.err.printf("%s: %s%n", tag, exception.getMessageAndLocation());
-                }
-                @Override public void warning(TransformerException exception)
-                        throws TransformerException {
-                    print("warning", exception);
-                }
-                @Override public void error(TransformerException exception)
-                        throws TransformerException {
-                    print("error", exception);
-                }
-                @Override public void fatalError(TransformerException exception)
-                        throws TransformerException {
-                    throw exception;
-                }
-            });
-            transformer.setURIResolver((href, base) -> {
-                throw new TransformerException("External access not allowed: " + href + " (base=" + base + ")");
-            });
-            return transformer;
-        } catch (TransformerConfigurationException e) {
-            throw new IllegalStateException(e);
-        }
-    });
-
-    static URL getResource(String name) {
-        URL resource = MousecapeDumpProvider.class.getResource(name);
-        if (resource == null) {
-            String path = name;
-            if (name.startsWith("/")) {
-                path = name.substring(1);
-            } else {
-                path = MousecapeDumpProvider.class.getPackageName()
-                        .replace('.', '/') + '/' + name;
-            }
-            throw new RuntimeException("Resource not found: " + path);
-        }
-        return resource;
-    }
+    private final MousecapeReader reader = new MousecapeReader();
 
     @Override
     public String formatName() {
@@ -193,50 +74,18 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
     @Override
     public void dump(ReadableByteChannel channel, String fileName, Path outDir) throws IOException {
         String baseName = fileName.replaceFirst("(?<=[^.])\\.(cape|xml)$", "");
-        DumpHandler dumpHandler = new DumpHandler(Files
-                .createDirectories(outDir.resolve(baseName)));
-        try (InputStream stream = Channels.newInputStream(channel)) {
-            // REVISIT: Replace XSLT with more efficient streaming processing.
-            // Implement specialized MousecapeReader.
-            Transformer dumpTransformer = localDumpTransformer.get();
-            dumpTransformer.setParameter("dumpHandler", dumpHandler);
-            // Set up an XMLReader with empty accessExternalDTD as we
-            // can't set secure-processing=true on the TransformerFactory.
-            dumpTransformer.transform(newSAXSource(stream, fileName),
-                    new StreamResult(new PrintWriter(System.out) {
-                        @Override public void close() { flush(); } // prevent close
-                    }));
-        } catch (TransformerException e) {
-            throw new IOException(e);
+        try (DumpHandler dumpHandler =
+                new DumpHandler(Files.createDirectories(outDir.resolve(baseName)));
+                InputStream stream = Channels.newInputStream(channel)) {
+            reader.parse(stream, dumpHandler);
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
     }
 
-    private static SAXSource newSAXSource(InputStream stream, String fileName) {
-        XMLReader reader = localCapeReader.get();
-        XMLFilter filter = new XMLFilterImpl(reader) {
-            {
-                super.setEntityResolver(reader.getEntityResolver());
-                super.setErrorHandler(reader.getErrorHandler());
-            }
-            @Override public void setErrorHandler(ErrorHandler handler) {
-                // Ignore.  Don't fail on validation errors, just report them.
-            }
-        };
-        SAXSource source = new SAXSource(filter, new InputSource(stream));
-        source.setSystemId("mousecape-dump:" + fileName);
-        return source;
-    }
 
-
-    /**
-     * {@code io/github/stanio/mousegen/dump/providers/dump-cape.xslt}
-     *
-     * @see  <a href="https://xalan.apache.org/xalan-j/extensions.html#ext-functions"
-     *          >Using extension functions</a>
-     * @see  <a href="https://xml.apache.org/xalan-j/extensions.html#ext-functions"
-     *          >Using extension functions</a> <i>(Old)</i>
-     */
-    public static final class DumpHandler implements Closeable {
+    private static final class DumpHandler
+            implements MousecapeReader.ContentHandler, Closeable {
 
         private final Path outDir;
 
@@ -250,71 +99,100 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
 
         private CursorGenConfig metadata;
 
-        DumpHandler() {
-            this.outDir = null;
-        }
+        private int cursorCount;
+        private int representationCount;
 
         DumpHandler(Path outDir) {
             this.outDir = outDir;
         }
 
-        public static DumpHandler cast(Object handler) {
-            return (DumpHandler) handler;
+        @Override
+        public void themeProperty(String name, Object value) {
+            System.out.println("  " + name + ": " + value);
         }
 
-        public String cursorName(String name) throws IOException {
+        @Override
+        public void cursorStart(String name) {
+            if (cursorCount++ == 0) {
+                System.out.println("  Cursors:");
+            }
+            System.out.println("    " + name + ": ");
+            representationCount = 0;
+
             if (metadata != null) {
                 completeCursor();
             }
             this.cursorName = name;
             metadata = new CursorGenConfig(outDir.resolve(name + ".cursor"));
-            return name;
         }
 
-        public String cursorProperties(int width, int height,
-                                       float xHot, float yHot,
-                                       int count, float duration)
-                throws IOException
-        {
-            this.baseWidth = width;
-            this.baseHeight = height;
-            this.baseXHot = xHot;
-            this.baseYHot = yHot;
-            this.frameCount = count;
-            this.frameDelay = Math.round(duration * 1000);
-            return "";
+        @Override
+        public void cursorProperty(String name, Object value) {
+            switch (name) {
+            case "PointsWide":
+                baseWidth = ((Number) value).intValue();
+                break;
+            case "PointsHigh":
+                baseHeight = ((Number) value).intValue();
+                break;
+            case "HotSpotX":
+                baseXHot = ((Number) value).floatValue();
+                break;
+            case "HotSpotY":
+                baseYHot = ((Number) value).floatValue();
+                break;
+            case "FrameCount":
+                frameCount = ((Number) value).intValue();
+                break;
+            case "FrameDuration":
+                frameDelay = Math.round(((Number) value).floatValue() * 1000);
+                break;
+            default:
+                warning("Unknown cursor property: " + name + "=" + value);
+                return;
+            }
+            System.out.println("      " + name + ": " + value);
         }
 
-        public String saveRepresentation(String base64Data) {
-            Objects.requireNonNull(cursorName);
+        @Override
+        public void cursorRepresentation(Supplier<ByteBuffer> deferredData) {
+            if (representationCount++ == 0) {
+                System.out.println("      Representations:");
+            }
 
-            Decoder decoder = localDecoder.get();
-            byte[] data = decoder.decode(base64Data);
+            ByteBuffer data = deferredData.get();
+            int dataLength = data.remaining();
             try {
                 if (frameCount > 1) {
-                    return saveFrames(data);
+                    System.out.append("        - ").println(saveFrames(data));
                 } else {
-                    Dimension dimension = dimensions(data);
+                    Dimension dimension = dimensions(data.mark());
+                    data.reset();
                     String targetName = String.format("%s-%s.png", cursorName,
                             dimensionString(dimension.width, dimension.height));
-                    Files.write(outDir.resolve(targetName), data);
+                    try (SeekableByteChannel fch = Files
+                            .newByteChannel(outDir.resolve(targetName), StandardOpenOption.CREATE,
+                                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                        fch.write(data);
+                    }
                     float scaleFactor = (float) dimension.width / baseWidth;
                     metadata.put(dimension.width,
                             Math.round(baseXHot * scaleFactor),
                             Math.round(baseYHot * scaleFactor),
                             targetName, frameDelay);
-                    return dimension.width + "x" + dimension.height;
+                    System.out.append("        - ")
+                            .println(dimension.width + "x" + dimension.height);
                 }
             } catch (IOException e) {
-                System.err.println(e);
-                return "byte-length(" + data.length + ")";
+                warning(e.toString());
+                System.out.println("        - byte-length(" + dataLength + ")");
             }
         }
 
-        private static Dimension dimensions(byte[] data) throws IOException {
+        private static Dimension dimensions(ByteBuffer data) throws IOException {
             ImageReader reader = pngReader.get();
             try (ImageInputStream stream =
-                    new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
+                    new MemoryCacheImageInputStream(stream(data))) {
                 reader.setInput(stream, true, true);
                 return new Dimension(reader.getWidth(0), reader.getHeight(0));
             } finally {
@@ -322,8 +200,13 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
             }
         }
 
-        private String saveFrames(byte[] filmData) throws IOException {
-            BufferedImage filmStrip = readPNG(new ByteArrayInputStream(filmData));
+        private static ByteArrayInputStream stream(ByteBuffer data) {
+            return new ByteArrayInputStream(data.array(),
+                    data.arrayOffset() + data.position(), data.remaining());
+        }
+
+        private String saveFrames(ByteBuffer filmData) throws IOException {
+            BufferedImage filmStrip = readPNG(stream(filmData));
             Path framesDir = Files.createDirectories(outDir.resolve(cursorName + ".frames"));
             String framesPrefix = framesDir.getFileName() + "/";
             int frameWidth = filmStrip.getWidth();
@@ -347,14 +230,30 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
                 metadata.put(frameNo, frameWidth,
                         frameXHot, frameYHot, framesPrefix + targetName, frameDelay);
             }
-            return frameWidth + "x" + frameHeight + " (" + (frameNo - 1) + ")";
+            return frameWidth + "x" + frameHeight + " [" + (frameNo - 1) + "]";
         }
 
-        public String completeCursor() throws IOException {
+        private void completeCursor() throws UncheckedIOException {
             CursorGenConfig md = metadata;
+            if (md == null) return;
+
             reset();
-            md.close();
-            return "";
+            try {
+                md.close();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        @Override
+        public void cursorEnd() {
+            completeCursor();
+            System.out.println();
+        }
+
+        @Override
+        public void warning(String message) {
+            System.err.println(message);
         }
 
         private void reset() {

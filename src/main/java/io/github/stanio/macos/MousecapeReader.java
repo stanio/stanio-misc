@@ -34,7 +34,7 @@ public class MousecapeReader {
 
         void cursorProperty(String name, Object value);
 
-        void cursorRepresentation(Supplier<ByteBuffer> data);
+        void cursorRepresentation(Supplier<ByteBuffer> deferredData);
 
         void cursorEnd();
 

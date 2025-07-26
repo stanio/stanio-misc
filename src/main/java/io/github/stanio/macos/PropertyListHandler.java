@@ -40,6 +40,14 @@ abstract class PropertyListHandler extends ContentModelHandler {
 
     protected final List<Object> propertyName = new ArrayList<>();
 
+    protected PropertyListHandler() {
+        super();
+    }
+
+    protected PropertyListHandler(int initialCapacity) {
+        super(initialCapacity);
+    }
+
     @Override
     public void startDocument() throws SAXException {
         super.startDocument();

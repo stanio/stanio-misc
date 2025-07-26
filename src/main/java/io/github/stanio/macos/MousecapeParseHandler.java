@@ -26,6 +26,7 @@ class MousecapeParseHandler extends PropertyListHandler {
     final ContentHandler contentHandler;
 
     MousecapeParseHandler(ContentHandler contentHandler) {
+        super(16 * 1024);
         this.contentHandler = Objects.requireNonNull(contentHandler);
     }
 
