@@ -74,7 +74,7 @@ class MousecapeCursorBuilder extends CursorBuilder {
     MousecapeCursorBuilder(MousecapeTheme owner, Path name, int frameDelayMillis) {
         super(name, frameDelayMillis > 0);
         this.theme = Objects.requireNonNull(owner);
-        this.cursor = new MousecapeTheme.Cursor(name.getFileName().toString(),
+        this.cursor = owner.createCursor(name.getFileName().toString(),
                 frameDelayMillis);
     }
 

@@ -100,11 +100,11 @@ public class MousecapeTheme implements Closeable {
                 representations = new TreeMap<>();
         private final Map<Integer, Point2D> hotspots = new TreeMap<>();
 
-        public Cursor(String name) {
+        Cursor(String name) {
             this(name, 0);
         }
 
-        public Cursor(String name, long frameDelayMillis) {
+        Cursor(String name, long frameDelayMillis) {
             this.name = name;
             this.frameDuration = frameDelayMillis / 1000.0;
         }
@@ -330,6 +330,10 @@ public class MousecapeTheme implements Closeable {
         } finally {
             fileOut = null;
         }
+    }
+
+    public Cursor createCursor(String name, long frameDelayMillis) {
+        return new Cursor(name, frameDelayMillis);
     }
 
     public /*synchronized*/ void writeCursor(Cursor pointer) throws IOException {
