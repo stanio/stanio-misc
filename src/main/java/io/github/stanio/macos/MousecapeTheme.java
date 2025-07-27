@@ -15,16 +15,21 @@ import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -251,6 +256,8 @@ public class MousecapeTheme implements Closeable {
     });
 
     private final Path target;
+    private final Map<String, Object> preambleProperties = new LinkedHashMap<>();
+    private final Map<String, Object> trailerProperties = new LinkedHashMap<>();
 
     private final boolean zip = Boolean.getBoolean("mousecape.zip");
 
@@ -263,6 +270,20 @@ public class MousecapeTheme implements Closeable {
 
     public MousecapeTheme(Path capeFile) {
         this.target = capeFile;
+
+        preambleProperties.put("Author", System.getProperty(
+                "mousecape.author", System.getProperty("user.name", "unknown")));
+        preambleProperties.put("CapeName", target.getFileName()
+                .toString().replaceAll("[-.]", " ").replaceAll("  +", " "));
+        preambleProperties.put("CapeVersion",
+                System.getProperty("mousecape.capeVersion", "1"));
+        preambleProperties.put("Cloud", false);
+
+        // REVISIT: What's the condition for SD (Standard Definition)?
+        trailerProperties.put("HiDPI", true);
+        trailerProperties.put("Identifier", target.getFileName().toString());
+        trailerProperties.put("MinimumVersion", 2.0);
+        trailerProperties.put("Version", 2.0);
     }
 
     public Path target() {
@@ -270,18 +291,6 @@ public class MousecapeTheme implements Closeable {
     }
 
     public void writePreamble() throws IOException {
-        String author = System.getProperty("mousecape.author",
-                System.getProperty("user.name", "unknown"));
-        String name = target.getFileName().toString();
-        writePreamble(author, name.replaceAll("[-.]", " ").replaceAll("  +", " "));
-    }
-
-    public void writePreamble(String author, String name) throws IOException {
-        writePreamble(author, name, System.getProperty("mousecape.capeVersion", "1"), false);
-    }
-
-    public void writePreamble(String author, String name, String version, boolean cloud)
-            throws IOException {
         TransformerHandler xmlOut = xmlWriter();
         try {
             fileOut.write(XML_DECL);
@@ -291,10 +300,9 @@ public class MousecapeTheme implements Closeable {
             //xmlOut.endDTD();
             xmlOut.startElement(null, "plist", "plist", VERSION_1);
             startElement("dict");
-            writeKeyValue("Author", author);
-            writeKeyValue("CapeName", name);
-            writeKeyValue("CapeVersion", version);
-            writeKeyValue("Cloud", cloud);
+            for (Map.Entry<String, Object> entry : preambleProperties.entrySet()) {
+                writeKeyValue(entry.getKey(), entry.getValue());
+            }
             writeElement("key", "Cursors");
             startElement("dict");
         } catch (SAXException e) {
@@ -303,20 +311,14 @@ public class MousecapeTheme implements Closeable {
     }
 
     void writeEnd() throws IOException {
-        writeEnd(target.getFileName().toString());
-    }
-
-    void writeEnd(String identifier) throws IOException {
         if (xmlWriter == null)
             throw new IllegalStateException("writePreamble first");
 
         try (OutputStream out = fileOut) {
-            endElement("dict");
-            // REVISIT: What's the condition for SD (Standard Definition)?
-            writeKeyValue("HiDPI", true);
-            writeKeyValue("Identifier", identifier);
-            writeKeyValue("MinimumVersion", 2.0);
-            writeKeyValue("Version", 2.0);
+            endElement("dict"); // Cursors
+            for (Map.Entry<String, Object> entry : trailerProperties.entrySet()) {
+                writeKeyValue(entry.getKey(), entry.getValue());
+            }
             endElement("dict");
             endElement("plist");
             xmlWriter.endDocument();
@@ -331,8 +333,9 @@ public class MousecapeTheme implements Closeable {
     }
 
     public /*synchronized*/ void writeCursor(Cursor pointer) throws IOException {
-        if (xmlWriter == null)
-            throw new IllegalStateException("writePreamble first");
+        if (xmlWriter == null) {
+            writePreamble();
+        }
 
         if (!cursorNames.add(pointer.name))
             throw new IllegalStateException("Already written: " + pointer.name);
@@ -406,6 +409,29 @@ public class MousecapeTheme implements Closeable {
         assert (g != null);
         g.dispose();
         return stripe;
+    }
+
+    private void writeKeyValue(String key, Object value) throws IOException {
+        String type;
+        Object v = value;
+        if (value instanceof Double || value instanceof BigDecimal || value instanceof Float) {
+            type = "real";
+        } else if (value instanceof Integer || value instanceof BigInteger
+                || value instanceof Long || value instanceof Short || value instanceof Byte) {
+            type = "integer";
+        } else if (value instanceof Boolean) {
+            type = value.toString();
+            v = "";
+        } else if (value instanceof Date) {
+            type = "date";
+            v = ((Date) value).toInstant();
+        } else if (value instanceof TemporalAccessor
+                && ((TemporalAccessor) value).isSupported(ChronoField.DAY_OF_MONTH)) {
+            type = "date";
+        } else {
+            type = "string";
+        }
+        writeKeyValue(key, type, v);
     }
 
     private void writeKeyValue(String key, double value) throws IOException {
