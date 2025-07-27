@@ -266,7 +266,7 @@ public class MousecapeTheme implements Closeable {
     private OutputStream fileOut;
     private TransformerHandler xmlWriter;
 
-    private final Base64.Encoder base64Encoder = Base64.getEncoder();
+    private final Base64.Encoder base64Encoder = Base64.getMimeEncoder(76, new byte[] { '\n' });
 
     public MousecapeTheme(Path capeFile) {
         this.target = capeFile;
@@ -553,10 +553,8 @@ class Base64XMLText extends OutputStream {
     private final ContentHandler xmlWriter;
 
     private final char[] cbuf;
-    private final int lineMax;
 
     private int cbufPos;
-    private int linePos;
 
     Base64XMLText(ContentHandler xmlWriter) {
         this(2048, xmlWriter);
@@ -565,7 +563,6 @@ class Base64XMLText extends OutputStream {
     Base64XMLText(int bufCapacity, ContentHandler xmlWriter) {
         this.xmlWriter = Objects.requireNonNull(xmlWriter);
         this.cbuf = new char[bufCapacity];
-        this.lineMax = 78;
     }
 
     static OutputStream of(Base64.Encoder encoder,
@@ -590,14 +587,7 @@ class Base64XMLText extends OutputStream {
         if (cbufPos == cbuf.length)
             flushCharacters();
 
-        if (linePos == lineMax) {
-            cbuf[cbufPos++] = '\n';
-            linePos = 0;
-            if (cbufPos == cbuf.length)
-                flushCharacters();
-        }
         cbuf[cbufPos++] = (char) b;
-        linePos++;
     }
 
     @Override
