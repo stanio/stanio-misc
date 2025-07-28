@@ -27,13 +27,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Supplier;
@@ -90,7 +88,7 @@ public class MousecapeTheme implements Closeable {
      * REVISIT: Does the presence of 2x and/or 10x imply <code>HiDPI</code>
      * (HD: High Definition), and SD (Standard Definition), otherwise?</p>
      */
-    public static class Cursor {
+    public class Cursor {
 
         public final String name;
 
@@ -107,6 +105,10 @@ public class MousecapeTheme implements Closeable {
         Cursor(String name, long frameDelayMillis) {
             this.name = name;
             this.frameDuration = frameDelayMillis / 1000.0;
+        }
+
+        MousecapeTheme owner() {
+            return MousecapeTheme.this;
         }
 
         int frameCount() {
@@ -168,6 +170,10 @@ public class MousecapeTheme implements Closeable {
             Supplier<Integer> nextNum = () -> frames.isEmpty() ? 1 : frames.lastKey() + 1;
             frames.put(frameNo == null ? nextNum.get() : frameNo, bitmap);
             hotspots.put(bitmap.getWidth(), hotspot);
+        }
+
+        public void write() throws IOException {
+            writeCursor(this);
         }
 
     }
@@ -261,7 +267,7 @@ public class MousecapeTheme implements Closeable {
 
     private final boolean zip = Boolean.getBoolean("mousecape.zip");
 
-    private final Set<String> cursorNames = new HashSet<>();
+    private final Map<String, Cursor> cursors = new LinkedHashMap<>();
 
     private OutputStream fileOut;
     private TransformerHandler xmlWriter;
@@ -280,7 +286,8 @@ public class MousecapeTheme implements Closeable {
         preambleProperties.put("Cloud", false);
 
         // REVISIT: What's the condition for SD (Standard Definition)?
-        trailerProperties.put("HiDPI", true);
+        trailerProperties.put("HiDPI", Boolean
+                .parseBoolean(System.getProperty("mousecape.hidpi", "true")));
         trailerProperties.put("Identifier", target.getFileName().toString());
         trailerProperties.put("MinimumVersion", 2.0);
         trailerProperties.put("Version", 2.0);
@@ -290,7 +297,7 @@ public class MousecapeTheme implements Closeable {
         return target;
     }
 
-    public void writePreamble() throws IOException {
+    private void writePreamble() throws IOException {
         TransformerHandler xmlOut = xmlWriter();
         try {
             fileOut.write(XML_DECL);
@@ -333,15 +340,25 @@ public class MousecapeTheme implements Closeable {
     }
 
     public Cursor createCursor(String name, long frameDelayMillis) {
-        return new Cursor(name, frameDelayMillis);
+        if (cursors.containsKey(name))
+            throw new IllegalStateException("Cursor already added: " + name);
+
+        Cursor editor = new Cursor(name, frameDelayMillis);
+        cursors.put(name, editor);
+        return editor;
     }
 
-    public /*synchronized*/ void writeCursor(Cursor pointer) throws IOException {
+    /*synchronized*/ void writeCursor(Cursor pointer) throws IOException {
+        Objects.requireNonNull(pointer);
+        if (pointer.owner() != this)
+            throw new IllegalArgumentException("Cursor not created from this theme");
+
         if (xmlWriter == null) {
             writePreamble();
         }
 
-        if (!cursorNames.add(pointer.name))
+        Cursor editor = cursors.put(pointer.name, null);
+        if (editor == null)
             throw new IllegalStateException("Already written: " + pointer.name);
 
         writeElement("key", pointer.name);

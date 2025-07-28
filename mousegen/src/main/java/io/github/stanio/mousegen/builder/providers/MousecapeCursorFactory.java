@@ -10,7 +10,6 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
@@ -40,7 +39,6 @@ public class MousecapeCursorFactory extends CursorBuilderFactory {
             parent = new MousecapeTheme(targetPath.getParent());
             boolean success = false;
             try {
-                parent.writePreamble();
                 success = true;
             } finally {
                 if (!success)
@@ -67,13 +65,10 @@ public class MousecapeCursorFactory extends CursorBuilderFactory {
 
 class MousecapeCursorBuilder extends CursorBuilder {
 
-    private final MousecapeTheme theme;
-
     private final MousecapeTheme.Cursor cursor;
 
     MousecapeCursorBuilder(MousecapeTheme owner, Path name, int frameDelayMillis) {
         super(name, frameDelayMillis > 0);
-        this.theme = Objects.requireNonNull(owner);
         this.cursor = owner.createCursor(name.getFileName().toString(),
                 frameDelayMillis);
     }
@@ -85,7 +80,7 @@ class MousecapeCursorBuilder extends CursorBuilder {
 
     @Override
     public void build() throws IOException {
-        theme.writeCursor(cursor);
+        cursor.write();
     }
 
 } // class MousecapeCursorBuilder
