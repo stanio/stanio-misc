@@ -7,9 +7,11 @@ package io.github.stanio.macos;
 import static io.github.stanio.macos.Base64XMLText.ioException;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -17,6 +19,7 @@ import java.lang.ref.WeakReference;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,8 +63,11 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 /**
@@ -226,6 +232,90 @@ public class MousecapeTheme implements Closeable {
 
     }
 
+
+    private class EncodedCursor extends CursorEntry {
+
+        double pointsWide;
+        double pointsHigh;
+        double hotspotX;
+        double hotspotY;
+        int frameCount;
+        double frameDuration;
+        final List<ByteBuffer> representations = new ArrayList<>(4);
+
+        EncodedCursor(String name) {
+            super(name);
+        }
+
+        @Override
+        double pointsWide() {
+            return pointsWide;
+        }
+
+        @Override
+        double pointsHigh() {
+            return pointsHigh;
+        }
+
+        @Override
+        double hotSpotX() {
+            return hotspotX;
+        }
+
+        @Override
+        double hotSpotY() {
+            return hotspotY;
+        }
+
+        @Override
+        int frameCount() {
+            return frameCount;
+        }
+
+        @Override
+        double frameDuration() {
+            return frameDuration;
+        }
+
+        @Override
+        Iterable<CursorRepresentation> representations() {
+            List<CursorRepresentation> direct = new ArrayList<>(4);
+            for (ByteBuffer data : representations) {
+                direct.add(out -> out.write(data.array(),
+                        data.arrayOffset() + data.position(), data.remaining()));
+            }
+            return direct;
+        }
+
+        Cursor editable() {
+            Cursor editor = new Cursor(name, (long) (frameDuration * 1000));
+            ImageReader imageReader = pngReader.get();
+            for (ByteBuffer data : representations) {
+                try (ImageInputStream imgIn = new MemoryCacheImageInputStream(
+                        new ByteArrayInputStream(data.array(), data.position(), data.remaining()))) {
+                    imageReader.setInput(imgIn);
+                    addFrames(editor, imageReader.read(0));
+                } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                } finally {
+                    imageReader.setInput(null);
+                }
+            }
+            return editor;
+        }
+
+        private void addFrames(Cursor editor, BufferedImage strip) {
+            double factor = strip.getWidth() / pointsWide;
+            int scaledHeight = (int) Math.round(pointsHigh * factor);
+            for (int y = 0, fullHeight = strip.getHeight(), frameNo = 1;
+                    y < fullHeight; y += scaledHeight, frameNo++) {
+                editor.addFrame(frameNo, extractFrame(strip, y, scaledHeight),
+                        new Point2D.Double(hotspotX * factor, hotspotY * factor));
+            }
+        }
+
+    }
+
     @FunctionalInterface
     interface CursorRepresentation {
         void writeTo(OutputStream out) throws IOException;
@@ -314,6 +404,11 @@ public class MousecapeTheme implements Closeable {
         return ImageIO.getImageWritersByFormatName("png").next();
     });
 
+    static final
+    ThreadLocal<ImageReader> pngReader = ThreadLocal.withInitial(() -> {
+        return ImageIO.getImageReadersByFormatName("png").next();
+    });
+
     private final Path target;
     private final Map<String, Object> preambleProperties = new LinkedHashMap<>();
     private final Map<String, Object> trailerProperties = new LinkedHashMap<>();
@@ -328,7 +423,13 @@ public class MousecapeTheme implements Closeable {
     private final Base64.Encoder base64Encoder = Base64.getMimeEncoder(76, new byte[] { '\n' });
 
     public MousecapeTheme(Path capeFile) {
+        this(capeFile, false);
+    }
+
+    private MousecapeTheme(Path capeFile, boolean existing) {
         this.target = capeFile;
+
+        if (existing) return;
 
         preambleProperties.put("Author", System.getProperty(
                 "mousecape.author", System.getProperty("user.name", "unknown")));
@@ -344,6 +445,67 @@ public class MousecapeTheme implements Closeable {
         trailerProperties.put("Identifier", target.getFileName().toString());
         trailerProperties.put("MinimumVersion", 2.0);
         trailerProperties.put("Version", 2.0);
+    }
+
+    public static MousecapeTheme read(Path file) throws IOException {
+        MousecapeTheme theme = new MousecapeTheme(file, true);
+        try (InputStream fin = Files.newInputStream(file.resolveSibling(file.getFileName() + ".cape"))) {
+            new MousecapeReader().parse(fin, new MousecapeReader.ContentHandler() {
+                private boolean preamble = true;
+                private EncodedCursor cursor;
+
+                @Override public void themeProperty(String name, Object value) {
+                    if (preamble) {
+                        theme.preambleProperties.put(name, value);
+                    } else {
+                        theme.trailerProperties.put(name, value);
+                    }
+                }
+
+                @Override public void cursorStart(String name) {
+                    if (preamble) preamble = false;
+
+                    cursor = theme.new EncodedCursor(name);
+                }
+
+                @Override public void cursorRepresentation(Supplier<ByteBuffer> deferredData) {
+                    cursor.representations.add(deferredData.get());
+                }
+
+                @Override public void cursorProperty(String name, Object value) {
+                    switch (name) {
+                    case "PointsWide":
+                        cursor.pointsWide = ((Number) value).doubleValue();
+                        break;
+                    case "PointsHigh":
+                        cursor.pointsHigh = ((Number) value).doubleValue();
+                        break;
+                    case "HotSpotX":
+                        cursor.hotspotX = ((Number) value).doubleValue();
+                        break;
+                    case "HotSpotY":
+                        cursor.hotspotY = ((Number) value).doubleValue();
+                        break;
+                    case "FrameCount":
+                        cursor.frameCount = ((Number) value).intValue();
+                        break;
+                    case "FrameDuration":
+                        cursor.frameDuration = ((Number) value).doubleValue();
+                        break;
+                    default:
+                        System.err.println("Unknown cursor property: " + name);
+                    }
+                }
+
+                @Override public void cursorEnd() {
+                    if (theme.cursors.put(cursor.name, cursor) != null) {
+                        System.err.println("Duplicate cursor entry: " + cursor.name);
+                    }
+                    cursor = null;
+                }
+            });
+        }
+        return theme;
     }
 
     public Path target() {
@@ -398,10 +560,15 @@ public class MousecapeTheme implements Closeable {
     }
 
     public Cursor createCursor(String name, long frameDelayMillis) {
-        if (cursors.containsKey(name))
+        Cursor editor;
+        CursorEntry entry = cursors.get(name);
+        if (entry instanceof EncodedCursor) {
+            editor = ((EncodedCursor) entry).editable();
+        } else if (cursors.containsKey(name)) {
             throw new IllegalStateException("Cursor already added: " + name);
-
-        Cursor editor = new Cursor(name, frameDelayMillis);
+        } else {
+            editor = new Cursor(name, frameDelayMillis);
+        }
         cursors.put(name, editor);
         return editor;
     }
@@ -474,6 +641,18 @@ public class MousecapeTheme implements Closeable {
         assert (g != null);
         g.dispose();
         return stripe;
+    }
+
+    static BufferedImage extractFrame(BufferedImage strip, int y, int height) {
+        if (y == 0 && strip.getHeight() == height)
+            return strip;
+
+        BufferedImage frame = new BufferedImage(strip.getWidth(), height,
+                                                BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = frame.createGraphics();
+        g.drawImage(strip, 0, -y, null);
+        g.dispose();
+        return frame;
     }
 
     private void writeKeyValue(String key, Object value) throws IOException {

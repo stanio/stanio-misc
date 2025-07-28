@@ -30,21 +30,15 @@ public class MousecapeCursorFactory extends CursorBuilderFactory {
     @Override
     public CursorBuilder builderFor(Path targetPath, boolean updateExisting,
             int frameDelayMillis) throws IOException {
-        if (updateExisting) {
-            throw new IllegalStateException("--update-existing not implemented for --mousecape-theme");
-        }
-
-        MousecapeTheme parent = openThemes.get(targetPath.getParent());
+        Path capeName = targetPath.getParent();
+        MousecapeTheme parent = openThemes.get(capeName);
         if (parent == null) {
-            parent = new MousecapeTheme(targetPath.getParent());
-            boolean success = false;
-            try {
-                success = true;
-            } finally {
-                if (!success)
-                    parent.close();
+            if (updateExisting) {
+                parent = MousecapeTheme.read(capeName);
+            } else {
+                parent = new MousecapeTheme(capeName);
+                Files.createDirectories(parent.target().getParent());
             }
-            Files.createDirectories(parent.target().getParent());
             openThemes.put(parent.target(), parent);
         }
         return new MousecapeCursorBuilder(parent, targetPath, frameDelayMillis);

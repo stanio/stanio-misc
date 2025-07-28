@@ -454,10 +454,6 @@ public class MouseGen {
                     .withMaxArgs(1);
 
             cmd.arg(0, "<project-path>", Path::of).ifPresent(projectPath::set);
-
-            if (updateExisting && outputType == OutputType.MOUSECAPE_THEME) {
-                throw new ArgumentException("--update-existing not supported for --mousecape-theme");
-            }
         }
 
         private void setOutputType(String type, String explicitNames, String impliedNames) {
