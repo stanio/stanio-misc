@@ -341,8 +341,13 @@ public class MousecapeTheme implements Closeable {
     }
 
     private void writeEnd() throws IOException {
-        if (xmlWriter == null)
-            throw new IllegalStateException("writePreamble first");
+        if (xmlWriter == null) {
+            writePreamble();
+        }
+
+        for (Cursor c : cursors.values()) {
+            if (c != null) writeCursor(c);
+        }
 
         try (OutputStream out = fileOut) {
             endElement("dict"); // Cursors
