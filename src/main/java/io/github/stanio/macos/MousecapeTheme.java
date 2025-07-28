@@ -90,9 +90,36 @@ public class MousecapeTheme implements Closeable {
      * REVISIT: Does the presence of 2x and/or 10x imply <code>HiDPI</code>
      * (HD: High Definition), and SD (Standard Definition), otherwise?</p>
      */
-    public class Cursor {
+    private abstract class CursorEntry {
 
         public final String name;
+
+        CursorEntry(String name) {
+            this.name = name;
+        }
+
+        final Object owner() {
+            return MousecapeTheme.this;
+        }
+
+        abstract double pointsWide();
+
+        abstract double pointsHigh();
+
+        abstract double hotSpotX();
+
+        abstract double hotSpotY();
+
+        abstract int frameCount();
+
+        abstract double frameDuration();
+
+        abstract Iterable<CursorRepresentation> representations();
+
+    }
+
+
+    public class Cursor extends CursorEntry {
 
         private final double frameDuration;
 
@@ -105,26 +132,26 @@ public class MousecapeTheme implements Closeable {
         }
 
         Cursor(String name, long frameDelayMillis) {
-            this.name = name;
+            super(name);
             this.frameDuration = frameDelayMillis / 1000.0;
         }
 
-        Object owner() {
-            return MousecapeTheme.this;
-        }
-
+        @Override
         int frameCount() {
             return representations.firstEntry().getValue().size();
         }
 
+        @Override
         double frameDuration() {
             return frameCount() > 1 ? frameDuration : 0;
         }
 
+        @Override
         double hotSpotX() {
             return hotspotAvg(Point2D::getX);
         }
 
+        @Override
         double hotSpotY() {
             return hotspotAvg(Point2D::getY);
         }
@@ -154,10 +181,12 @@ public class MousecapeTheme implements Closeable {
                     .doubleValue();
         }
 
+        @Override
         double pointsWide() {
             return representations.firstKey();
         }
 
+        @Override
         double pointsHigh() {
             return representations.firstKey();
         }
@@ -178,6 +207,7 @@ public class MousecapeTheme implements Closeable {
             writeCursor(this);
         }
 
+        @Override
         Iterable<CursorRepresentation> representations() {
             List<CursorRepresentation> deferred = new ArrayList<>(4);
             for (Map<Integer, BufferedImage> sizeEntry : representations.values()) {
@@ -290,7 +320,7 @@ public class MousecapeTheme implements Closeable {
 
     private final boolean zip = Boolean.getBoolean("mousecape.zip");
 
-    private final Map<String, Cursor> cursors = new LinkedHashMap<>();
+    private final Map<String, CursorEntry> cursors = new LinkedHashMap<>();
 
     private OutputStream fileOut;
     private TransformerHandler xmlWriter;
@@ -345,8 +375,8 @@ public class MousecapeTheme implements Closeable {
             writePreamble();
         }
 
-        for (Cursor c : cursors.values()) {
-            if (c != null) writeCursor(c);
+        for (CursorEntry entry : cursors.values()) {
+            if (entry != null) writeCursor(entry);
         }
 
         try (OutputStream out = fileOut) {
@@ -376,7 +406,7 @@ public class MousecapeTheme implements Closeable {
         return editor;
     }
 
-    /*synchronized*/ void writeCursor(Cursor pointer) throws IOException {
+    /*synchronized*/ void writeCursor(CursorEntry pointer) throws IOException {
         Objects.requireNonNull(pointer);
         if (pointer.owner() != this)
             throw new IllegalArgumentException("Cursor not created from this theme");
@@ -385,8 +415,7 @@ public class MousecapeTheme implements Closeable {
             writePreamble();
         }
 
-        Cursor editor = cursors.put(pointer.name, null);
-        if (editor == null)
+        if (cursors.put(pointer.name, null) == null)
             throw new IllegalStateException("Already written: " + pointer.name);
 
         writeElement("key", pointer.name);
