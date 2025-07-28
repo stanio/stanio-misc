@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -107,7 +109,7 @@ public class MousecapeTheme implements Closeable {
             this.frameDuration = frameDelayMillis / 1000.0;
         }
 
-        MousecapeTheme owner() {
+        Object owner() {
             return MousecapeTheme.this;
         }
 
@@ -176,11 +178,31 @@ public class MousecapeTheme implements Closeable {
             writeCursor(this);
         }
 
+        Iterable<CursorRepresentation> representations() {
+            List<CursorRepresentation> deferred = new ArrayList<>(4);
+            for (Map<Integer, BufferedImage> sizeEntry : representations.values()) {
+                deferred.add(out -> {
+                    ImageWriter imageWriter = pngWriter.get();
+                    try (ImageOutputStream imgOut = new MemoryCacheImageOutputStream(out)) {
+                        imageWriter.setOutput(imgOut);
+                        imageWriter.write(filmstrip(sizeEntry.values()));
+                    } finally {
+                        imageWriter.setOutput(null);
+                    }
+                });
+            }
+            return deferred;
+        }
+
+    }
+
+    @FunctionalInterface
+    interface CursorRepresentation {
+        void writeTo(OutputStream out) throws IOException;
     }
 
     static final Map<String, String> CURSOR_NAMES;
     static {
-        Map<String, String> labels = new HashMap<>(50);
         String[] names = {
             "com.apple.coregraphics.Alias", "Alias",
             "com.apple.coregraphics.Arrow", "Arrow",
@@ -233,6 +255,7 @@ public class MousecapeTheme implements Closeable {
             "com.apple.cursor.42", "Zoom In",
             "com.apple.cursor.43", "Zoom Out"
         };
+        Map<String, String> labels = new HashMap<>(names.length / 2);
         for (int i = 0, len = names.length; i < len; i += 2) {
             labels.put(names[i], names[i + 1]);
         }
@@ -256,7 +279,7 @@ public class MousecapeTheme implements Closeable {
     private static final ThreadLocal<Reference<SAXTransformerFactory>>
             localFactory = ThreadLocal.withInitial(() -> new WeakReference<>(null));
 
-    private static final
+    static final
     ThreadLocal<ImageWriter> pngWriter = ThreadLocal.withInitial(() -> {
         return ImageIO.getImageWritersByFormatName("png").next();
     });
@@ -317,7 +340,7 @@ public class MousecapeTheme implements Closeable {
         }
     }
 
-    void writeEnd() throws IOException {
+    private void writeEnd() throws IOException {
         if (xmlWriter == null)
             throw new IllegalStateException("writePreamble first");
 
@@ -371,30 +394,17 @@ public class MousecapeTheme implements Closeable {
         writeKeyValue("PointsWide", pointer.pointsWide());
         writeElement("key", "Representations");
         startElement("array");
-        writeRepresentations(pointer);
-        endElement("array");
-        endElement("dict");
-    }
-
-    private void writeRepresentations(Cursor pointer) throws IOException {
-        Map.Entry<Integer, SortedMap<Integer, BufferedImage>>
-                sizeEntry = pointer.representations.pollFirstEntry();
-        while (sizeEntry != null) {
+        for (CursorRepresentation callback : pointer.representations()) {
             startElement("data");
             writeText(LF);
-            BufferedImage strip = filmstrip(sizeEntry.getValue().values());
-            ImageWriter imageWriter = pngWriter.get();
-            try (OutputStream base64 = Base64XMLText.of(base64Encoder, xmlWriter);
-                    ImageOutputStream out = new MemoryCacheImageOutputStream(base64)) {
-                imageWriter.setOutput(out);
-                imageWriter.write(strip);
-            } finally {
-                imageWriter.setOutput(null);
+            try (OutputStream base64 = Base64XMLText.of(base64Encoder, xmlWriter)) {
+                callback.writeTo(base64);
             }
             writeText(DATA_END_INDENT);
             endElement("data");
-            sizeEntry = pointer.representations.pollFirstEntry();
         }
+        endElement("array");
+        endElement("dict");
     }
 
     /**
@@ -404,7 +414,7 @@ public class MousecapeTheme implements Closeable {
      * using a box the same size as whatever you put in the size field.
      * </blockquote>
      */
-    private static BufferedImage filmstrip(Collection<BufferedImage> frames) {
+    static BufferedImage filmstrip(Collection<BufferedImage> frames) {
         Iterator<BufferedImage> iterator = frames.iterator();
         int frameCount = frames.size();
         if (frameCount == 1) {
@@ -458,14 +468,6 @@ public class MousecapeTheme implements Closeable {
     private void writeKeyValue(String key, double value) throws IOException {
         writeKeyValue(key, "real", BigDecimal
                 .valueOf(value).stripTrailingZeros().toPlainString());
-    }
-
-    private void writeKeyValue(String key, boolean value) throws IOException {
-        writeKeyValue(key, String.valueOf(value), "");
-    }
-
-    private void writeKeyValue(String key, String value) throws IOException {
-        writeKeyValue(key, "string", value);
     }
 
     private void writeKeyValue(String key, String type, Object value) throws IOException {
