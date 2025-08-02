@@ -77,7 +77,9 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
         try (DumpHandler dumpHandler =
                 new DumpHandler(Files.createDirectories(outDir.resolve(baseName)));
                 InputStream stream = Channels.newInputStream(channel)) {
-            reader.parse(stream, dumpHandler);
+            InputSource source = new InputSource(stream);
+            source.setSystemId(fileName);
+            reader.parse(source, dumpHandler);
         } catch (UncheckedIOException e) {
             throw e.getCause();
         }

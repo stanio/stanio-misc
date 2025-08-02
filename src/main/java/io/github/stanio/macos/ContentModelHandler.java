@@ -4,6 +4,10 @@
  */
 package io.github.stanio.macos;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -161,6 +165,26 @@ abstract class ContentModelHandler extends DefaultHandler {
         textContent.setLength(0);
     }
 
+    @Override
+    public void warning(SAXParseException exception) throws SAXException {
+        System.err.println(formatMessage("warning", exception));
+    }
+
+    @Override
+    public void error(SAXParseException exception) throws SAXException {
+        System.err.println(formatMessage("error", exception));
+    }
+
+    @Override
+    public void fatalError(SAXParseException exception) throws SAXException {
+        throw exception;
+    }
+
+    protected static String formatMessage(String tag, SAXParseException e) {
+        return String.format("%s:%s:%d:%d: %s", tag, fileName(e),
+                e.getLineNumber(), e.getColumnNumber(), e.getMessage());
+    }
+
     protected void unexpectedElement(String expected) throws SAXException {
         error(parseException("Found " + pathString() + " but expected " + expected));
     }
@@ -199,6 +223,33 @@ abstract class ContentModelHandler extends DefaultHandler {
 
     protected static List<String> listOf(String... items) {
         return Collections.unmodifiableList(Arrays.asList(items));
+    }
+
+    protected static String fileName(SAXParseException exception) {
+        String fileName = exception.getSystemId();
+        if (fileName == null) return null;
+
+        URI uri = null;
+        try {
+            uri = new URI(fileName);
+            if (uri.getScheme().equals("file")) {
+                return Paths.get(uri).getFileName().toString();
+            } else if (uri.getPath() != null) {
+                return fileName(uri.getPath());
+            } else {
+                return fileName(uri.getSchemeSpecificPart());
+            }
+        } catch (URISyntaxException | InvalidPathException e) {
+            return fileName;
+        }
+    }
+
+    private static String fileName(String spec) {
+        try {
+            return Paths.get(spec).getFileName().toString();
+        } catch (InvalidPathException e) {
+            return spec;
+        }
     }
 
 }

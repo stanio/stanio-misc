@@ -6,14 +6,13 @@ package io.github.stanio.macos;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 import io.github.stanio.macos.MousecapeReader.ContentHandler;
 
-class MousecapeParseHandler extends PropertyListHandler {
+final class MousecapeParseHandler extends PropertyListHandler {
 
     static final Set<String> CM_DICT = setOf("dict");
 
@@ -23,11 +22,10 @@ class MousecapeParseHandler extends PropertyListHandler {
     static final List<String> REPRESENTATIONS = listOf("Cursors", "*", "Representations");
     static final List<String> REPRESENTATION_ITEM = listOf("Cursors", "*", "Representations", "*");
 
-    final ContentHandler contentHandler;
+    ContentHandler contentHandler;
 
-    MousecapeParseHandler(ContentHandler contentHandler) {
+    MousecapeParseHandler() {
         super(16 * 1024);
-        this.contentHandler = Objects.requireNonNull(contentHandler);
     }
 
     @Override
@@ -126,17 +124,12 @@ class MousecapeParseHandler extends PropertyListHandler {
 
     @Override
     public void warning(SAXParseException e) throws SAXException {
-        warning("warning", e);
+        contentHandler.warning(formatMessage("warning", e));
     }
 
     @Override
     public void error(SAXParseException e) throws SAXException {
-        warning("error", e);
-    }
-
-    private void warning(String type, SAXParseException e) {
-        contentHandler.warning(String.format("[%s] %s:%d:%d: %s", type,
-                fileName(e), e.getLineNumber(), e.getColumnNumber(), e.getMessage()));
+        contentHandler.warning(formatMessage("error", e));
     }
 
 }

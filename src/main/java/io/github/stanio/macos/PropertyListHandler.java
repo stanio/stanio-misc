@@ -3,11 +3,8 @@ package io.github.stanio.macos;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -16,7 +13,6 @@ import java.util.List;
 import java.util.Set;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
 
 /**
  * {@code <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -219,35 +215,24 @@ abstract class PropertyListHandler extends ContentModelHandler {
             throws IOException, SAXException {
         if ("-//Apple//DTD PLIST 1.0//EN".equalsIgnoreCase(publicId)
                 || systemId.matches("(?i)https?://www\\.apple\\.com/DTDs/PropertyList-1\\.0\\.dtd([?#].*)?")) {
-            return new InputSource(PropertyListHandler.class.getResource("PropertyList-1.0.dtd").toString());
+            return new InputSource(getResource("PropertyList-1.0.dtd").toString());
         }
         return new InputSource(new StringReader(""));
     }
 
-    protected static String fileName(SAXParseException exception) {
-        String fileName = exception.getSystemId();
-        if (fileName == null) return null;
-
-        try {
-            URI uri = new URI(fileName);
-            if (uri.getScheme().equals("file")) {
-                return Paths.get(uri).getFileName().toString();
-            } else if (uri.getPath() != null) {
-                return fileName(uri.getPath());
+    static URL getResource(String name) {
+        URL resource = PropertyListHandler.class.getResource(name);
+        if (resource == null) {
+            String path = name;
+            if (name.startsWith("/")) {
+                path = name.substring(1);
             } else {
-                return fileName(uri.getSchemeSpecificPart());
+                path = PropertyListHandler.class.getPackage().getName()
+                        .replace('.', '/') + '/' + name;
             }
-        } catch (URISyntaxException | InvalidPathException e) {
-            return fileName;
+            throw new RuntimeException("Resource not found: " + path);
         }
-    }
-
-    private static String fileName(String spec) {
-        try {
-            return Paths.get(spec).getFileName().toString();
-        } catch (InvalidPathException e) {
-            return spec;
-        }
+        return resource;
     }
 
 }

@@ -26,6 +26,8 @@ import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 
+import org.xml.sax.InputSource;
+
 import org.assertj.core.util.Arrays;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +47,7 @@ public class MousecapeReaderTest {
                 "PointsHigh", 32.0,
                 "PointsWide", 32.0,
                 "Representations",
-                  listOf("32x32", "64x64", "160x160", "320x320")),
+                  listOf("32x32 (366)", "64x64 (696)", "160x160 (1868)", "320x320 (3953)")),
               "com.apple.cursor.4", mapOf(
                 "FrameCount", 9,
                 "FrameDuration", 0.1,
@@ -54,7 +56,7 @@ public class MousecapeReaderTest {
                 "PointsHigh", 32.0,
                 "PointsWide", 32.0,
                 "Representations",
-                  listOf("32x288", "64x576", "160x1440"))),
+                  listOf("32x288 (2858)", "64x576 (8036)", "160x1440 (38392)"))),
             "HiDPI", true,
             "Identifier", "breeze.pointers",
             "MinimumVersion", 2.0,
@@ -70,7 +72,7 @@ public class MousecapeReaderTest {
     static void assertThemeData(InputStream stream) throws IOException {
         MousecapeReader reader = new MousecapeReader();
         TestContentHandler content = new TestContentHandler();
-        reader.parse(stream, content);
+        reader.parse(new InputSource(stream), content);
         assertThat(content.theme).as("Mousecape Theme").isEqualTo(expected);
     }
 
@@ -117,15 +119,17 @@ public class MousecapeReaderTest {
         }
 
         @Override
-        public void cursorRepresentation(Supplier<ByteBuffer> data) {
+        public void cursorRepresentation(Supplier<ByteBuffer> deferredData) {
             @SuppressWarnings("unchecked")
             List<Object> image = (List<Object>) cursor
                     .computeIfAbsent("Representations", k -> new ArrayList<>());
-            image.add(readPNGImage(data.get()));
+            ByteBuffer data = deferredData.get();
+            int dataSize = data.remaining();
+            image.add(readPNGImage(data) + " (" + dataSize + ")");
         }
 
         private String readPNGImage(ByteBuffer buf) {
-            try (ByteArrayInputStream data = new ByteArrayInputStream(buf.array());
+            try (ByteArrayInputStream data = new ByteArrayInputStream(buf.array(), buf.position(), buf.remaining());
                     ImageInputStream input = new MemoryCacheImageInputStream(data)) {
                 pngReader.setInput(input, true);
                 BufferedImage image = pngReader.read(0);

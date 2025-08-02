@@ -55,6 +55,7 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.AttributesImpl;
 
@@ -447,10 +448,15 @@ public class MousecapeTheme implements Closeable {
         trailerProperties.put("Version", 2.0);
     }
 
+    private static final ThreadLocal<MousecapeReader>
+            reader = ThreadLocal.withInitial(MousecapeReader::new);
+
     public static MousecapeTheme read(Path file) throws IOException {
         MousecapeTheme theme = new MousecapeTheme(file, true);
         try (InputStream fin = Files.newInputStream(file.resolveSibling(file.getFileName() + ".cape"))) {
-            new MousecapeReader().parse(fin, new MousecapeReader.ContentHandler() {
+            InputSource source = new InputSource(fin);
+            source.setSystemId(file.getFileName().toString());
+            reader.get().parse(source, new MousecapeReader.ContentHandler() {
                 private boolean preamble = true;
                 private EncodedCursor cursor;
 
