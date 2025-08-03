@@ -59,32 +59,29 @@ public class MousecapeThemeTest {
 
     @Test
     void writeNewTheme() throws Exception {
-        Path tmpFile = tmpDir.resolve("test-pointers");
+        Path tmpFile = tmpDir.resolve("test-pointers.cape");
 
         writeThemeTo(tmpFile, true);
 
-        assertExisting(MousecapeTheme.read(tmpFile
-                .resolveSibling(tmpFile.getFileName() + ".cape")));
+        assertExisting(MousecapeTheme.read(tmpFile));
     }
 
     @Test
     void readExistingTheme() throws Exception {
         try (InputStream stream = getResourceStream("../mousegen/test/pointers.cape")) {
-            InputSource source = new InputSource("file:/test-pointers.cape");
-            source.setByteStream(stream);
+            InputSource source = new InputSource(stream);
             assertExisting(MousecapeTheme.read(source));
         }
     }
 
     @Test
     void updateExistingTheme() throws Exception {
-        Path tmpFile = tmpDir.resolve("pointers-edit");
+        Path tmpFile = tmpDir.resolve("pointers-edit.cape");
         writeThemeTo(tmpFile, false);
 
-        Path capeFile = tmpFile.resolveSibling(tmpFile.getFileName() + ".cape");
-        updateTheme(capeFile);
+        updateTheme(tmpFile);
 
-        assertExisting(MousecapeTheme.read(capeFile));
+        assertExisting(MousecapeTheme.read(tmpFile));
     }
 
     private static void updateTheme(Path capeFile) throws IOException {

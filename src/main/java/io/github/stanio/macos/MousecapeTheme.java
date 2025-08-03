@@ -444,7 +444,8 @@ public class MousecapeTheme implements Closeable {
         // REVISIT: What's the condition for SD (Standard Definition)?
         trailerProperties.put("HiDPI", Boolean
                 .parseBoolean(System.getProperty("mousecape.hidpi", "true")));
-        trailerProperties.put("Identifier", target.getFileName().toString());
+        trailerProperties.put("Identifier",
+                target.getFileName().toString().replaceFirst("\\.cape$", ""));
         trailerProperties.put("MinimumVersion", 2.0);
         trailerProperties.put("Version", 2.0);
     }
@@ -456,10 +457,19 @@ public class MousecapeTheme implements Closeable {
         return read(new InputSource(file.toUri().toString()));
     }
 
+    private static Path getFile(InputSource source) {
+        String systemId = source.getSystemId();
+        if (systemId == null || systemId.isEmpty())
+            return null;
+
+        URI uri = URI.create(source.getSystemId());
+        return "file".equals(uri.getScheme())
+                ? Paths.get(uri)
+                : null;
+    }
+
     public static MousecapeTheme read(InputSource source) throws IOException {
-        Path target = Paths.get(URI.create(source.getSystemId()));
-        MousecapeTheme theme = new MousecapeTheme(target.resolveSibling(target
-                .getFileName().toString().replaceFirst("\\.cape", "")), true);
+        MousecapeTheme theme = new MousecapeTheme(getFile(source), true);
         reader.get().parse(source, new MousecapeReader.ContentHandler() {
             private boolean preamble = true;
             private EncodedCursor cursor;
@@ -740,6 +750,9 @@ public class MousecapeTheme implements Closeable {
         if (xmlWriter != null)
             return xmlWriter;
 
+        if (target == null)
+            throw new IllegalStateException("No file target set");
+
         Files.createDirectories(target.getParent());
         try {
             xmlWriter = transformerFactory().newTransformerHandler();
@@ -752,12 +765,9 @@ public class MousecapeTheme implements Closeable {
         transformer.setOutputProperty("{http://xml.apache.org/xalan}indent-amount", "2");
         transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
 
-        String id = target.getFileName().toString();
-        String capeName = id + ".cape";
-        String zipName = capeName + ".zip";
+        String fileName = target.getFileName().toString();
 
-        OutputStream out = new FileOutputStream(target
-                .resolveSibling(zip ? zipName : capeName).toFile());
+        OutputStream out = new FileOutputStream(target.toFile());
         boolean success = false;
         try {
             out = new BufferedOutputStream(out);
@@ -766,7 +776,7 @@ public class MousecapeTheme implements Closeable {
                 ZipOutputStream zout = new ZipOutputStream(out);
                 out = zout;
                 zout.setLevel(Deflater.BEST_COMPRESSION);
-                zout.putNextEntry(new ZipEntry(capeName));
+                zout.putNextEntry(new ZipEntry(fileName.replaceFirst("(?i)\\.zip$", "")));
             }
             success = true;
         } finally {

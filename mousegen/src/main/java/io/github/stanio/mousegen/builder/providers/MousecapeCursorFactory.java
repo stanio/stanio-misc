@@ -33,13 +33,14 @@ public class MousecapeCursorFactory extends CursorBuilderFactory {
         Path capeName = targetPath.getParent();
         MousecapeTheme parent = openThemes.get(capeName);
         if (parent == null) {
+            Path capeFile = capeName.resolveSibling(capeName.getFileName() + ".cape");
             if (updateExisting) {
-                parent = MousecapeTheme.read(capeName);
+                parent = MousecapeTheme.read(capeFile);
             } else {
-                parent = new MousecapeTheme(capeName);
+                parent = new MousecapeTheme(capeFile);
                 Files.createDirectories(parent.target().getParent());
             }
-            openThemes.put(parent.target(), parent);
+            openThemes.put(capeName, parent);
         }
         return new MousecapeCursorBuilder(parent, targetPath, frameDelayMillis);
     }
