@@ -11,7 +11,6 @@ import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -19,10 +18,12 @@ import java.lang.ref.WeakReference;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
@@ -97,7 +98,7 @@ public class MousecapeTheme implements Closeable {
      * REVISIT: Does the presence of 2x and/or 10x imply <code>HiDPI</code>
      * (HD: High Definition), and SD (Standard Definition), otherwise?</p>
      */
-    private abstract class CursorEntry {
+    abstract class CursorEntry {
 
         public final String name;
 
@@ -121,7 +122,7 @@ public class MousecapeTheme implements Closeable {
 
         abstract double frameDuration();
 
-        abstract Iterable<CursorRepresentation> representations();
+        abstract List<CursorRepresentation> representations();
 
     }
 
@@ -215,7 +216,7 @@ public class MousecapeTheme implements Closeable {
         }
 
         @Override
-        Iterable<CursorRepresentation> representations() {
+        List<CursorRepresentation> representations() {
             List<CursorRepresentation> deferred = new ArrayList<>(4);
             for (Map<Integer, BufferedImage> sizeEntry : representations.values()) {
                 deferred.add(out -> {
@@ -234,7 +235,7 @@ public class MousecapeTheme implements Closeable {
     }
 
 
-    private class EncodedCursor extends CursorEntry {
+    class EncodedCursor extends CursorEntry {
 
         double pointsWide;
         double pointsHigh;
@@ -279,7 +280,7 @@ public class MousecapeTheme implements Closeable {
         }
 
         @Override
-        Iterable<CursorRepresentation> representations() {
+        List<CursorRepresentation> representations() {
             List<CursorRepresentation> direct = new ArrayList<>(4);
             for (ByteBuffer data : representations) {
                 direct.add(out -> out.write(data.array(),
@@ -411,12 +412,12 @@ public class MousecapeTheme implements Closeable {
     });
 
     private final Path target;
-    private final Map<String, Object> preambleProperties = new LinkedHashMap<>();
-    private final Map<String, Object> trailerProperties = new LinkedHashMap<>();
+    final Map<String, Object> preambleProperties = new LinkedHashMap<>();
+    final Map<String, Object> trailerProperties = new LinkedHashMap<>();
 
     private final boolean zip = Boolean.getBoolean("mousecape.zip");
 
-    private final Map<String, CursorEntry> cursors = new LinkedHashMap<>();
+    final Map<String, CursorEntry> cursors = new LinkedHashMap<>();
 
     private OutputStream fileOut;
     private TransformerHandler xmlWriter;
@@ -452,65 +453,67 @@ public class MousecapeTheme implements Closeable {
             reader = ThreadLocal.withInitial(MousecapeReader::new);
 
     public static MousecapeTheme read(Path file) throws IOException {
-        MousecapeTheme theme = new MousecapeTheme(file, true);
-        try (InputStream fin = Files.newInputStream(file.resolveSibling(file.getFileName() + ".cape"))) {
-            InputSource source = new InputSource(fin);
-            source.setSystemId(file.getFileName().toString());
-            reader.get().parse(source, new MousecapeReader.ContentHandler() {
-                private boolean preamble = true;
-                private EncodedCursor cursor;
+        return read(new InputSource(file.toUri().toString()));
+    }
 
-                @Override public void themeProperty(String name, Object value) {
-                    if (preamble) {
-                        theme.preambleProperties.put(name, value);
-                    } else {
-                        theme.trailerProperties.put(name, value);
-                    }
+    public static MousecapeTheme read(InputSource source) throws IOException {
+        Path target = Paths.get(URI.create(source.getSystemId()));
+        MousecapeTheme theme = new MousecapeTheme(target.resolveSibling(target
+                .getFileName().toString().replaceFirst("\\.cape", "")), true);
+        reader.get().parse(source, new MousecapeReader.ContentHandler() {
+            private boolean preamble = true;
+            private EncodedCursor cursor;
+
+            @Override public void themeProperty(String name, Object value) {
+                if (preamble) {
+                    theme.preambleProperties.put(name, value);
+                } else {
+                    theme.trailerProperties.put(name, value);
                 }
+            }
 
-                @Override public void cursorStart(String name) {
-                    if (preamble) preamble = false;
+            @Override public void cursorStart(String name) {
+                if (preamble) preamble = false;
 
-                    cursor = theme.new EncodedCursor(name);
+                cursor = theme.new EncodedCursor(name);
+            }
+
+            @Override public void cursorRepresentation(Supplier<ByteBuffer> deferredData) {
+                cursor.representations.add(deferredData.get());
+            }
+
+            @Override public void cursorProperty(String name, Object value) {
+                switch (name) {
+                case "PointsWide":
+                    cursor.pointsWide = ((Number) value).doubleValue();
+                    break;
+                case "PointsHigh":
+                    cursor.pointsHigh = ((Number) value).doubleValue();
+                    break;
+                case "HotSpotX":
+                    cursor.hotspotX = ((Number) value).doubleValue();
+                    break;
+                case "HotSpotY":
+                    cursor.hotspotY = ((Number) value).doubleValue();
+                    break;
+                case "FrameCount":
+                    cursor.frameCount = ((Number) value).intValue();
+                    break;
+                case "FrameDuration":
+                    cursor.frameDuration = ((Number) value).doubleValue();
+                    break;
+                default:
+                    System.err.println("Unknown cursor property: " + name);
                 }
+            }
 
-                @Override public void cursorRepresentation(Supplier<ByteBuffer> deferredData) {
-                    cursor.representations.add(deferredData.get());
+            @Override public void cursorEnd() {
+                if (theme.cursors.put(cursor.name, cursor) != null) {
+                    System.err.println("Duplicate cursor entry: " + cursor.name);
                 }
-
-                @Override public void cursorProperty(String name, Object value) {
-                    switch (name) {
-                    case "PointsWide":
-                        cursor.pointsWide = ((Number) value).doubleValue();
-                        break;
-                    case "PointsHigh":
-                        cursor.pointsHigh = ((Number) value).doubleValue();
-                        break;
-                    case "HotSpotX":
-                        cursor.hotspotX = ((Number) value).doubleValue();
-                        break;
-                    case "HotSpotY":
-                        cursor.hotspotY = ((Number) value).doubleValue();
-                        break;
-                    case "FrameCount":
-                        cursor.frameCount = ((Number) value).intValue();
-                        break;
-                    case "FrameDuration":
-                        cursor.frameDuration = ((Number) value).doubleValue();
-                        break;
-                    default:
-                        System.err.println("Unknown cursor property: " + name);
-                    }
-                }
-
-                @Override public void cursorEnd() {
-                    if (theme.cursors.put(cursor.name, cursor) != null) {
-                        System.err.println("Duplicate cursor entry: " + cursor.name);
-                    }
-                    cursor = null;
-                }
-            });
-        }
+                cursor = null;
+            }
+        });
         return theme;
     }
 
