@@ -1,7 +1,7 @@
 plugins {
     id 'stanio-java'
     id 'application'
-    id 'com.gradleup.shadow' version '8.3.9'
+    id 'com.gradleup.shadow' version '9.1.0'
 }
 
 group = 'io.github.stanio'
@@ -58,6 +58,7 @@ tasks.named('shadowJar') {
     exclude 'META-INF/maven/**'
     exclude 'META-INF/proguard/**'
     exclude '**/module-info.class'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     minimize {
         exclude dependency('com.google.code.gson:gson')
