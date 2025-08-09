@@ -323,6 +323,9 @@ public final class CursorRenderer {
         try {
             CursorBuilder builder = builderFactory
                     .builderFor(outDir.resolve(targetName), updateExisting, frameMillis());
+            // REVISIT: Possibly extract this async processing in a wrapper
+            // CursorBuilderFactory to simplify this class implementation and
+            // separate concerns overall.
             switch (asyncMode) {
             case 1:
                 return new AsyncTaskCursorBuilder(builder, singleQueue());
