@@ -7,11 +7,23 @@ package io.github.stanio.awt;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.Transparency;
+import java.awt.color.ColorSpace;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorConvertOp;
+import java.awt.image.ColorModel;
+import java.awt.image.ComponentColorModel;
+import java.awt.image.DataBuffer;
 
 /**
  * Assists in downscaling images by factor > 2.
+ * <p>
+ * Tries to perform gamma-correct resampling, according to:</p>
+ * <ul>
+ * <li><a href="http://www.ericbrasseur.org/gamma.html">Gamma error in picture scaling</a></li>
+ * <li><a href="https://entropymine.com/imageworsener/gamma/">Image scaling and gamma correction</a></li>
+ * </ul>
  *
  * @see  <a href="https://web.archive.org/web/20080516181120/http://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html"
  *              >The Perils of Image.getScaledInstance()</a> <i>by Chris Campbell (archived from
@@ -60,15 +72,25 @@ public final class SmoothDownscale {
         if (alignAnchor != null) {
             alignAnchor = new Point(alignAnchor);
         }
-        return resize(image, targetWidth, targetHeight, hints, alignAnchor);
+        boolean hasAlpha = image.getColorModel().hasAlpha();
+        BufferedImage scaled = resize(convertToColor(image, getLinearRGB(hasAlpha)),
+                targetWidth, targetHeight, hints, alignAnchor);
+        // XXX: Possible Java2D bug
+        scaled = overrideColorSpace(scaled, CS_LINEAR_RGB);
+        return convertToColor(scaled, getDefaultRGB(hasAlpha));
     }
 
     public static BufferedImage resize(BufferedImage image,
                                        int targetWidth,
                                        int targetHeight,
                                        Point alignAnchor) {
-        return resize(image, targetWidth, targetHeight,
-                defaultHints, alignAnchor == null ? null : new Point(alignAnchor));
+        boolean hasAlpha = image.getColorModel().hasAlpha();
+        BufferedImage scaled = resize(convertToColor(image, getLinearRGB(hasAlpha)),
+                targetWidth, targetHeight, defaultHints,
+                alignAnchor == null ? null : new Point(alignAnchor));
+        // XXX: Possible Java2D bug
+        scaled = overrideColorSpace(scaled, CS_LINEAR_RGB);
+        return convertToColor(scaled, getDefaultRGB(hasAlpha));
     }
 
     private static BufferedImage resize(BufferedImage image,
@@ -92,12 +114,14 @@ public final class SmoothDownscale {
             }
         }
 
-        BufferedImage scaled = new BufferedImage(targetWidth, targetHeight,
-                                                 source.getColorModel().hasAlpha()
-                                                 ? BufferedImage.TYPE_INT_ARGB
-                                                 : BufferedImage.TYPE_INT_RGB);
+        BufferedImage scaled = newBufferedImage(targetWidth, targetHeight,
+                // XXX: Possible Java2D bug
+                source.getColorModel().hasAlpha() ? CM_ARGB_USHORT : CM_RGB_USHORT);
+                //getLinearRGB(source.getColorModel().hasAlpha()));
         Graphics2D g = scaled.createGraphics();
         try {
+            // XXX: Possible Java2D bug
+            source = overrideColorSpace(source, CS_sRGB);
             g.addRenderingHints(hints);
             if (alignAnchor == null) {
                 g.drawImage(source, 0, 0, targetWidth, targetHeight, null);
@@ -127,5 +151,56 @@ public final class SmoothDownscale {
     }
 
     private SmoothDownscale() {/* no instances */}
+
+    private static final ThreadLocal<ColorConvertOp>
+            colorConvertOp = ThreadLocal.withInitial(() -> new ColorConvertOp(defaultHints));
+
+    private static BufferedImage convertToColor(BufferedImage source, ColorModel target) {
+        return colorConvertOp.get().filter(source,
+                newBufferedImage(source.getWidth(), source.getHeight(), target));
+    }
+
+    private static BufferedImage newBufferedImage(int width, int height, ColorModel cm) {
+        return new BufferedImage(cm,
+                cm.createCompatibleWritableRaster(width, height),
+                cm.isAlphaPremultiplied(), null);
+    }
+
+    private static BufferedImage overrideColorSpace(BufferedImage source, ColorSpace cspace) {
+        ColorModel scm = source.getColorModel();
+        if (!(scm instanceof ComponentColorModel)) {
+            throw new IllegalArgumentException("source.colorModel is not ComponentColorModel");
+        }
+        ColorModel cm = new ComponentColorModel(cspace, null, scm.hasAlpha(),
+                scm.isAlphaPremultiplied(), scm.getTransparency(), scm.getTransferType());
+        return new BufferedImage(cm, source.getRaster(), cm.isAlphaPremultiplied(), null);
+    }
+
+    private static ColorModel getDefaultRGB(boolean hasAlpha) {
+        return hasAlpha ? CM_DEFAULT_ARGB
+                        : CM_DEFAULT_RGB;
+    }
+
+    private static ColorModel getLinearRGB(boolean hasAlpha) {
+        return hasAlpha ? CM_LINEAR_ARGB
+                        : CM_LINEAR_RGB;
+    }
+
+    private static ColorModel newColorModel(ColorSpace cspace, boolean hasAlpha, int dataType) {
+        return new ComponentColorModel(cspace, hasAlpha, false,
+                hasAlpha ? Transparency.TRANSLUCENT : Transparency.OPAQUE, dataType);
+    }
+
+    private static final ColorSpace
+            CS_sRGB = ColorSpace.getInstance(ColorSpace.CS_sRGB),
+            CS_LINEAR_RGB = ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB);
+
+    private static final ColorModel
+            CM_DEFAULT_RGB = newColorModel(CS_sRGB, false, DataBuffer.TYPE_BYTE),
+            CM_DEFAULT_ARGB = newColorModel(CS_sRGB, true, DataBuffer.TYPE_BYTE),
+            CM_RGB_USHORT = newColorModel(CS_sRGB, false, DataBuffer.TYPE_USHORT),
+            CM_ARGB_USHORT = newColorModel(CS_sRGB, true, DataBuffer.TYPE_USHORT),
+            CM_LINEAR_RGB = newColorModel(CS_LINEAR_RGB, false, DataBuffer.TYPE_USHORT),
+            CM_LINEAR_ARGB = newColorModel(CS_LINEAR_RGB, true, DataBuffer.TYPE_USHORT);
 
 }
