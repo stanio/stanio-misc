@@ -7,40 +7,23 @@ package io.github.stanio.mousegen;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import java.awt.Point;
-import java.awt.image.BufferedImage;
 
 import io.github.stanio.io.DataFormatException;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
+import io.github.stanio.mousegen.internal.AsyncCursorBuilderFactory;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.svg.DropShadow;
@@ -92,11 +75,11 @@ public final class CursorRenderer {
 
     private CursorBuilder currentFrames;
 
-    CursorRenderer(String outputType) {
-        this(CursorBuilderFactory.newInstance(outputType));
+    public CursorRenderer(String outputType) {
+        this(AsyncCursorBuilderFactory.newInstance(outputType));
     }
 
-    CursorRenderer(CursorBuilderFactory builderFactory) {
+    public CursorRenderer(CursorBuilderFactory builderFactory) {
         this(RendererBackend.newInstance(), builderFactory);
     }
 
@@ -316,30 +299,10 @@ public final class CursorRenderer {
         }
     }
 
-    private final int asyncMode = Integer.getInteger("mousegen.renderer.asyncEncoding", 0);
-    private final int asyncQueueCapacity = Integer.getInteger("mousegen.renderer.asyncQueueCapacity", 0);
-
     private CursorBuilder newCursorBuilder() throws UncheckedIOException {
         try {
-            CursorBuilder builder = builderFactory
+            return builderFactory
                     .builderFor(outDir.resolve(targetName), updateExisting, frameMillis());
-            // REVISIT: Possibly extract this async processing in a wrapper
-            // CursorBuilderFactory to simplify this class implementation and
-            // separate concerns overall.
-            switch (asyncMode) {
-            case 1:
-                return new AsyncTaskCursorBuilder(builder, singleQueue());
-
-            case 2:
-                AsyncTaskCursorBuilder asyncBuilder =
-                        new AsyncTaskCursorBuilder(builder, asyncQueueCapacity);
-                // REVISIT: May be peek and remove completed jobs, already here.
-                encodeQueue.add(encodeExecutor.submit(asyncBuilder));
-                return asyncBuilder;
-
-            default:
-                return builder;
-            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -408,27 +371,6 @@ public final class CursorRenderer {
     }
 
     private void finalizeThemes() throws IOException {
-        SingleAsyncThreadTask single = singleQueue;
-        if (single != null) {
-            singleQueue = null;
-            single.shutdown();
-        }
-
-        Future<?> poll = encodeQueue.poll();
-        Duration timeout = Duration.of(1, ChronoUnit.MINUTES);
-        while (poll != null) {
-            try {
-                poll.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted", e);
-            } catch (TimeoutException e) {
-                throw new IllegalStateException("Timed out after " + timeout, e);
-            } catch (ExecutionException e) {
-                throw targetException(e.getCause(), IOException.class);
-            }
-            poll = encodeQueue.poll();
-        }
         builderFactory.finalizeThemes();
     }
 
@@ -466,138 +408,5 @@ public final class CursorRenderer {
         hotspotsPool.clear();
         deferredFrames.clear();
     }
-
-    private volatile SingleAsyncThreadTask singleQueue;
-
-    private BlockingQueue<Runnable> singleQueue() {
-        if (singleQueue == null) {
-            singleQueue = new SingleAsyncThreadTask(asyncQueueCapacity);
-            encodeQueue.add(encodeExecutor.submit(singleQueue));
-        }
-        return singleQueue.queue;
-    }
-
-    private final Queue<Future<?>> encodeQueue = new ArrayDeque<>();
-
-    private final ExecutorService encodeExecutor;
-    {
-        ThreadFactory dtf = Executors.defaultThreadFactory();
-        ThreadPoolExecutor pool = new ThreadPoolExecutor(0,
-                Math.max(1, Runtime.getRuntime().availableProcessors() - 1),
-                60L, TimeUnit.SECONDS,
-                new SynchronousQueue<>(), r -> {
-            Thread th = dtf.newThread(r);
-            th.setDaemon(true);
-            return th;
-        });
-        pool.setRejectedExecutionHandler((r, executor) -> {
-            try {
-                // XXX: Block until worker is available
-                executor.getQueue().put(r);
-            } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-            }
-        });
-        encodeExecutor = pool;
-    }
-
-
-    private static class SingleAsyncThreadTask implements Callable<Void> {
-
-        final BlockingQueue<Runnable> queue;
-
-        private volatile boolean done;
-
-        SingleAsyncThreadTask(int capacity) {
-            this.queue = (capacity == 0) ? new SynchronousQueue<>()
-                                         : new ArrayBlockingQueue<>(capacity);
-        }
-
-        void shutdown() {
-            done = true;
-        }
-
-        @Override
-        public Void call() throws Exception {
-            Runnable task;
-            try {
-                do {
-                    task = queue.poll(2, TimeUnit.SECONDS);
-                    if (task != null) {
-                        task.run();
-                    }
-                } while (!done || !queue.isEmpty());
-            }
-            catch (InterruptedException e) {
-                if (!done)
-                    throw e;
-            }
-            return null;
-        }
-
-    } // class SingleAsyncThreadTask
-
-
-    private static class AsyncTaskCursorBuilder extends CursorBuilder implements Callable<Void> {
-
-        private static final Path DUMMY = Path.of("");
-
-        private final CursorBuilder cursor;
-
-        private final BlockingQueue<Runnable> queue;
-
-        private volatile boolean done;
-
-        AsyncTaskCursorBuilder(CursorBuilder builder, int capacity) {
-            // In this case, the queue capacity should be generally unbounded to
-            // allow multiple builder tasks to fill in the executor pool, otherwise
-            // a single builder may block the main thread, until finished.
-            this(builder, new LinkedBlockingQueue<>(capacity == 0 ? Integer.MAX_VALUE : capacity));
-        }
-
-        AsyncTaskCursorBuilder(CursorBuilder builder, BlockingQueue<Runnable> queue) {
-            super(DUMMY, false);
-            this.cursor = builder;
-            this.queue = queue;
-        }
-
-        @Override
-        public void addFrame(Integer frameNo,
-                int nominalSize, Point hotspot, BufferedImage image, int delayMillis) {
-            try {
-                queue.put(() -> cursor.addFrame(frameNo, nominalSize, hotspot, image, delayMillis));
-            } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-
-        @Override
-        public void build() {
-            try {
-                queue.put(() -> {
-                    try {
-                        cursor.build();
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                    done = true;
-                });
-            } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-
-        @Override
-        public Void call() throws Exception {
-            Runnable task;
-            do {
-                task = queue.take();
-                task.run();
-            } while (!done);
-            return null;
-        }
-
-    } // class AsyncTaskCursorBuilder
-
 
 } // class CursorRenderer
