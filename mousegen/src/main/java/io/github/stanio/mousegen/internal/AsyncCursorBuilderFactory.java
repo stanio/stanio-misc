@@ -8,13 +8,14 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
@@ -24,70 +25,112 @@ import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 
 public class AsyncCursorBuilderFactory extends CursorBuilderFactory {
 
-    private static final class SingleThreadExecutor {
-        static final Executor instance = Executors
-                .newSingleThreadExecutor(WorkQueue.daemonThreadFactory());
-    }
+    private static final Path FRAME_QUEUE = Path.of(".");
+    private static final Path BUILD_QUEUE = Path.of("..");
 
-    private static final Path SINGLE_QUEUE = Path.of("");
+    private static final int FRAME_MODE_SINGLE_THREAD = 1;
+    private static final int FRAME_MODE_PER_CURSOR = 2;
+    private static final int FRAME_MODE_PER_THEME = 3;
+
+    private static final int BUILD_MODE_SAME_QUEUE = 1;
+    private static final int BUILD_MODE_SINGLE_THREAD = 2;
+    private static final int BUILD_MODE_PER_THEME = 3;
+    private static final int BUILD_MODE_PER_CURSOR = 4;
 
     private final CursorBuilderFactory delegate;
 
-    private final Map<Path, WorkQueue> queues = new HashMap<>();
+    private final Map<Path, WorkQueue> queues = new LinkedHashMap<>();
 
-    private final int mode;
+    private final int frameMode;
+    private final int buildMode;
 
-    public AsyncCursorBuilderFactory(CursorBuilderFactory delegate, int mode) {
+    public AsyncCursorBuilderFactory(CursorBuilderFactory delegate, int frameMode, int buildMode) {
         this.delegate = delegate;
-        this.mode = mode;
+        this.frameMode = frameMode;
+        this.buildMode = buildMode;
     }
 
     public static CursorBuilderFactory newInstance(String outputType) {
         CursorBuilderFactory factory = CursorBuilderFactory.newInstance(outputType);
-        int asyncMode = Integer.getInteger("mousegen.renderer.asyncEncoding", 0);
-        return (asyncMode == 0) ? factory
-                                : new AsyncCursorBuilderFactory(factory, asyncMode);
+        String asyncMode = System.getProperty("mousegen.renderer.asyncEncoding", "").trim();
+        if (asyncMode.isEmpty()) return factory;
+
+        try {
+            String[] modeArgs = asyncMode.split(",", 2);
+            int frameMode = Integer.parseInt(modeArgs[0].trim());
+            if (modeArgs.length > 1) {
+                return new AsyncCursorBuilderFactory(factory,
+                        frameMode, Integer.parseInt(modeArgs[1].trim()));
+            }
+            switch (frameMode) {
+            case FRAME_MODE_SINGLE_THREAD:
+                return new AsyncCursorBuilderFactory(factory, FRAME_MODE_SINGLE_THREAD, BUILD_MODE_PER_CURSOR);
+            case FRAME_MODE_PER_CURSOR:
+                return new AsyncCursorBuilderFactory(factory, FRAME_MODE_PER_CURSOR, BUILD_MODE_SAME_QUEUE);
+            case FRAME_MODE_PER_THEME:
+                return new AsyncCursorBuilderFactory(factory, FRAME_MODE_SINGLE_THREAD, BUILD_MODE_PER_THEME);
+            default:
+                throw new IllegalStateException("Unknown asyncMode mode: " + frameMode);
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("mousegen.renderer.asyncEncoding", e);
+        }
     }
 
     @Override
-    public CursorBuilder builderFor(Path targetPath,
+    public CursorBuilder builderFor(Path cursorPath,
                                     boolean updateExisting,
                                     int frameDelayMillis)
             throws IOException
     {
         WorkQueue workQueue;
-        switch (mode) {
-        case 1:
-            workQueue = queues.computeIfAbsent(SINGLE_QUEUE, k -> new WorkQueue(
-                    new LinkedBlockingQueue<>(2), SingleThreadExecutor.instance));
+        switch (frameMode) {
+        case FRAME_MODE_SINGLE_THREAD:
+            workQueue = queues.computeIfAbsent(FRAME_QUEUE, k -> new WorkQueue(
+                    new java.util.LinkedList<>(), newSingleThreadExecutor()));
             break;
-        case 2:
-        case 3:
-            workQueue = new WorkQueue();
-            if (queues.putIfAbsent(targetPath, workQueue) != null) {
-                throw new IllegalStateException("Builder for path already existis: " + targetPath);
-            }
+        case FRAME_MODE_PER_CURSOR:
+            workQueue = queues.computeIfAbsent(cursorPath, k -> new WorkQueue());
+            break;
+        case FRAME_MODE_PER_THEME:
+            workQueue = queues.computeIfAbsent(themePath(cursorPath), k -> new WorkQueue());
             break;
         default:
-            throw new IllegalStateException("Unknown mode: " + mode);
+            throw new IllegalStateException("Unknown frameMode mode: " + frameMode);
         }
 
         WorkQueue buildQueue;
-        switch (mode) {
-        case 1:
-        case 2:
+        switch (buildMode) {
+        case BUILD_MODE_SAME_QUEUE:
             buildQueue = workQueue;
             break;
-        case 3:
-            buildQueue = queues.computeIfAbsent(targetPath
-                    .toAbsolutePath().normalize().getParent(), k -> new WorkQueue());
+        case BUILD_MODE_SINGLE_THREAD:
+            buildQueue = queues.computeIfAbsent(BUILD_QUEUE, k -> new WorkQueue(
+                    new java.util.LinkedList<>(), newSingleThreadExecutor()));
+            break;
+        case BUILD_MODE_PER_THEME:
+            buildQueue = queues.computeIfAbsent(themePath(cursorPath), k -> new WorkQueue());
+            break;
+        case BUILD_MODE_PER_CURSOR:
+            buildQueue = queues.computeIfAbsent(cursorPath, k -> new WorkQueue());
             break;
         default:
-            throw new IllegalStateException("Unknown mode: " + mode);
+            throw new IllegalStateException("Unknown buildMode: " + buildMode);
         }
 
         return new AsyncCursorBuilder(delegate
-                .builderFor(targetPath, updateExisting, frameDelayMillis), workQueue, buildQueue);
+                .builderFor(cursorPath, updateExisting, frameDelayMillis), workQueue, buildQueue);
+    }
+
+    private static Executor newSingleThreadExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 1L, TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(), WorkQueue.daemonThreadFactory());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
+
+    private static Path themePath(Path targetPath) {
+        return targetPath.toAbsolutePath().normalize().getParent();
     }
 
     @Override
