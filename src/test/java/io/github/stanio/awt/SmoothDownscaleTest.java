@@ -31,7 +31,7 @@ public class SmoothDownscaleTest {
         BufferedImage source = ImageIO
                 .read(SmoothDownscaleTest.class.getResource("scale-align.png"));
 
-        BufferedImage result = SmoothDownscale.resize(source, 23, 23, new Point(13, 13));
+        BufferedImage result = SmoothDownscale.resize(source, 41, 41, new Point(13, 13));
 
         assertThat(result).isNotNull();
     }

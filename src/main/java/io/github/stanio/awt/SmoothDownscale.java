@@ -54,39 +54,76 @@ public final class SmoothDownscale {
                 RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         hints.put(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         hints.put(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
-        hints.put(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
+        hints.put(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_DEFAULT);
         defaultHints = hints;
     }
 
+    /**
+     * Default hints:
+     * <ul>
+     * <li>{@code VALUE_RENDER_QUALITY}</li>
+     * <li>{@code VALUE_INTERPOLATION_BICUBIC}</li>
+     * <li>{@code VALUE_ALPHA_INTERPOLATION_QUALITY}</li>
+     * <li>{@code VALUE_COLOR_RENDER_DEFAULT}</li>
+     * </ul>
+     */
     public static BufferedImage resize(BufferedImage image,
                                        int targetWidth,
                                        int targetHeight) {
-        return resize(image, targetWidth, targetHeight, defaultHints);
+        return resize(image, targetWidth, targetHeight, (RenderingHints) null);
     }
 
     public static BufferedImage resize(BufferedImage image,
                                        int targetWidth,
                                        int targetHeight,
                                        RenderingHints hints) {
-        Point alignAnchor = (hints == null) ? null : (Point) hints.get(HintKey.ALIGN);
-        if (alignAnchor != null) {
-            alignAnchor = new Point(alignAnchor);
+        hints = hintsWithDefaults(hints);
+
+        BufferedImage result = image;
+        Object colorRendering = hints.get(RenderingHints.KEY_COLOR_RENDERING);
+        if (colorRendering == null
+                || colorRendering != RenderingHints.VALUE_COLOR_RENDER_SPEED) {
+            result = convertToLinearRGB(image,
+                    colorRendering == RenderingHints.VALUE_COLOR_RENDER_QUALITY);
         }
-        BufferedImage scaled = resize(convertToLinearRGB(image),
-                targetWidth, targetHeight, hints, alignAnchor);
-        scaled = overrideColorSpace(scaled, CS_LINEAR_RGB);
-        return convertToDefaultRGB(scaled);
+        result = resize(result, targetWidth, targetHeight, hints, getAlignAnchor(image, hints));
+        if (colorRendering == RenderingHints.VALUE_COLOR_RENDER_SPEED) {
+            return result;
+        }
+        result = overrideColorSpace(result, CS_LINEAR_RGB);
+        return convertToDefaultRGB(result);
+    }
+
+    private static RenderingHints hintsWithDefaults(RenderingHints hints) {
+        if (hints == null || hints.isEmpty()) {
+            return defaultHints;
+        }
+        RenderingHints withDefaults = (RenderingHints) defaultHints.clone();
+        withDefaults.putAll(hints);
+        return withDefaults;
+    }
+
+    private static Point getAlignAnchor(BufferedImage image, RenderingHints hints) {
+        return getAlignAnchor(image,
+                (hints == null) ? null : hints.get(HintKey.ALIGN));
+    }
+
+    private static Point getAlignAnchor(BufferedImage image, Object alignAnchor) {
+        Object point = (alignAnchor == null)
+                       ? image.getProperty("alignAnchor")
+                       : alignAnchor;
+        return (point instanceof Point) ? new Point((Point) point) : null;
     }
 
     public static BufferedImage resize(BufferedImage image,
                                        int targetWidth,
                                        int targetHeight,
                                        Point alignAnchor) {
-        BufferedImage scaled = resize(convertToLinearRGB(image),
-                targetWidth, targetHeight, defaultHints,
-                alignAnchor == null ? null : new Point(alignAnchor));
-        scaled = overrideColorSpace(scaled, CS_LINEAR_RGB);
-        return convertToDefaultRGB(scaled);
+        BufferedImage result = convertToLinearRGB(image, false);
+        result = resize(result, targetWidth, targetHeight, defaultHints,
+                getAlignAnchor(image, alignAnchor));
+        result = overrideColorSpace(result, CS_LINEAR_RGB);
+        return convertToDefaultRGB(result);
     }
 
     private static BufferedImage resize(BufferedImage image,
@@ -111,7 +148,8 @@ public final class SmoothDownscale {
         }
 
         BufferedImage scaled = newBufferedImage(targetWidth, targetHeight,
-                getDefaultRGB(source.getColorModel().hasAlpha())); // XXX: Workaround
+                getDefaultRGB(source.getColorModel().hasAlpha(), hints.get( // XXX: Workaround
+                        RenderingHints.KEY_COLOR_RENDERING) == RenderingHints.VALUE_COLOR_RENDER_QUALITY));
         Graphics2D g = scaled.createGraphics();
         try {
             g.addRenderingHints(hints);
@@ -144,17 +182,17 @@ public final class SmoothDownscale {
 
     private SmoothDownscale() {/* no instances */}
 
-    private static BufferedImage convertToLinearRGB(BufferedImage image) {
+    private static BufferedImage convertToLinearRGB(BufferedImage image, boolean highQuality) {
         BufferedImage target =
                 newBufferedImage(image.getWidth(), image.getHeight(),
-                                 getLinearRGB(image.getColorModel().hasAlpha()));
+                                 getLinearRGB(image.getColorModel().hasAlpha(), highQuality));
         return overrideColorSpace(colorConvertOp.get().filter(image, target),
                                   CS_sRGB); // XXX: Workaround
     }
 
     private static BufferedImage convertToDefaultRGB(BufferedImage image) {
         BufferedImage target = newBufferedImage(image.getWidth(), image.getHeight(),
-                getDefaultRGB(image.getColorModel().hasAlpha()));
+                getDefaultRGB(image.getColorModel().hasAlpha(), false));
         return colorConvertOp.get().filter(image, target);
     }
 
@@ -177,14 +215,18 @@ public final class SmoothDownscale {
         return new BufferedImage(cm, source.getRaster(), cm.isAlphaPremultiplied(), null);
     }
 
-    private static ColorModel getDefaultRGB(boolean hasAlpha) {
-        return hasAlpha ? CM_DEFAULT_ARGB
-                        : CM_DEFAULT_RGB;
+    private static ColorModel getDefaultRGB(boolean hasAlpha, boolean highQuality) {
+        if (highQuality) {
+            return hasAlpha ? CM_HQ_DEFAULT_ARGB : CM_HQ_DEFAULT_RGB;
+        }
+        return hasAlpha ? CM_DEFAULT_ARGB : CM_DEFAULT_RGB;
     }
 
-    private static ColorModel getLinearRGB(boolean hasAlpha) {
-        return hasAlpha ? CM_LINEAR_ARGB
-                        : CM_LINEAR_RGB;
+    private static ColorModel getLinearRGB(boolean hasAlpha, boolean highQuality) {
+        if (highQuality) {
+            return hasAlpha ? CM_HQ_LINEAR_ARGB : CM_HQ_LINEAR_RGB;
+        }
+        return hasAlpha ? CM_LINEAR_ARGB : CM_LINEAR_RGB;
     }
 
     private static ColorModel newColorModel(ColorSpace cspace, boolean hasAlpha, int dataType) {
@@ -200,6 +242,10 @@ public final class SmoothDownscale {
             CM_DEFAULT_RGB = newColorModel(CS_sRGB, false, DataBuffer.TYPE_BYTE),
             CM_DEFAULT_ARGB = newColorModel(CS_sRGB, true, DataBuffer.TYPE_BYTE),
             CM_LINEAR_RGB = newColorModel(CS_LINEAR_RGB, false, DataBuffer.TYPE_BYTE),
-            CM_LINEAR_ARGB = newColorModel(CS_LINEAR_RGB, true, DataBuffer.TYPE_BYTE);
+            CM_LINEAR_ARGB = newColorModel(CS_LINEAR_RGB, true, DataBuffer.TYPE_BYTE),
+            CM_HQ_DEFAULT_RGB = newColorModel(CS_sRGB, false, DataBuffer.TYPE_USHORT),
+            CM_HQ_DEFAULT_ARGB = newColorModel(CS_sRGB, true, DataBuffer.TYPE_USHORT),
+            CM_HQ_LINEAR_RGB = newColorModel(CS_LINEAR_RGB, false, DataBuffer.TYPE_USHORT),
+            CM_HQ_LINEAR_ARGB = newColorModel(CS_LINEAR_RGB, true, DataBuffer.TYPE_USHORT);
 
 }
