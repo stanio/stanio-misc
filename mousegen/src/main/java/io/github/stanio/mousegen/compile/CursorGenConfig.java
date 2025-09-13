@@ -4,6 +4,7 @@
  */
 package io.github.stanio.mousegen.compile;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
@@ -12,17 +13,29 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import io.github.stanio.io.DataFormatException;
 
 /**
  * <cite>man xcursorgen</cite>
  * <blockquote>
- * Each line in the config file is of the form:<br>
- * &lt;size> &lt;xhot> &lt;yhot> &lt;filename> &lt;ms-delay>
+ * <p>Each line in the config file is of the form:<br>
+ * &lt;size> &lt;xhot> &lt;yhot> &lt;filename> &lt;ms-delay></p>
+ *
+ * <p>Multiple images with the same &lt;size> are used to create animated
+ * cursors, the &lt;ms-delay> value on each line indicates how long each image
+ * should be displayed before switching to the next. &lt;ms-delay> can be
+ * elided for static cursors.</p>
  * </blockquote>
- * <p>Supports comment lines starting with {@code #} but not blank lines.</p>
+ * <p>Supports comment lines starting with {@code #} and blank lines.  Blank
+ * lines are ignored on loading and will not be recreated on saving.</p>
  *
  * @see  <a href="https://www.x.org/archive/X11R7.7/doc/man/man1/xcursorgen.1.xhtml#heading3"
  *              >xcursorgen(1)</a>
@@ -62,11 +75,13 @@ public class CursorGenConfig implements Closeable {
         return put(1, nominalSize, xHot, yHot, fileName, delayMillis);
     }
 
-    public Image put(int frameNo, int nominalSize, int xHot, int yHot, String fileName, int delayMillis) {
+    public Image put(int frameNo,
+            int nominalSize, int xHot, int yHot, String fileName, int delayMillis) {
         return put(frameNo, Integer.MAX_VALUE, nominalSize, xHot, yHot, fileName, delayMillis);
     }
 
-    public Image put(int frameNo, int numColors, int nominalSize, int xHot, int yHot, String fileName, int delayMillis) {
+    public Image put(int frameNo, int numColors,
+            int nominalSize, int xHot, int yHot, String fileName, int delayMillis) {
         Image entry = find(nominalSize, numColors, frameNo);
         if (entry == null) {
             entry = new Image(nominalSize, xHot, yHot, fileName, delayMillis, frameNo, numColors);
@@ -226,5 +241,48 @@ public class CursorGenConfig implements Closeable {
         }
 
     } // class Image
+
+    private static final Pattern IMAGE_LINE = Pattern.compile("\\s* "
+            + "(\\d+) \\s+ (\\d+) \\s+ (\\d+) \\s+ (.+?) (?:\\s+ (\\d+))? \\s*",
+            Pattern.COMMENTS);
+    private static final Pattern COMMENT_LINE = Pattern.compile("^\\s*#");
+    private static final Pattern EMPTY_LINE = Pattern.compile("\\s*");
+
+    public static CursorGenConfig parse(Path file) throws IOException {
+        CursorGenConfig config = new CursorGenConfig(file);
+        int lineNo = 1;
+        try (BufferedReader input = Files.newBufferedReader(file)) {
+            List<Line> content = config.content;
+
+            Matcher imageLine = IMAGE_LINE.matcher("");
+            Matcher commentLine = COMMENT_LINE.matcher("");
+            Matcher emptyLine = EMPTY_LINE.matcher("");
+            Map<Integer, Integer> sizeFrameNo = new HashMap<>();
+            for (String line = input.readLine();
+                    line != null; lineNo++, line = input.readLine())
+            {
+                if (imageLine.reset(line).matches()) {
+                    int size = Integer.parseInt(imageLine.group(1));
+                    int xHot = Integer.parseInt(imageLine.group(2));
+                    int yHot = Integer.parseInt(imageLine.group(3));
+                    String fileName = imageLine.group(4);
+                    String delay = imageLine.group(5);
+                    int frameNo = sizeFrameNo.merge(size, 1, Integer::sum);
+                    content.add(new Image(size, xHot, yHot, fileName,
+                            delay == null ? 0 : Integer.parseInt(delay),
+                            frameNo, Integer.MAX_VALUE));
+                } else if (commentLine.reset(line).find()) {
+                    content.add(new Comment(line.stripLeading()));
+                } else if (emptyLine.reset(line).matches()) {
+                    System.err.printf("%s:%d: Empty line ignored",
+                                      file.getFileName(), lineNo);
+                } else {
+                    throw new DataFormatException(file.getFileName()
+                            + ":" + lineNo + ": Could not parse: " + line);
+                }
+            }
+        }
+        return config;
+    }
 
 } // class CursorGenConfig
