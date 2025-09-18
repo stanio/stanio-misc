@@ -24,6 +24,7 @@ import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 import io.github.stanio.mousegen.internal.AsyncCursorBuilderFactory;
+import io.github.stanio.mousegen.internal.WorkQueue.AsyncException;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.svg.DropShadow;
@@ -332,6 +333,8 @@ public final class CursorRenderer {
             }
         } catch (UncheckedIOException e) {
             throw e.getCause();
+        } catch (AsyncException e) {
+            throw targetException(e.getCause(), IOException.class);
         }
     }
 
@@ -355,23 +358,27 @@ public final class CursorRenderer {
     public void saveCurrent() throws IOException {
         // Static cursor or complete animation
         if (animation == null || frameNum == null) {
-            currentFrames.build();
+            try {
+                currentFrames.build();
+            } catch (AsyncException e) {
+                throw targetException(e.getCause(), IOException.class);
+            }
         }
         currentFrames = null;
     }
 
     public void saveDeferred() throws IOException {
-        var iterator = deferredFrames.entrySet().iterator();
-        while (iterator.hasNext()) {
-            var entry = iterator.next();
-            entry.getValue().build();
-            iterator.remove();
+        try {
+            var iterator = deferredFrames.entrySet().iterator();
+            while (iterator.hasNext()) {
+                var entry = iterator.next();
+                entry.getValue().build();
+                iterator.remove();
+            }
+            builderFactory.finalizeThemes();
+        } catch (AsyncException e) {
+            throw targetException(e.getCause(), IOException.class);
         }
-        finalizeThemes();
-    }
-
-    private void finalizeThemes() throws IOException {
-        builderFactory.finalizeThemes();
     }
 
     static <T extends Exception> T targetException(Throwable e, Class<T> targetClass) {

@@ -4,6 +4,7 @@
  */
 package io.github.stanio.mousegen.internal;
 
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -14,6 +15,14 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class WorkQueue {
+
+    public static class AsyncException extends RuntimeException {
+        private static final long serialVersionUID = 8076152707938775020L;
+
+        public AsyncException(Throwable cause) {
+            super(Objects.requireNonNull(cause));
+        }
+    }
 
     private static final class DefaultExecutor {
         static final Executor instance;
@@ -31,6 +40,8 @@ public class WorkQueue {
 
     private final Condition taskComplete = sync.newCondition();
 
+    private volatile Throwable exception;
+
     public WorkQueue() {
         this(new java.util.LinkedList<>(), DefaultExecutor.instance);
         //this(new java.util.concurrent.LinkedBlockingQueue<>(100), DefaultExecutor.instance);
@@ -46,7 +57,20 @@ public class WorkQueue {
         if (task == null) return;
 
         executor.execute(() -> {
-            task.run();
+            try {
+                task.run();
+            } catch (Throwable e) {
+                sync.lock();
+                try {
+                    exception = e;
+                    queue.clear();
+                    taskComplete.signalAll();
+                } finally {
+                    sync.unlock();
+                }
+                return;
+            }
+
             sync.lock();
             try {
                 queue.remove();
@@ -58,12 +82,18 @@ public class WorkQueue {
         });
     }
 
-    public void submit(Runnable task) {
+    public void submit(Runnable task) throws AsyncException {
+        if (exception != null)
+            throw new AsyncException(exception);
+
         sync.lock();
         try {
             while (!queue.offer(task)) {
                 taskComplete.await();
+                if (exception != null)
+                    throw new AsyncException(exception);
             }
+
             if (queue.size() == 1) { // (queue.peek() == task)
                 executeNext();
             }
@@ -75,11 +105,17 @@ public class WorkQueue {
         }
     }
 
-    public void await() throws InterruptedException {
+    public void await() throws InterruptedException, AsyncException {
+        if (exception != null)
+            throw new AsyncException(exception);
+
         sync.lock();
         try {
-            while (!queue.isEmpty())
+            while (!queue.isEmpty()) {
                 taskComplete.await();
+                if (exception != null)
+                    throw new AsyncException(exception);
+            }
         } finally {
             sync.unlock();
         }
