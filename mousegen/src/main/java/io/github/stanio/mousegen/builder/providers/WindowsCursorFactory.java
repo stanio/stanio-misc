@@ -62,7 +62,7 @@ class WindowsCursorBuilder extends CursorBuilder {
     static WindowsCursorBuilder forUpdate(Path targetPath, int frameDelayMillis)
             throws IOException {
         AnimatedCursor existing = null;
-        if (frameDelayMillis > 0) {
+        if (frameDelayMillis == 0) {
             Path curFile = targetPath.resolveSibling(targetPath.getFileName() + ".cur");
             if (Files.exists(curFile)) {
                 existing = new AnimatedCursor(0);
