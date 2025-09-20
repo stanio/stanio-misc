@@ -325,7 +325,7 @@ public class Cursor {
         if (sizing.transform.isIdentity()
                 && sizing.target.width == image.getWidth()
                 && sizing.target.height == image.getHeight()
-                && image.getType() == BufferedImage.TYPE_INT_ARGB) {
+                && isARGB(image)) {
             argb = image;
             hxy = clampHotspot(hotspot);
         } else {
@@ -334,6 +334,12 @@ public class Cursor {
             hxy = clampHotspot(sizing.transform.transform(hotspot, null));
         }
         addARGBImage(argb, hxy);
+    }
+
+    private static boolean isARGB(BufferedImage image) {
+        // REVISIT: Or look at the ColorModel
+        return image.getType() == BufferedImage.TYPE_INT_ARGB
+                || image.getType() == BufferedImage.TYPE_4BYTE_ABGR;
     }
 
     public static Point clampHotspot(Point2D point) {
