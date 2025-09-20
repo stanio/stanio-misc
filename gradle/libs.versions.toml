@@ -1,13 +1,13 @@
 [versions]
 batik = "1.19"
-gson = "2.13.1"
+gson = "2.13.2"
 jsvg = "2.0.0"
 #jsvg = "latest.integration"
 woodstox = "7.1.1"
 junit = "5.13.4"
-assertj = "3.27.3"
-xmlunit = "2.10.3"
-mockito = "5.18.0"
+assertj = "3.27.6"
+xmlunit = "2.10.4"
+mockito = "5.20.0"
 
 [libraries]
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
