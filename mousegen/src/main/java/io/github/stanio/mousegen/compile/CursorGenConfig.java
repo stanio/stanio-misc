@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import io.github.stanio.io.DataFormatException;
 
@@ -67,8 +68,52 @@ public class CursorGenConfig implements Closeable {
         this.target = Objects.requireNonNull(target);
     }
 
+    public Path file() {
+        return target;
+    }
+
     public Iterable<Line> content() {
         return Collections.unmodifiableList(content);
+    }
+
+
+    public Stream<Image> images() {
+        return content.stream()
+                .filter(Image.class::isInstance).map(Image.class::cast);
+    }
+
+    public int averageFrameDuration() {
+        class Avg {
+            float value;
+            int count = 1;
+            Avg(float number) { value = number; }
+            Avg() { count = 0; }
+            public Avg add(float number) {
+                value += (number - value) / ++count;
+                return this;
+            }
+        }
+
+        // Compute the averages of different size sequences separately.
+        Map<Integer, Avg> averages = new HashMap<>();
+        for (Line line : content) {
+            if (!(line instanceof Image))
+                continue;
+
+            Image image = (Image) line;
+            int delay = image.delayMillis();
+            if (delay > 0) {
+                averages.compute(image.nominalSize(), (k, avg) ->
+                        (avg == null) ? new Avg(delay) : avg.add(delay));
+            }
+        }
+
+        if (averages.isEmpty())
+            return 0;
+
+        Avg overall = new Avg();
+        averages.forEach((k, avg) -> overall.add(avg.value));
+        return Math.max(1, Math.round(overall.value));
     }
 
     public Image put(int nominalSize, int xHot, int yHot, String fileName, int delayMillis) {

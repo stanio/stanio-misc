@@ -273,7 +273,7 @@ public class SVGSizing {
      *          side/edge".  Used to imply rounding bias when
      *          {@code biasValue == 0}
      */
-    private static int roundHotspotCoord(double coordinate, double biasValue, double relativeCoordinate) {
+    public static int roundHotspotCoord(double coordinate, double biasValue, double relativeCoordinate) {
         int rounded;
         if (biasValue < 0 || hotspotCenterHeuristics
                 && biasValue == 0 && relativeCoordinate < 0.33) {

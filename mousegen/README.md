@@ -23,7 +23,7 @@ while visibility could be easily toggled in authoring tools like Inkscape.
 
 Having the hotspots into the individual SVG files allows for better maintenance
 and control.  For example, the current Bibata "Modern" and "Original" variants
-share hotspot configuration for same named cursors.  This may not be always
+share hotspot configuration for same-named cursors.  This may not always be
 feasible because of significantly differing shapes, and hotspots defined
 separately could more easily become out of sync with the SVG sources.
 
@@ -66,26 +66,79 @@ pre-processor to `cbmp` (Bibata `yarn render`) followed by `wincur`.
 
 _Note:_ This functionality is automatically done by [`render`](#render).
 
-### `wincur` (experimental)
-
-Utility creating Bibata Windows cursors from pre-rendered bitmaps a la
-`xcursorgen`:
-
-    > java -jar mousegen.jar wincur --help
-    USAGE: wincur [--all-cursors] <bitmaps-dir>
-
-> [!NOTE]
-> This will be eventually replaced by a `compile` command using `xcursorgen`
-> config files but providing options for differernt output formats as supported
-> by mousegen.
-
 ### `dump`
 
 Dumps (decompiles) one or more supported-format cursor files (Windows, XCursor,
 Mousecape) to individual bitmaps and a `*.cursor` (Xcursorgen) config file with
 the relevant metadata (nominal size, hotspot, bitmap file, animation duration).
 
-    > java -jar mousegen.jar dump [-d <output-dir>] <cursor-file>...
+    > mousegen dump [-d <output-dir>] <cursor-file>...
+
+### `compile`
+
+Creates one or more cursor files in a specified output format from specified
+(`xcursorgen`) config-file(s).
+
+    > mousegen compile --help
+    USAGE: compile {--windows-cursors|--linux-cursors|--mousecape-theme} [-d <output>] <input>...
+
+Using `--generate-sizes`, could be used to create final package from a
+source with just one "master" (large enough) bitmap size:
+
+    # pointer.cursor
+    256 50 50 pointer.png
+
+    > mousegen compile pointer.cursor -r 32,48,64,96 --generate-sizes ...
+
+Otherwise, the `-r` option(s) will filter the available sizes and possibly
+produce an empty result.
+
+In combination with the `dump` command, could be used to convert cursors from one
+format to another.  Note, however, different formats have specific requirements on
+the exact output resolutions that are not handled automagically.
+
+The following are some of my observations.  Linux nominal size 24 roughly maps to
+Windows base size 32.  When converting Windows to Linux, you would need to specify:
+
+    mousegen compile -s 1/0.75 ...
+
+When converting Linux to Windows:
+
+    mousegen compile -s 1/1.333 ...
+
+_Windows sizes_
+
+Display scale →<br>Pointer size ↓ | 100% | 125% | 150% | 175% | 200% | 250%
+  --: |  --: |  --: |  --: |  --: |  --: |  --:
+**1** |   32 |    ← |   48 |    → |   64 |    ←
+**2** |   48 |    ← |   72 |    → |   96 |    ←
+**3** |   64 |    ← |   96 |    → |  128 |    ←
+**4** |   80 |    ← |  120 |    → |  160 |    ←
+**5** |   96 |    ← |  144 |    → |  192 |    ←
+
+_Linux sizes_
+
+Note that these are nominal (logical) sizes which may not match the exact bitmap
+sizes.  Ubuntu 22/Gnome:
+
+Display scale →<br>Pointer size ↓ | 100% | 125% | 150% | 175% | 200% | 225% | 300%
+  --:           |  --: |  :-: |  :-: |  :-: |  --: |  :-: |  --:
+**(Default) 1** |   24 |   →  |   →  |   →  |   48 |   →  |   72
+**(Medium) 2**  |   32 |   →  |   →  |   →  |   64 |   →  |   96
+**(Large) 3**   |   48 |   →  |   →  |   →  |   96 |   →  |  144
+**(Larger) 4**  |   64 |   →  |   →  |   →  |  128 |   →  |  192
+**(Largest) 5** |   96 |   →  |   →  |   →  |  192 |   →  |  288
+
+_Mousecape sizes_
+
+As far as I can tell, the exact base sizes don't matter as long they follow:
+
+-   At most 4 sizes/resolutions
+-   ×1 (Base/SD), ×2 (HD), ×5 (SD-shake-to-find), ×10 (HD-shake-to-find)
+
+That is, the first (base) size could be any, as long as the following are
+derived from it with the given factors.  For example: 32, 64, 160, 320; or
+24, 48, 120, 240.  You can omit the ×10 variant to save disk space.
 
 ### `render`
 
