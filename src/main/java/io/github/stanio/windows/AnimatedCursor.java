@@ -21,15 +21,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import java.util.logging.Logger;
 
-import io.github.stanio.cli.CommandLine;
-import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.io.BufferChunksWritableChannel;
 import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
@@ -327,85 +324,5 @@ public class AnimatedCursor {
         littleEndian.write(1); // Bit-flags: 1 - Icon/Cursor (vs. Raw bitmap) data,
                                //            2 - Contains sequence data
     }
-
-
-    /**
-     * Command-line entry point.
-     * <pre>
-     * <samp>USAGE: winani [-o &lt;output-file&gt;] [-j &lt;jiffies&gt;] &lt;cursor-frame&gt;...</samp></pre>
-     *
-     * @param   args  program arguments as given on the command line
-     */
-    public static void main(String[] args) {
-        CommandArgs cmd;
-        try {
-            cmd = new CommandArgs(args);
-        } catch (ArgumentException e) {
-            System.err.append("error: ").println(e.getMessage());
-            System.err.println(CommandArgs.help());
-            System.exit(1);
-            return;
-        }
-
-        try {
-            createCursor(cmd.outputFile, cmd.frameRate, cmd.inputFiles);
-        } catch (IOException e) {
-            System.out.println();
-            System.err.append("error: ").println(e);
-            System.exit(2);
-        }
-    }
-
-    static void createCursor(Path outputFile,
-                             int frameRate,
-                             List<Path> inputFiles)
-            throws IOException {
-        AnimatedCursor ani = new AnimatedCursor(frameRate);
-        for (Path cur : inputFiles) {
-            ani.addFrame(cur);
-            System.out.print('.');
-        }
-        System.out.println();
-
-        boolean outputExists = Files.exists(outputFile);
-        ani.write(outputFile);
-        System.out.append(outputExists ? "Existing overwritten " : "Created ")
-                  .println(outputFile);
-    }
-
-
-    static class CommandArgs {
-
-        Path outputFile;
-        int frameRate = 3;
-        List<Path> inputFiles = new ArrayList<>();
-
-        CommandArgs(String... args) {
-            CommandLine cmd = CommandLine.ofUnixStyle()
-                    .acceptOption("-o", o -> outputFile = o, Cursor::pathOf)
-                    .acceptOption("-j", j -> frameRate = j, Integer::valueOf)
-                    .parseOptions(args);
-
-            Optional<Path> f = Optional.of(cmd
-                    .requireArg(0, "cursor-frame", Cursor::pathOf));
-            for (int index = 1; f.isPresent(); f = cmd
-                    .arg(index++, "cursor-frame[" + index + "]", Cursor::pathOf)) {
-                inputFiles.add(f.get());
-            }
-
-            if (outputFile == null) {
-                Path source = inputFiles.get(0);
-                String fileName = source.getFileName().toString()
-                                        .replaceFirst("(-\\d+)?\\.[^.]+$", "");
-                outputFile = Cursor.pathOf(fileName + ".ani");
-            }
-        }
-
-        static String help() {
-            return "USAGE: winani [-o <output-file>] [-j <jiffies>] <cursor-frame>...";
-        }
-
-    }
-
 
 }

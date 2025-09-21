@@ -16,12 +16,10 @@ import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Optional;
 
 import java.util.logging.Logger;
 
@@ -36,8 +34,6 @@ import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
 import io.github.stanio.awt.SmoothDownscale;
-import io.github.stanio.cli.CommandLine;
-import io.github.stanio.cli.CommandLine.ArgumentException;
 import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
@@ -518,189 +514,5 @@ public class Cursor {
         leOut.write((short) imageCount());
         return HEADER_SIZE;
     }
-
-
-    /*
-     * TODO: Drop the following implementation in favor
-     * of a more general `mousegen compile` command.
-     */
-
-    /**
-     * Command-line entry point.
-     * <pre>
-     * <samp>USAGE: wincur OPTIONS &lt;source-bitmap&gt;...
-     * OPTIONS: [-o &lt;output-file&gt;]
-     *          [-h &lt;x&gt;,&lt;y&gt;]...
-     *          [-r &lt;w&gt;[,&lt;h&gt;]]...
-     *          [-s &lt;w&gt;[,&lt;h&gt;[,&lt;x&gt;,&lt;y&gt;]]]...</samp></pre>
-     *
-     * @param   args  program arguments as given on the command line
-     */
-    public static void main(String[] args) {
-        CommandArgs cmd;
-        try {
-            cmd = new CommandArgs(args);
-        } catch (ArgumentException e) {
-            System.err.append("error: ").println(e.getMessage());
-            System.err.println(CommandArgs.help());
-            System.exit(1);
-            return;
-        }
-
-        try {
-            createCursor(cmd);
-        } catch (IOException e) {
-            System.out.println();
-            System.err.append("error: ").println(e);
-            System.exit(2);
-        }
-    }
-
-    static void createCursor(CommandArgs cmd) throws IOException {
-        Cursor cur = new Cursor();
-        for (int i = 0, len = cmd.outputSize(); i < len; i++) {
-            BufferedImage image = loadImage(cmd.inputFile(i));
-            Dimension sourceSize = imageSize(image);
-            BoxSizing boxSizing = new BoxSizing(cmd.viewBox(i, sourceSize),
-                                                cmd.resolution(i, sourceSize));
-            cur.addImage(image, cmd.hotspot(i), boxSizing);
-            System.out.print('.');
-        }
-        System.out.println();
-
-        boolean outputExists = Files.exists(cmd.outputFile);
-        cur.write(cmd.outputFile);
-        System.out.append(outputExists ? "Existing overwritten " : "Created ")
-                  .println(cmd.outputFile);
-    }
-
-
-    static class CommandArgs {
-
-        Path outputFile;
-        List<Path> inputFiles = new ArrayList<>();
-        List<Point2D> hotspots = new ArrayList<>();
-        List<Dimension> resolutions = new ArrayList<>();
-        List<Rectangle2D> viewBoxes = new ArrayList<>();
-
-        CommandArgs(String... args) {
-            CommandLine cmd = CommandLine.ofUnixStyle()
-                    .acceptOption("-o", p -> outputFile = p, Cursor::pathOf)
-                    .acceptOption("-h", hotspots::addAll, CommandArgs::pointValueOf)
-                    .acceptOption("-r", resolutions::addAll, CommandArgs::sizeValueOf)
-                    .acceptOption("-s", viewBoxes::add, CommandArgs::boxValueOf)
-                    .parseOptions(args);
-
-            Optional<Path> f = Optional.of(cmd
-                    .requireArg(0, "source-bitmap", Cursor::pathOf));
-            for (int index = 1; f.isPresent(); f = cmd
-                    .arg(index++, "source-bitmap[" + index + "]", Cursor::pathOf)) {
-                inputFiles.add(f.get());
-            }
-
-            if (outputFile == null) {
-                Path source = inputFiles.get(0);
-                String fileName = source.getFileName().toString()
-                                        .replaceFirst("\\.[^.]+$", "");
-                outputFile = pathOf(fileName + ".cur");
-            }
-        }
-
-        int outputSize() {
-            return Math.max(Math
-                    .max(inputFiles.size(), resolutions.size()),
-                    Math.max(viewBoxes.size(), hotspots.size()));
-        }
-
-        Path inputFile(int index) {
-            return index < inputFiles.size()
-                    ? inputFiles.get(index)
-                    : inputFiles.get(inputFiles.size() - 1);
-        }
-
-        Dimension resolution(int index, Dimension sourceSize) {
-            if (resolutions.isEmpty()
-                    || index >= resolutions.size()) {
-                return new Dimension(sourceSize);
-            }
-            return resolutions.get(index);
-        }
-
-        Rectangle2D viewBox(int index, Dimension sourceSize) {
-            if (viewBoxes.isEmpty()) {
-                return new Rectangle(sourceSize);
-            }
-
-            Rectangle2D factor = index < viewBoxes.size()
-                                 ? viewBoxes.get(index)
-                                 : viewBoxes.get(viewBoxes.size() - 1);
-            return new Rectangle2D
-                    .Double(factor.getX() * sourceSize.width,
-                            factor.getY() * sourceSize.height,
-                            factor.getWidth() * sourceSize.width,
-                            factor.getHeight() * sourceSize.height);
-        }
-
-        Point2D hotspot(int index) {
-            if (hotspots.isEmpty()) {
-                return new Point();
-            }
-            return index < hotspots.size()
-                    ? hotspots.get(index)
-                    : hotspots.get(hotspots.size() - 1);
-        }
-
-        private static List<Point2D> pointValueOf(String arg) {
-            List<Point2D> points = new ArrayList<>(1);
-            String[] multiple = arg.split(";");
-            for (String str : multiple) {
-                String[] split = str.split(",", 2);
-                double x = Double.parseDouble(split[0].trim());
-                double y = Double.parseDouble(split[1].trim());
-                points.add(new Point2D.Double(x, y));
-            }
-            return points;
-        }
-
-        private static List<Dimension> sizeValueOf(String arg) {
-            List<Dimension> sizes = new ArrayList<>(1);
-            String[] multiple = arg.split(";");
-            for (String str : multiple) {
-                String[] split = str.split(",", 2);
-                int w = Integer.parseInt(split[0].trim());
-                int h = (split.length == 1) ? w : Integer.parseInt(split[1].trim());
-                sizes.add(new Dimension(w, h));
-            }
-            return sizes;
-        }
-
-        private static Rectangle2D boxValueOf(String str) {
-            String[] split = str.split(",", 4);
-            float w = Float.parseFloat(split[0]);
-            float h = (split.length == 1) ? w : Float.parseFloat(split[1]);
-            float x = 0;
-            float y = 0;
-            if (split.length > 2) {
-                x = Float.parseFloat(split[2]);
-                y = Float.parseFloat(split[3]);
-            }
-            return new Rectangle2D.Float(x, y, w, h);
-        }
-
-        static String help() {
-            return "USAGE: wincur OPTIONS <source-bitmap>...\n"
-                    + "OPTIONS: [-o <output-file>] "
-                             + "[-h <x>,<y>]... "
-                             + "[-r <w>[,<h>]]... "
-                             + "[-s <w>[,<h>[,<x>,<y>]]]...";
-        }
-
-    } // class CommandArgs
-
-
-    static Path pathOf(String first, String... more) {
-        return Paths.get(first, more); // Java 1.8
-    }
-
 
 } // class Cursor
