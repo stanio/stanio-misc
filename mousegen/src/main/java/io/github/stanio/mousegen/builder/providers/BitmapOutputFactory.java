@@ -34,8 +34,8 @@ public class BitmapOutputFactory extends CursorBuilderFactory {
                                     boolean updateExisting,
                                     int frameDelayMillis)
             throws IOException {
-        // No updateExisting-specific configuration for bitmaps, yet.
-        return BitmapOutputBuilder.newInstance(targetPath, frameDelayMillis > 0);
+        return updateExisting ? BitmapOutputBuilder.forUpdate(targetPath, frameDelayMillis > 0)
+                              : BitmapOutputBuilder.newInstance(targetPath, frameDelayMillis > 0);
     }
 
 }
@@ -54,9 +54,23 @@ class BitmapOutputBuilder extends CursorBuilder {
     private CursorGenConfig hotspots;
 
     private BitmapOutputBuilder(Path targetPath, boolean animated) {
+        this(targetPath, animated, new CursorGenConfig(configFile(targetPath)));
+    }
+
+    private BitmapOutputBuilder(Path targetPath, boolean animated, CursorGenConfig config) {
         super(targetPath, animated);
-        hotspots = new CursorGenConfig(targetPath.getParent()
-                .resolve(targetPath.getFileName() + ".cursor"));
+        hotspots = config;
+    }
+
+    private static Path configFile(Path targetPath) {
+        return targetPath.getParent().resolve(targetPath.getFileName() + ".cursor");
+    }
+ 
+    static BitmapOutputBuilder forUpdate(Path targetPath, boolean animated)
+            throws IOException {
+        Files.createDirectories(animated ? targetPath : targetPath.getParent());
+        return new BitmapOutputBuilder(targetPath, animated,
+                CursorGenConfig.parse(configFile(targetPath)));
     }
 
     static BitmapOutputBuilder newInstance(Path targetPath, boolean animated)
