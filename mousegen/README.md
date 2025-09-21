@@ -55,17 +55,6 @@ Copy `build/libs/mousegen.jar` to the `Bibata_Cursor` working copy.
     > java -jar mousegen.jar --help
     USAGE: mousegen <command> [<args>]
 
-### `svgsize` (deprecated)
-
-Utility for adjusting SVG sources' `width`, `height`, and `viewBox` for
-rendering at a single target resolution/size.  Previously used as a
-pre-processor to `cbmp` (Bibata `yarn render`) followed by `wincur`.
-
-    > java -jar mousegen.jar svgsize --help
-    USAGE: svgsize <target-size> <viewbox-size> <svg-dir>
-
-_Note:_ This functionality is automatically done by [`render`](#render).
-
 ### `dump`
 
 Dumps (decompiles) one or more supported-format cursor files (Windows, XCursor,

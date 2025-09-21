@@ -30,7 +30,6 @@ public final class Command {
         Map<String, Main> commands = new LinkedHashMap<>();
         // Klass::main references cause eager class initialization.
         commands.put("dump", args -> DumpCommand.main(args));
-        commands.put("svgsize", args -> SVGSizingTool.main(args));
         commands.put("compile", args -> CompileCommand.main(args));
         commands.put("render", args -> MouseGen.main(args));
         commands.put("linuxThemeFiles", args -> LinuxThemeFiles.main(args));
