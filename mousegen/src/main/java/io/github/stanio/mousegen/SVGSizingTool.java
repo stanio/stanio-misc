@@ -6,6 +6,7 @@ package io.github.stanio.mousegen;
 
 import static io.github.stanio.mousegen.Command.exitMessage;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Writer;
@@ -26,8 +27,10 @@ import org.xml.sax.SAXException;
 
 import java.awt.Point;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
+import com.google.gson.reflect.TypeToken;
 
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.svg.DropShadow;
@@ -56,7 +59,7 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
  * {@code "cursor-hotspot"} (if specified) is adjusted with the {@code
  * "align-anchor"} offset, scaled to the target size, and saved to
  * <code>cursor-hotspots-<var>###</var>.json</code> (in the current working
- * directory) for latter consumption by {@link CursorCompiler}.  <var>###</var>
+ * directory) for latter consumption by {@code CursorCompiler}.  <var>###</var>
  * is the specified <var>&lt;viewbox-size></var> associated with the target
  * cursor sizing scheme: <i>Regular</i>, <i>Large</i>, <i>Extra-Large</i>.</p>
  *
@@ -93,7 +96,7 @@ public class SVGSizingTool {
         if (hotspots == null) {
             hotspots = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
             if (Files.exists(hotspotsFile)) {
-                hotspots.putAll(CursorCompiler.readHotspots(hotspotsFile));
+                hotspots.putAll(readHotspots(hotspotsFile));
                 hotspots.replaceAll((k, v) -> {
                     Map<Integer, String> map = new TreeMap<>(Comparator.reverseOrder());
                     map.putAll(v);
@@ -151,6 +154,14 @@ public class SVGSizingTool {
         }
 
         return hotspot;
+    }
+
+    public static Map<String, Map<Integer, String>> readHotspots(Path file)
+            throws IOException, JsonParseException {
+        try (BufferedReader reader = Files.newBufferedReader(file)) {
+            return new Gson().fromJson(reader,
+                    new TypeToken<>() {/* inferred */});
+        }
     }
 
     public void saveHotspots() throws IOException {

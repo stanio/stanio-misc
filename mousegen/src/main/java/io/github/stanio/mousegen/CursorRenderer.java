@@ -49,7 +49,6 @@ public final class CursorRenderer {
     private Document sourceDocument;
     private double sourceViewBoxSize = -1;
 
-    private String cursorName;
     private Animation animation;
     private Integer frameNum;
     private String targetName;
@@ -63,7 +62,6 @@ public final class CursorRenderer {
 
     private volatile DocumentColors colorTheme;
     private volatile SVGSizing svgSizing;
-    private volatile SVGSizingTool sizingTool;
     private double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
     private double minStrokeWidth;
     private boolean wholePixelStroke;
@@ -72,7 +70,6 @@ public final class CursorRenderer {
     private double fillOffset;
 
     private final Map<Path, CursorBuilder> deferredFrames = new HashMap<>();
-    private final Map<Path, SVGSizingTool> hotspotsPool = new HashMap<>();
 
     private CursorBuilder currentFrames;
 
@@ -138,18 +135,16 @@ public final class CursorRenderer {
         return loadTransformer.loadDocument(svgFile);
     }
 
-    public void setDocument(String cursorName, Document svg, String targetName) {
+    public void setDocument(Document svg, String targetName) {
         resetFile();
-        this.cursorName = cursorName;
         this.targetName = targetName;
         this.sourceFile = null;
         this.sourceDocument = svg;
         this.sourceViewBoxSize = -1;
     }
 
-    public void setFile(String cursorName, Path svgFile, String targetName) throws IOException {
+    public void setFile(Path svgFile, String targetName) throws IOException {
         resetFile();
-        this.cursorName = cursorName;
         this.targetName = targetName;
         this.sourceFile = svgFile;
         this.sourceDocument = null;
@@ -168,7 +163,6 @@ public final class CursorRenderer {
         frameNum = backend.frameNum = null;
         currentFrames = null;
         resetDocument();
-        sizingTool = null;
     }
 
     private void resetDocument() {
@@ -250,11 +244,6 @@ public final class CursorRenderer {
     }
 
     private void prepareDocument(int targetSize) throws IOException {
-        /* setCanvasSize */ {
-            sizingTool = hotspotsPool.computeIfAbsent(outDir, dir ->
-                    new SVGSizingTool(canvasSizing.canvasSize, dir.resolve("cursor-hotspots.json")));
-        }
-
         setUpStrokeWidth(targetSize);
 
         boolean resetDocument;
@@ -344,8 +333,8 @@ public final class CursorRenderer {
                 try {
                     // REVISIT: Implement "reset sizing" to remove previous alignments,
                     // and/or provide flag whether to apply alignments.
-                    return sizingTool.applySizing(cursorName, svgSizing,
-                            targetSize, strokeOffset, fillOffset);
+                    return svgSizing.apply(
+                            targetSize, canvasSizing.canvasSize, strokeOffset, fillOffset);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
@@ -395,15 +384,6 @@ public final class CursorRenderer {
         throw new RuntimeException(e);
     }
 
-    //public void saveHotspots() throws IOException {
-    //    var iterator = hotspotsPool.values().iterator();
-    //    while (iterator.hasNext()) {
-    //        var hotspots = iterator.next();
-    //        hotspots.saveHotspots();
-    //        iterator.remove();
-    //    }
-    //}
-
     public void reset() {
         resetFile();
         setStrokeWidth(null);
@@ -412,7 +392,6 @@ public final class CursorRenderer {
         setWholePixelStroke(false);
         setExpandFillBase(null);
         setPointerShadow(null);
-        hotspotsPool.clear();
         deferredFrames.clear();
     }
 

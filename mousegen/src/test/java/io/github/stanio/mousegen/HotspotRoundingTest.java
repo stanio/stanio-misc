@@ -179,7 +179,7 @@ class HotspotRoundingTest {
             throws IOException
     {
         if (!Objects.equals(cursorName, lastCursor)) {
-            renderer.setFile(cursorName, getFileResource("test/hotspot/"
+            renderer.setFile(getFileResource("test/hotspot/"
                                          + cursorName + ".svg"), cursorName);
             lastCursor = cursorName;
         }

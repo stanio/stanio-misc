@@ -72,6 +72,9 @@ public class MouseGen {
         private OutputType() {}
     }
 
+    private final int maxAnimSize = Integer.getInteger("mousegen.maxAnimSize", 256);
+    private final int minAnimSize = Integer.getInteger("mousegen.minAnimSize", 16);
+
     private final Path projectDir; // source base
     private final Path buildDir;   // output base
 
@@ -229,7 +232,7 @@ public class MouseGen {
     private void renderSVG(String cursorName, Document svg, String targetName,
                            Animation animation, Integer frameNum,
                            Collection<ThemeConfig> renderConfig) throws IOException {
-        renderer.setDocument(cursorName, svg, targetName);
+        renderer.setDocument(svg, targetName);
 
         for (ThemeConfig config : renderConfig) {
             // REVISIT: Test cursorName or animation.lowerName
@@ -264,8 +267,8 @@ public class MouseGen {
 
         for (int res : resolutions(config)) {
             if (animation != null
-                    && (res > CursorCompiler.maxAnimSize
-                            || res < CursorCompiler.minAnimSize)
+                    && (res > maxAnimSize
+                            || res < minAnimSize)
                     && resolutions(config).length > 1)
                 continue;
 
