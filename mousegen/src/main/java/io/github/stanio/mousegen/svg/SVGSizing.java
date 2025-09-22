@@ -44,8 +44,7 @@ import java.awt.geom.Dimension2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
-import io.github.stanio.windows.Cursor;
-
+import io.github.stanio.mousegen.BoxSizing;
 import io.github.stanio.mousegen.util.LocalXMLReader;
 import io.github.stanio.mousegen.util.SAXReplayBuffer;
 
@@ -248,7 +247,7 @@ public class SVGSizing {
             });
 
             Point2D hotspot = metadata.hotspot.pointWithOffset(strokeOffset, fillOffset);
-            Point2D offsetHotspot = new Cursor.BoxSizing(viewBox, targetDimension)
+            Point2D offsetHotspot = new BoxSizing(viewBox, targetDimension)
                                     .getTransform().transform(hotspot, null);
             int x = roundHotspotCoord(offsetHotspot.getX(), metadata.hotspot.bias().dX(),
                         metadata.hotspot.x() / metadata.sourceViewBox.getWidth());

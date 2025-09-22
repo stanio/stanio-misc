@@ -24,16 +24,13 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import java.awt.Dimension;
+import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 
 import javax.imageio.ImageIO;
 
-import io.github.stanio.awt.SmoothDownscale;
 import io.github.stanio.io.BufferedChannelOutput;
 import io.github.stanio.io.DataFormatException;
 import io.github.stanio.io.ReadableChannelBuffer;
@@ -53,68 +50,6 @@ import io.github.stanio.windows.CursorReader.DirEntry;
  * @see  CursorReader
  */
 public class Cursor {
-
-
-    /**
-     * Encapsulates target image dimension and a corresponding transformation
-     * for a given source image dimension.
-     */
-    public static class BoxSizing {
-
-        final Dimension target;
-        final AffineTransform transform;
-
-        /**
-         * Constructs a {@code BoxSizing} for target dimension equal to the
-         * given source dimension and an <i>identity</i> transformation.
-         *
-         * @param  source  source image dimension
-         */
-        public BoxSizing(Dimension source) {
-            this.target = new Dimension(source);
-            this.transform = new AffineTransform();
-        }
-
-        /**
-         * Constructs a {@code BoxSizing} with the given target dimension
-         * and a corresponding transformation from the given source dimension.
-         *
-         * @param  source  source image dimension
-         * @param  target  target image dimension
-         */
-        public BoxSizing(Dimension source, Dimension target) {
-            this(new Rectangle(source), target);
-        }
-
-        /**
-         * Constructs a {@code BoxSizing} with the given target dimension
-         * and a corresponding transformation from the given source view-box.
-         * <p>
-         * The view-box defines position and dimension within the source image
-         * to project into the given target dimension.  The view-box may specify
-         * dimension greater than the source image in which case the source
-         * canvas is expanded.  The primary use-case for this is for producing
-         * different cursor-scheme sizes (Regular, Large, Extra-Large) from a
-         * single source bitmap.</p>
-         *
-         * @param  viewBox  viewport position and dimension in source space
-         * @param  target  target image dimension
-         */
-        public BoxSizing(Rectangle2D viewBox, Dimension target) {
-            this.target = new Dimension(target);
-
-            AffineTransform txf = new AffineTransform();
-            txf.setToScale(target.width / viewBox.getWidth(),
-                           target.height / viewBox.getHeight());
-            txf.translate(-viewBox.getX(), -viewBox.getY());
-            this.transform = txf;
-        }
-
-        public AffineTransform getTransform() {
-            return new AffineTransform(transform);
-        }
-
-    } // class BoxSizing
 
 
     static final class Image {
@@ -288,46 +223,42 @@ public class Cursor {
     /**
      * Adds a variant image to this cursor.  This is equivalent to:
      * <pre>
-     * <code>    BoxSizing originalSize = new BoxSizing(
-     *             new Dimension(image.getWidth(), image.getHeight()));
-     *     addImage(image, hotspot, originalSize);</code></pre>
+     * <code>    addImage(image, hotspot, image.getWidth());</code></pre>
      *
      * @param   image  variant image to add
      * @param   hotspot  hotspot for the given variant image
-     * @see     #addImage(BufferedImage, Point2D, BoxSizing)
+     * @see     #addImage(BufferedImage, Point2D, int)
      */
     public void addImage(BufferedImage image, Point2D hotspot) {
-        addImage(image, hotspot, new BoxSizing(imageSize(image)));
+        addImage(image, hotspot, image.getWidth());
     }
 
     /**
-     * Adds a variant image to this cursor.  The given {@code sizing} may
-     * represent an <i>identity</i> transform in which case the source image
-     * and hotspot are used as given.  The given {@code hotspot} is always
-     * interpreted in the source image coordinates, and is adjusted according
-     * to the given {@code sizing} as necessary.
+     * Adds a variant image to this cursor.  If the given image dimensions
+     * don't match the given {@code nominalSize}, the bitmap will be cropped or
+     * expanded as necessary.
      *
      * @param   image  variant image to add
      * @param   hotspot  hotspot for the given variant image
-     * @param   sizing  target size transformation to apply to the given
-     *          source image and hotspot
+     * @param   nominalSize  target canvas size
      */
-    public void addImage(BufferedImage image, Point2D hotspot, BoxSizing sizing) {
+    public void addImage(BufferedImage image, Point2D hotspot, int nominalSize) {
         if (entries.size() >= 0xFFFF) // DWORD
             throw new IllegalStateException("Too many images: " + entries.size());
 
         BufferedImage argb;
-        Point hxy;
-        if (sizing.transform.isIdentity()
-                && sizing.target.width == image.getWidth()
-                && sizing.target.height == image.getHeight()
+        Point hxy = clampHotspot(hotspot);
+        if (image.getWidth() == nominalSize
+                && image.getHeight() == nominalSize
                 && isARGB(image)) {
             argb = image;
-            hxy = clampHotspot(hotspot);
         } else {
-            argb = SmoothDownscale.resize(image,
-                    sizing.target.width, sizing.target.height);
-            hxy = clampHotspot(sizing.transform.transform(hotspot, null));
+            BufferedImage canvas = new BufferedImage(nominalSize, nominalSize,
+                                                     BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = canvas.createGraphics();
+            g.drawImage(image, 0, 0, null);
+            g.dispose();
+            argb = canvas;
         }
         addARGBImage(argb, hxy);
     }
@@ -398,24 +329,10 @@ public class Cursor {
      * @param   file  file to read the variant image from
      * @param   hotspot  hotspot for the given variant image
      * @throws  IOException  if I/O error or failure to decode the image happens
-     * @see     #addImage(Path, Point2D, BoxSizing)
+     * @see     #addImage(Path, Point2D)
      */
     public void addImage(Path file, Point2D hotspot) throws IOException {
         addImage(loadImage(file), hotspot);
-    }
-
-    /**
-     * Adds a variant image to this cursor.
-     *
-     * @param   file  file to read the variant image from
-     * @param   hotspot  hotspot for the given variant image
-     * @param   sizing  sizing transformation to apply to the given
-     *          source image and hotspot
-     * @throws  IOException  if I/O error or failure to decode the image happens
-     * @see     #addImage(BufferedImage, Point2D, BoxSizing)
-     */
-    public void addImage(Path file, Point2D hotspot, BoxSizing sizing) throws IOException {
-        addImage(loadImage(file), hotspot, sizing);
     }
 
     /**
