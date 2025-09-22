@@ -74,7 +74,7 @@ public class XCursorDumpProvider extends AbstractDumpProvider {
             this.detectOnly = false;
             this.cursorName = baseName;
             this.targetDir = outDir;
-            this.targetPattern = baseName + "-%s.png";
+            this.targetPattern = "%s-%s.png";
             this.metadata = new CursorGenConfig(outDir.resolve(baseName + ".cursor"));
         }
 
