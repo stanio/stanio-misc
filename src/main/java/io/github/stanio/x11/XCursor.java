@@ -310,7 +310,7 @@ public class XCursor {
         int[] pixels = IntPixels.getRGB(image);
         Rectangle bounds = IntPixels.contentBounds(pixels, image.getWidth(), hotspot);
         int bitmapSize = cropToContent
-                         ? Math.max(bounds.width, bounds.height)
+                         ? Math.max(ceilEven(bounds.width), ceilEven(bounds.height))
                          // REVISIT: Can we safely have a bigger than the nominal
                          // size, while keeping it uniform / square?
                          : Math.max(image.getWidth(), image.getHeight());
@@ -335,6 +335,10 @@ public class XCursor {
                                                hotspot.y - bounds.y,
                                                delay, pixels,
                                                bounds.width * bounds.height));
+    }
+
+    private static int ceilEven(int dim) {
+        return dim + (dim % 2);
     }
 
     /*synchronized*/ void addFrameImage(Integer frameNum, ImageChunk image) {
