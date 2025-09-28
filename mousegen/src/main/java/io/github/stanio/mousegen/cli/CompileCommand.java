@@ -64,6 +64,21 @@ import io.github.stanio.mousegen.options.SizeScheme;
 
 public class CompileCommand {
 
+    private static Point alignAnchor;
+    static {
+        String[] coordinates = System.getProperty("mousegen.compile.alignAnchor", "").split(",");
+        if (coordinates.length == 2) {
+            try {
+                alignAnchor = new Point(Integer.parseInt(coordinates[0].trim()),
+                                        Integer.parseInt(coordinates[1].trim()));
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid alignAnchor: "
+                        + System.getProperty("mousegen.compile.alignAnchor")
+                        + " (" + e + ")");
+            }
+        }
+    }
+
     private final CursorBuilderFactory builderFactory;
 
     private CommandArgs args;
@@ -189,7 +204,7 @@ public class CompileCommand {
                 System.out.println("Resampling target size " + targetSize
                         + ": " + bitmap.getWidth() + "x" + bitmap.getHeight()
                         + " -> " + dim.x + "x" + dim.y);
-                BufferedImage scaled = SmoothDownscale.resize(bitmap, dim.x, dim.y);
+                BufferedImage scaled = SmoothDownscale.resize(bitmap, dim.x, dim.y, alignAnchor);
                 bitmap = scaled;
 
                 Point2D fHotspot = at.transform(hotspot, null);
