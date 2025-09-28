@@ -6,7 +6,6 @@ package io.github.stanio.mousegen.cli;
 
 import static io.github.stanio.cli.CommandLine.splitOnComma;
 import static io.github.stanio.mousegen.Command.exitMessage;
-import static io.github.stanio.mousegen.svg.SVGSizing.roundHotspotCoord;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -194,9 +193,8 @@ public class CompileCommand {
                 bitmap = scaled;
 
                 Point2D fHotspot = at.transform(hotspot, null);
-                hotspot.setLocation(
-                        roundHotspotCoord(fHotspot.getX(), 0.0, hotspot.getX() / bitmap.getWidth()),
-                        roundHotspotCoord(fHotspot.getY(), 0.0, hotspot.getY() / bitmap.getHeight()));
+                hotspot.setLocation((int) Math.floor(fHotspot.getX()),
+                                    (int) Math.floor(fHotspot.getY()));
             } else {
                 System.out.println("Source size " + source.nominalSize()
                         + " -> target size " + targetSize);
