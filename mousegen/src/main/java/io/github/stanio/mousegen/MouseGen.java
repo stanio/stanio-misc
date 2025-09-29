@@ -52,6 +52,7 @@ import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.options.ThemeConfig;
 import io.github.stanio.mousegen.render.CursorRenderer;
+import io.github.stanio.mousegen.render.ScalableCursorBuilder;
 import io.github.stanio.mousegen.svg.DropShadow;
 
 /**
@@ -69,6 +70,7 @@ public class MouseGen {
                 BITMAPS = "BITMAPS",
                 WINDOWS_CURSORS = "WINDOWS_CURSORS",
                 LINUX_CURSORS = "LINUX_CURSORS",
+                SCALABLE_CURSORS = "SCAlABLE_CURSORS",
                 MOUSECAPE_THEME = "MOUSECAPE_THEME";
         private OutputType() {}
     }
@@ -90,7 +92,9 @@ public class MouseGen {
     MouseGen(Path projectDir, Path buildDir, String type) {
         this.projectDir = Objects.requireNonNull(projectDir, "null projectDir");
         this.buildDir = Objects.requireNonNull(buildDir, "null buildDir");
-        renderer = new CursorRenderer(type);
+        renderer = type.equals(OutputType.SCALABLE_CURSORS)
+                   ? new CursorRenderer(ScalableCursorBuilder.dummyFactory())
+                   : new CursorRenderer(type);
         this.outputType = type;
 
         ThreadFactory dtf = Executors.defaultThreadFactory();
@@ -261,6 +265,8 @@ public class MouseGen {
         Path outDir = buildDir.resolve(config.name());
         if (outputType.equals(OutputType.LINUX_CURSORS)) {
             outDir = outDir.resolve("cursors");
+        } else if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
+            outDir = outDir.resolve("cursors_scalable");
         }
         renderer.setOutDir(outDir);
 
@@ -276,8 +282,14 @@ public class MouseGen {
             if (res > 0) {
                 progress.next(res);
             }
-            renderer.renderTargetSize((int)
-                    Math.round(res * scheme.nominalSize));
+            if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
+                renderer.prepareScalable((int)
+                        Math.round(res * scheme.nominalSize));
+            } else {
+                renderer.renderTargetSize((int)
+                        Math.round(res * scheme.nominalSize));
+
+            }
         }
 
         renderer.saveCurrent();
@@ -426,6 +438,8 @@ public class MouseGen {
                             setOutputType(OutputType.WINDOWS_CURSORS, val, "win-names"))
                     .acceptOptionalArg("--linux-cursors", val ->
                             setOutputType(OutputType.LINUX_CURSORS, val, "x11-names"))
+                    .acceptOptionalArg("--scalable-cursors", val ->
+                            setOutputType(OutputType.SCALABLE_CURSORS, val, "x11-names"))
                     .acceptOptionalArg("--mousecape-theme", val ->
                             setOutputType(OutputType.MOUSECAPE_THEME, val, "mac-names"))
                     .acceptFlag("--all-cursors", () -> allCursors = true)

@@ -4,6 +4,8 @@
  */
 package io.github.stanio.mousegen.render;
 
+import static io.github.stanio.mousegen.svg.SVGSizing.roundHotspotCoord;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -16,10 +18,14 @@ import java.util.Optional;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import java.awt.Dimension;
 import java.awt.Point;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 
 import io.github.stanio.io.DataFormatException;
 
+import io.github.stanio.mousegen.BoxSizing;
 import io.github.stanio.mousegen.DocumentColors;
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
@@ -28,6 +34,7 @@ import io.github.stanio.mousegen.internal.AsyncCursorBuilderFactory;
 import io.github.stanio.mousegen.internal.WorkQueue.AsyncException;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
+import io.github.stanio.mousegen.svg.AnchorPoint;
 import io.github.stanio.mousegen.svg.DropShadow;
 import io.github.stanio.mousegen.svg.SVGCursorMetadata;
 import io.github.stanio.mousegen.svg.SVGSizing;
@@ -209,7 +216,7 @@ public final class CursorRenderer {
         return sourceViewBoxSize;
     }
 
-    private void setUpStrokeWidth(int targetSize) throws IOException {
+    private boolean setUpStrokeWidth(int targetSize) throws IOException {
         Double actualStrokeWidth; {
             double hairWidth;
             double sourceCanvasSize = sourceViewBoxSize() * canvasSizing.canvasSize;
@@ -242,10 +249,6 @@ public final class CursorRenderer {
                 strokeOffset = actualStrokeWidth - baseStrokeWidth;
             }
         }
-    }
-
-    private void prepareDocument(int targetSize) throws IOException {
-        setUpStrokeWidth(targetSize);
 
         boolean resetDocument;
         if (strokeOffset == variantTransformer.strokeDiff()
@@ -256,6 +259,11 @@ public final class CursorRenderer {
             variantTransformer.setExpandFillDiff(fillOffset);
             resetDocument = true;
         }
+        return resetDocument;
+    }
+
+    private void prepareDocument(int targetSize) throws IOException {
+        boolean resetDocument = setUpStrokeWidth(targetSize);
 
         // initDocument
         if (resetDocument || colorTheme == null || svgSizing == null) {
@@ -348,6 +356,9 @@ public final class CursorRenderer {
     public void saveCurrent() throws IOException {
         // Static cursor or complete animation
         if (animation == null || frameNum == null) {
+            if (currentScalable != null) {
+                currentScalable.complete();
+            } else
             try {
                 currentFrames.build();
             } catch (AsyncException e) {
@@ -355,6 +366,7 @@ public final class CursorRenderer {
             }
         }
         currentFrames = null;
+        currentScalable = null;
     }
 
     public void saveDeferred() throws IOException {
@@ -369,6 +381,7 @@ public final class CursorRenderer {
         } catch (AsyncException e) {
             throw targetException(e.getCause(), IOException.class);
         }
+        completeDeferredScalable();
     }
 
     public static <T extends Exception> T targetException(Throwable e, Class<T> targetClass) {
@@ -394,6 +407,96 @@ public final class CursorRenderer {
         setExpandFillBase(null);
         setPointerShadow(null);
         deferredFrames.clear();
+    }
+
+    private final Map<Path, ScalableCursorBuilder> deferredScalable = new HashMap<>();
+    ScalableCursorBuilder currentScalable;
+    private Document scalableVariant;
+
+    public void prepareScalable(int targetSize) throws IOException {
+        // targetSize = 32
+        assert (targetSize % 8 == 0);
+
+        // setUpScalableOutput
+        try {
+            if (animation == null || frameNum == null) {
+                currentScalable = new ScalableCursorBuilder(
+                        outDir.resolve(targetName), animation != null);
+            } else {
+                assert (animation != null);
+                currentScalable = deferredScalable.computeIfAbsent(
+                        outDir.resolve(targetName), k -> new ScalableCursorBuilder(k, true));
+            }
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+
+        // prepareDocument
+        boolean resetDocument = setUpStrokeWidth(targetSize);
+        // - initDocument
+        if (resetDocument || colorTheme == null || svgSizing == null) {
+            scalableVariant = variantTransformer.transformDocument(sourceDocument());
+            svgSizing = SVGSizing.forDocument(scalableVariant);
+            //svgSizing.metadata().clearChildAnchors();
+            colorTheme = DocumentColors.forDocument(scalableVariant);
+        }
+        Document svg = scalableVariant;
+        colorTheme.apply(colorMap);
+
+        // applySizing
+        // - adjust alignment to 8x8 grid
+        svgSizing.apply(8, canvasSizing.canvasSize, strokeOffset, fillOffset);
+        String viewBoxSpec = svg.getDocumentElement().getAttribute("viewBox");
+        svgSizing.apply(targetSize, canvasSizing.canvasSize, strokeOffset, fillOffset);
+        svg.getDocumentElement().setAttribute("viewBox", viewBoxSpec);
+
+        // - but calculate the hotspot for the target size
+        Point2D hotspot = new Point2D.Double();
+        {
+            final int fractionalPrecision = 4;
+            SVGCursorMetadata metadata = svgSizing.metadata();
+            AnchorPoint sourceHotspot = metadata.hotspot();
+            Rectangle2D sourceViewBox = metadata.sourceViewBox();
+
+            hotspot.setLocation(sourceHotspot.pointWithOffset(strokeOffset, fillOffset));
+            new BoxSizing(SVGCursorMetadata.parseViewBox(viewBoxSpec),
+                          new Dimension(targetSize * fractionalPrecision,
+                                        targetSize * fractionalPrecision))
+                    .getTransform().transform(hotspot, hotspot);
+            int x = roundHotspotCoord(hotspot.getX(),
+                                      sourceHotspot.bias().dX(),
+                                      sourceHotspot.x() / sourceViewBox.getWidth());
+            int y = roundHotspotCoord(hotspot.getY(),
+                                      sourceHotspot.bias().dY(),
+                                      sourceHotspot.y() / sourceViewBox.getHeight());
+            hotspot.setLocation((double) x / fractionalPrecision,
+                                (double) y / fractionalPrecision);
+        }
+
+        // nominalSize = 24
+        int nominalSize = (Math.round(targetSize / (float)
+                canvasSizing.nominalSize) + 1) / 2 * 2; // round to even
+
+        // "render"
+        int frameMillis = frameMillis();
+        if (animation == null || frameNum != null) {
+            // Static cursor or animation frame from static image
+            currentScalable.addFrame(frameNum == null ? 1 : frameNum,
+                    nominalSize, hotspot, svg, frameMillis);
+        } else {
+            // Animated SVGs not supported currently
+            assert (animation != null);
+            currentScalable.addFrame(1, nominalSize, hotspot, svg, frameMillis);
+        }
+    }
+
+    void completeDeferredScalable() throws IOException {
+        var iterator = deferredScalable.entrySet().iterator();
+        while (iterator.hasNext()) {
+            var entry = iterator.next();
+            entry.getValue().complete();
+            iterator.remove();
+        }
     }
 
 } // class CursorRenderer
