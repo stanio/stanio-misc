@@ -209,9 +209,10 @@ public class SVGSizing {
                         double strokeOffset, double fillOffset,
                         OffsetsUpdate<E> offsetsConsumer)
             throws E {
-        return updateOffsets(new Dimension(targetSize, targetSize),
-                new Rectangle2D.Double(0, 0, canvasSize, canvasSize),
-                strokeOffset, fillOffset, offsetsConsumer);
+        Rectangle2D viewBox = sizeCanvas(new Rectangle2D.Double(0, 0, canvasSize, canvasSize));
+        Dimension targetDimensions = new Dimension(targetSize, targetSize);
+        return updateOffsets(targetDimensions,
+                viewBox, strokeOffset, fillOffset, offsetsConsumer);
     }
 
     private Rectangle2D sizeCanvas(Rectangle2D sizing) {
@@ -226,15 +227,13 @@ public class SVGSizing {
 
     private <E extends Exception>
     Point updateOffsets(Dimension targetDimension,
-                        Rectangle2D canvasSizing,
+                        Rectangle2D viewBox,
                         double strokeOffset, double fillOffset,
                         OffsetsUpdate<E> offsetsConsumer)
             throws E {
-        Rectangle2D viewBox;
         Map<ElementPath, Point2D> objectOffsets;
         Point alignedHotspot;
         {
-            viewBox = sizeCanvas(canvasSizing);
             adjustViewBoxOrigin(viewBox,
                     alignToGrid(metadata.rootAnchor.pointWithOffset(strokeOffset, fillOffset),
                                 targetDimension, viewBox));
