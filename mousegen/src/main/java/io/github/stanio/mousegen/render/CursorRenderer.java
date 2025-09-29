@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.mousegen;
+package io.github.stanio.mousegen.render;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -20,6 +20,7 @@ import java.awt.Point;
 
 import io.github.stanio.io.DataFormatException;
 
+import io.github.stanio.mousegen.DocumentColors;
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
@@ -36,7 +37,7 @@ import io.github.stanio.mousegen.svg.SVGTransformer;
  * Creates cursors from SVG sources.  Implements the actual cursor generation,
  * independent from the user UI (the {@code MouseGen} CLI tool).
  *
- * @see  MouseGen
+ * @see  io.github.stanio.mousegen.MouseGen
  */
 public final class CursorRenderer {
 
@@ -370,7 +371,7 @@ public final class CursorRenderer {
         }
     }
 
-    static <T extends Exception> T targetException(Throwable e, Class<T> targetClass) {
+    public static <T extends Exception> T targetException(Throwable e, Class<T> targetClass) {
         if (e instanceof Error) {
             throw (Error) e;
         } else if (targetClass == IOException.class

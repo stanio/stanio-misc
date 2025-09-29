@@ -12,12 +12,10 @@ import java.util.Objects;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 
-import io.github.stanio.mousegen.CursorRenderer;
-
 /**
  * Abstract cursor builder interface for use by the {@code CursorRenderer}.
  *
- * @see  CursorRenderer
+ * @see  io.github.stanio.mousegen.render.CursorRenderer
  */
 public abstract class CursorBuilder {
 

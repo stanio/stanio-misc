@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.mousegen;
+package io.github.stanio.mousegen.render;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

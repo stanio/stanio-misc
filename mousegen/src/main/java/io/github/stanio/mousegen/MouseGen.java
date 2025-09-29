@@ -6,7 +6,7 @@ package io.github.stanio.mousegen;
 
 import static io.github.stanio.mousegen.Command.endsWithIgnoreCase;
 import static io.github.stanio.mousegen.Command.exitMessage;
-import static io.github.stanio.mousegen.CursorRenderer.targetException;
+import static io.github.stanio.mousegen.render.CursorRenderer.targetException;
 import static io.github.stanio.cli.CommandLine.splitOnComma;
 
 import java.io.IOException;
@@ -51,6 +51,7 @@ import io.github.stanio.mousegen.options.LabeledOption;
 import io.github.stanio.mousegen.options.SizeScheme;
 import io.github.stanio.mousegen.options.StrokeWidth;
 import io.github.stanio.mousegen.options.ThemeConfig;
+import io.github.stanio.mousegen.render.CursorRenderer;
 import io.github.stanio.mousegen.svg.DropShadow;
 
 /**

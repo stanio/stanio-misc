@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2025 Stanio <stanio AT yahoo DOT com>
  * SPDX-License-Identifier: 0BSD
  */
-package io.github.stanio.mousegen;
+package io.github.stanio.mousegen.render;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -179,7 +179,7 @@ class HotspotRoundingTest {
             throws IOException
     {
         if (!Objects.equals(cursorName, lastCursor)) {
-            renderer.setFile(getFileResource("test/hotspot/"
+            renderer.setFile(getFileResource("../test/hotspot/"
                                          + cursorName + ".svg"), cursorName);
             lastCursor = cursorName;
         }

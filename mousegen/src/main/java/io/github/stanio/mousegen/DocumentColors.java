@@ -21,7 +21,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
-class DocumentColors {
+public class DocumentColors {
 
     private final Document document;
 
