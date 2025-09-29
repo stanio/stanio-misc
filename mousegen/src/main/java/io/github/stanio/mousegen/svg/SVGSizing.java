@@ -171,12 +171,12 @@ public class SVGSizing {
                     String.format(Locale.ROOT, "%s %s %s %s",
                             viewBox.getX(), viewBox.getY(),
                             viewBox.getWidth(), viewBox.getHeight()));
-            svgRoot.setAttribute("_viewBox",
-                    String.format(Locale.ROOT, "%s %s %s %s",
-                            metadata.sourceViewBox.getX(),
-                            metadata.sourceViewBox.getY(),
-                            metadata.sourceViewBox.getWidth(),
-                            metadata.sourceViewBox.getHeight()));
+            //svgRoot.setAttribute("_viewBox",
+            //        String.format(Locale.ROOT, "%s %s %s %s",
+            //                metadata.sourceViewBox.getX(),
+            //                metadata.sourceViewBox.getY(),
+            //                metadata.sourceViewBox.getWidth(),
+            //                metadata.sourceViewBox.getHeight()));
             childOffsets.forEach((elementPath, childOffset) -> {
                 XPathExpression xpath = XPathCache.getExpr(elementPath.xpath());
                 Element elem;

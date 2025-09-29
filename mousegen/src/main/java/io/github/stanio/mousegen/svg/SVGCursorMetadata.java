@@ -164,6 +164,10 @@ public class SVGCursorMetadata {
         return Collections.unmodifiableMap(childAnchors);
     }
 
+    public void clearChildAnchors() {
+        childAnchors.clear();
+    }
+
     @Override
     public String toString() {
         return "SVGCursorMetadata"
