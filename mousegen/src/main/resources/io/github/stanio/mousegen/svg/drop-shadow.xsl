@@ -18,7 +18,7 @@
   <xsl:param name="shadow-color">#000000</xsl:param>
 
   <xsl:template match="/svg:svg">
-    <xsl:copy>
+    <svg xmlns:xlink="http://www.w3.org/1999/xlink">
       <xsl:copy-of select="@*" />
 
       <xsl:choose>
@@ -45,7 +45,7 @@
         </defs>
         <xsl:text>&#xA;</xsl:text>
       </xsl:if>
-    </xsl:copy>
+    </svg>
   </xsl:template>
 
   <!-- Update existing -->
