@@ -94,11 +94,6 @@ public class X11Symlinks {
                 }
 
                 out.append(relativize(path, baseDir));
-                if (Files.isDirectory(path)) {
-                    out.println(WARN, withColor(" (directory!)", YELLOW));
-                    continue;
-                }
-
                 if (Files.isSymbolicLink(path)) {
                     printLinkInfo(path, baseDir);
                     continue;
