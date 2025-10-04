@@ -196,7 +196,7 @@ public class ColorWheel {
         Path animDefs;
         optIdx = cmdArgs.indexOf("-a");
         if (optIdx < 0) {
-            animDefs = Path.of("animations.json");
+            animDefs = Path.of("configs/animations.json");
         } else if (optIdx + 1 >= cmdArgs.size()) {
             printUsageAndExit();
             throw runningAfterSystemExit();
