@@ -317,7 +317,7 @@ public final class CursorRenderer {
 
         Point hotspot = applySizing(size);
         try {
-            int nominalSize = (Math.round(size / (float)
+            int nominalSize = (Math.round(size * (float)
                     canvasSizing.nominalSize) + 1) / 2 * 2; // round to even
             int frameMillis = frameMillis();
             if (animation == null || frameNum != null) {
@@ -474,7 +474,7 @@ public final class CursorRenderer {
         }
 
         // nominalSize = 24
-        int nominalSize = (Math.round(targetSize / (float)
+        int nominalSize = (Math.round(targetSize * (float)
                 canvasSizing.nominalSize) + 1) / 2 * 2; // round to even
 
         // "render"

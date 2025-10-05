@@ -284,10 +284,10 @@ public class MouseGen {
             }
             if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
                 renderer.prepareScalable((int)
-                        Math.round(res * scheme.nominalSize));
+                        Math.round(res / scheme.nominalSize));
             } else {
                 renderer.renderTargetSize((int)
-                        Math.round(res * scheme.nominalSize));
+                        Math.round(res / scheme.nominalSize));
 
             }
         }

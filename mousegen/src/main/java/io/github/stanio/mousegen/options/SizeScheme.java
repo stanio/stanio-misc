@@ -47,7 +47,7 @@ public final class SizeScheme {
 
         default:
             // <canvasSize>       ->  <canvasSize>/1
-            // '/' <nominalSize>  ->  <nominalSize>/<nominalSize>
+            // '/' <nominalSize>  ->  1/<nominalSize>
             // <canvasSize> '/' <nominalSize>
             // [':' <name>]
             String[] args;
@@ -68,7 +68,7 @@ public final class SizeScheme {
                 nominalFactor = 1;
             }
             if (canvasFactor == 0) {
-                canvasFactor = nominalFactor;
+                canvasFactor = 1;
             }
             if (name == null && canvasFactor == 1.0 && nominalFactor == 1.0) {
                 return SOURCE;
