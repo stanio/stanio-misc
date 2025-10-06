@@ -169,8 +169,10 @@ public class SVGSizing {
             svgRoot.setAttribute("height", String.valueOf(targetSize));
             svgRoot.setAttribute("viewBox",
                     String.format(Locale.ROOT, "%s %s %s %s",
-                            viewBox.getX(), viewBox.getY(),
-                            viewBox.getWidth(), viewBox.getHeight()));
+                            limitFractional(viewBox.getX()).toPlainString(),
+                            limitFractional(viewBox.getY()).toPlainString(),
+                            limitFractional(viewBox.getWidth()).toPlainString(),
+                            limitFractional(viewBox.getHeight()).toPlainString()));
             //svgRoot.setAttribute("_viewBox",
             //        String.format(Locale.ROOT, "%s %s %s %s",
             //                metadata.sourceViewBox.getX(),
