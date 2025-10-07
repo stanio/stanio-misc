@@ -12,13 +12,16 @@
       <!-- A stroke used to paint a logical fill, and stroke-width = base-stroke-width.  The "fixed-stroke" class prevents any stroke-width adjustment (see "fill-stroke" further) -->
     </path>
   </g>
-  <g id="rect-shape" paint-order="stroke fill">
-    <rect x="8" y="10" width="12" height="11" rx="1" ry="1" fill="none" stroke="#0000ff" stroke-width="4.5">
-      <!-- Stroke painted under the fill, and stroke-width ≥ (2 × base-stroke-width) - should adjust for both stroke-diff and fill-diff -->
-    </rect>
-    <rect x="8" y="10" width="12" height="11" rx="1" ry="1" fill="#ffff00" stroke="none"/>
-    <rect x="8" y="10" width="12" height="11" rx="1" ry="1" fill="#ffff00" stroke="none"/>
-    <rect x="8" y="10" width="12" height="11" rx="1" ry="1" fill="#ffff00" stroke="#ffff00" stroke-width="0.5"/>
+  <g id="rect-shape" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <defs>
+      <rect id="N65581" x="8" y="10" width="12" height="11" rx="1" ry="1">
+        <!-- Stroke painted under the fill, and stroke-width ≥ (2 × base-stroke-width) - should adjust for both stroke-diff and fill-diff -->
+      </rect>
+    </defs>
+    <use xlink:href="#N65581" fill="none" stroke="#0000ff" stroke-width="4.5"/>
+    <use xlink:href="#N65581" fill="#ffff00" stroke="none"/>
+    <use xlink:href="#N65581" fill="#ffff00" stroke="none"/>
+    <use xlink:href="#N65581" fill="#ffff00" stroke="#ffff00" stroke-width="0.5"/>
   </g>
   <circle id="decoration" cx="15" cy="15" r="3" fill="#ffffff" stroke="#0000ff" stroke-width="1.5">
     <!-- Stroke-width < base-stroke-width – don't adjust the stroke or fill -->

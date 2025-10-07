@@ -12,6 +12,13 @@ import java.net.URL;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 import org.xml.sax.SAXException;
 
@@ -67,6 +74,7 @@ public class SVGTransformerTest {
 
         Document result = transformSource();
 
+        // XXX: Generated IDs may differ
         assertThat(result)
                 .and(Input.fromURL(resource("thin-2.svg")))
                 .ignoreComments().ignoreWhitespace()
@@ -80,6 +88,7 @@ public class SVGTransformerTest {
 
         Document result = transformSource();
 
+        // XXX: Generated IDs may differ
         assertThat(result)
                 .and(Input.fromURL(resource("thin-3.svg")))
                 .ignoreComments().ignoreWhitespace()
@@ -105,7 +114,9 @@ public class SVGTransformerTest {
         setStrokeParameters(0.25, 0.25);
 
         Document result = transformSource();
+        //saveResult(result, "thick-fill-test.svg");
 
+        // XXX: Generated IDs may differ, but appear stable for the time being.
         assertThat(result)
                 .and(Input.fromURL(resource("thick-fill.svg")))
                 .ignoreComments().ignoreWhitespace()
@@ -122,6 +133,21 @@ public class SVGTransformerTest {
         dbf.setNamespaceAware(true);
         dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         return dbf.newDocumentBuilder().parse(resource.toString());
+    }
+
+    static void saveResult(Document dom, String filename) throws TransformerException {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        //tf.setAttribute("indent-number", 2);
+        Transformer tr;
+        try {
+            tr = tf.newTransformer();
+        } catch (TransformerConfigurationException e) {
+            throw new IllegalStateException(e);
+        }
+        tr.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        //tr.setOutputProperty(OutputKeys.INDENT, "yes");
+        //tr.setOutputProperty("{http://xml.apache.org/xalan}indent-amount", "2");
+        tr.transform(new DOMSource(dom), new StreamResult(new java.io.File(filename)));
     }
 
 }

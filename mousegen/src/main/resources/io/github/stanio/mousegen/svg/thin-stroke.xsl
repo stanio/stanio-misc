@@ -12,6 +12,7 @@
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
     xmlns="http://www.w3.org/2000/svg"
     xmlns:Math="java://class/java.lang.Math"
     extension-element-prefixes="Math"
@@ -97,60 +98,81 @@
          paint-order="stroke fill".  Markers are not accounted for. -->
     <g>
       <xsl:copy-of select="@id" />
-      <xsl:copy-of select="@paint-order" />
+      <!-- <xsl:copy-of select="@paint-order" /> -->
       <xsl:copy-of select="@filter" />
       <xsl:copy-of select="@mask" />
       <xsl:copy-of select="@clip-path" />
-      <xsl:copy>
-        <xsl:copy-of select="@*[not(name() = 'id'
-                                    or name() = 'paint-order'
-                                    or name() = 'filter'
-                                    or name() = 'mask'
-                                    or name() = 'clip-path')]" />
-        <xsl:attribute name="fill">none</xsl:attribute>
-        <xsl:call-template name="adjust-stroke-under">
-          <xsl:with-param name="stroke-width" select="@stroke-width" />
-        </xsl:call-template>
-        <xsl:copy-of select="node()" />
-      </xsl:copy>
-      <!-- XXX: At low resolutions the expanding stroke could be < 1 target
-           pixel.  Although the outer edge of the stroke could be aligned to
-           the target pixel grid, both the stroke and the outer edge of the
-           fill will have anti-aliasing that wouldn't add up to a solid fill -
-           may look like misalignment.  Add layer(s) of just fill, so it
-           doesn't "spill outside the stroke", to "solidify the crack". -->
-      <xsl:copy>
-        <xsl:copy-of select="@*[not(name() = 'id'
-                                    or name() = 'stroke-width'
-                                    or name() = 'paint-order'
-                                    or name() = 'filter'
-                                    or name() = 'mask'
-                                    or name() = 'clip-path')]" />
-        <xsl:attribute name="stroke">none</xsl:attribute>
-      </xsl:copy>
-      <xsl:copy>
-        <xsl:copy-of select="@*[not(name() = 'id'
-                                    or name() = 'stroke-width'
-                                    or name() = 'paint-order'
-                                    or name() = 'filter'
-                                    or name() = 'mask'
-                                    or name() = 'clip-path')]" />
-        <xsl:attribute name="stroke">none</xsl:attribute>
-      </xsl:copy>
-      <xsl:copy>
-        <xsl:copy-of select="@*[not(name() = 'id'
-                                    or name() = 'paint-order'
-                                    or name() = 'filter'
-                                    or name() = 'mask'
-                                    or name() = 'clip-path')]" />
-        <xsl:attribute name="stroke">
-          <xsl:value-of select="@fill" />
-        </xsl:attribute>
-        <xsl:attribute name="stroke-width">
-          <xsl:value-of select="2 * $fill-diff" />
-        </xsl:attribute>
-      </xsl:copy>
+
+      <xsl:choose>
+        <xsl:when test="local-name() = 'use'">
+          <xsl:call-template name="expand-fill-stroke-under-fill">
+            <xsl:with-param name="idref" select="@href|@xlink:href"/>
+          </xsl:call-template>
+        </xsl:when>
+        <xsl:otherwise>
+          <defs>
+            <xsl:copy>
+              <xsl:attribute name="id">
+                <xsl:value-of select="generate-id()"/>
+              </xsl:attribute>
+              <xsl:copy-of select="@*[not(name() = 'id'
+                                      or name() = 'fill'
+                                      or name() = 'fill-opacity'
+                                      or name() = 'stroke'
+                                      or name() = 'stroke-opacity'
+                                      or name() = 'stroke-width'
+                                      or name() = 'paint-order'
+                                      or name() = 'filter'
+                                      or name() = 'mask'
+                                      or name() = 'clip-path')]" />
+              <xsl:copy-of select="node()" />
+            </xsl:copy>
+          </defs>
+          <xsl:call-template name="expand-fill-stroke-under-fill">
+            <xsl:with-param name="idref" select="concat('#', generate-id())"/>
+          </xsl:call-template>
+        </xsl:otherwise>
+      </xsl:choose>
     </g>
+  </xsl:template>
+
+  <xsl:template name="expand-fill-stroke-under-fill">
+    <xsl:param name="idref"/>
+    <use xlink:href="{$idref}">
+      <xsl:attribute name="fill">none</xsl:attribute>
+      <xsl:copy-of select="@stroke"/>
+      <xsl:copy-of select="@stroke-opacity"/>
+      <xsl:call-template name="adjust-stroke-under">
+        <xsl:with-param name="stroke-width" select="@stroke-width" />
+      </xsl:call-template>
+    </use>
+    <!-- XXX: At low resolutions the expanding stroke could be < 1 target
+         pixel.  Although the outer edge of the stroke could be aligned to
+         the target pixel grid, both the stroke and the outer edge of the
+         fill will have anti-aliasing that wouldn't add up to a solid fill -
+         may look like misalignment.  Add layer(s) of just fill, so it
+         doesn't "spill outside the stroke", to "solidify the crack". -->
+    <use xlink:href="{$idref}">
+      <xsl:copy-of select="@fill"/>
+      <xsl:copy-of select="@fill-opacity"/>
+      <xsl:attribute name="stroke">none</xsl:attribute>
+    </use>
+    <use xlink:href="{$idref}">
+      <xsl:copy-of select="@fill"/>
+      <xsl:copy-of select="@fill-opacity"/>
+      <xsl:attribute name="stroke">none</xsl:attribute>
+    </use>
+    <use xlink:href="{$idref}">
+      <xsl:copy-of select="@fill"/>
+      <xsl:copy-of select="@fill-opacity"/>
+      <xsl:attribute name="stroke">
+        <xsl:value-of select="@fill" />
+      </xsl:attribute>
+      <xsl:copy-of select="@stroke-opacity"/>
+      <xsl:attribute name="stroke-width">
+        <xsl:value-of select="2 * $fill-diff" />
+      </xsl:attribute>
+    </use>
   </xsl:template>
 
   <xsl:template mode="expand-fill"
