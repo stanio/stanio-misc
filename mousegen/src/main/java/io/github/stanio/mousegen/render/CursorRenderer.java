@@ -144,6 +144,9 @@ public final class CursorRenderer {
     }
 
     public void setDocument(Document svg, String targetName) {
+        if (sourceDocument == svg && this.targetName == targetName)
+            return;
+
         resetFile();
         this.targetName = targetName;
         this.sourceFile = null;

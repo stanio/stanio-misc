@@ -7,8 +7,6 @@ package io.github.stanio.mousegen.internal;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -23,14 +21,6 @@ public class WorkQueue {
         }
     }
 
-    private static final class DefaultExecutor {
-        static final Executor instance;
-        static {
-            int parallelism = Math.min(0x7FFF, Runtime.getRuntime().availableProcessors());
-            instance = Executors.newFixedThreadPool(parallelism, daemonThreadFactory());
-        }
-    }
-
     private final Executor executor;
 
     private final Queue<Runnable> queue;
@@ -42,8 +32,7 @@ public class WorkQueue {
     private volatile Throwable exception;
 
     public WorkQueue() {
-        this(new java.util.LinkedList<>(), DefaultExecutor.instance);
-        //this(new java.util.concurrent.LinkedBlockingQueue<>(100), DefaultExecutor.instance);
+        this(new java.util.LinkedList<>(), DistributedExecutor.defaultInstance());
     }
 
     WorkQueue(Queue<Runnable> queue, Executor executor) {
@@ -118,15 +107,6 @@ public class WorkQueue {
         } finally {
             sync.unlock();
         }
-    }
-
-    static ThreadFactory daemonThreadFactory() {
-        ThreadFactory dtf = Executors.defaultThreadFactory();
-        return r -> {
-            Thread th = dtf.newThread(r);
-            th.setDaemon(true);
-            return th;
-        };
     }
 
 }

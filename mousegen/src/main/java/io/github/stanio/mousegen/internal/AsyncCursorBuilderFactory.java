@@ -124,7 +124,7 @@ public class AsyncCursorBuilderFactory extends CursorBuilderFactory {
 
     private static Executor newSingleThreadExecutor() {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 1L, TimeUnit.MINUTES,
-                new LinkedBlockingQueue<>(), WorkQueue.daemonThreadFactory());
+                new LinkedBlockingQueue<>(), DistributedExecutor.daemonThreadFactory());
         executor.allowCoreThreadTimeOut(true);
         return executor;
     }

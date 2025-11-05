@@ -6,7 +6,6 @@ package io.github.stanio.mousegen;
 
 import static io.github.stanio.mousegen.Command.endsWithIgnoreCase;
 import static io.github.stanio.mousegen.Command.exitMessage;
-import static io.github.stanio.mousegen.render.CursorRenderer.targetException;
 import static io.github.stanio.cli.CommandLine.splitOnComma;
 
 import java.io.IOException;
@@ -25,12 +24,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -46,6 +42,8 @@ import io.github.stanio.cli.CommandLine;
 import io.github.stanio.cli.CommandLine.ArgumentException;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
+import io.github.stanio.mousegen.internal.RendererPool;
+import io.github.stanio.mousegen.internal.VariantKeys;
 import io.github.stanio.mousegen.options.ConfigFactory;
 import io.github.stanio.mousegen.options.LabeledOption;
 import io.github.stanio.mousegen.options.SizeScheme;
@@ -54,6 +52,7 @@ import io.github.stanio.mousegen.options.ThemeConfig;
 import io.github.stanio.mousegen.render.CursorRenderer;
 import io.github.stanio.mousegen.render.ScalableCursorBuilder;
 import io.github.stanio.mousegen.svg.DropShadow;
+import io.github.stanio.mousegen.svg.SVGTransformer;
 
 /**
  * The main <i>mousegen</i> tool class providing its command-line entry point.
@@ -75,6 +74,22 @@ public class MouseGen {
         private OutputType() {}
     }
 
+    private static class RendererConfig {
+        Double baseStrokeWidth;
+        double minStrokeWidth;
+        Double expandFillBase;
+        boolean wholePixelStroke;
+        boolean updateExisting;
+
+        void apply(CursorRenderer renderer) {
+            renderer.setBaseStrokeWidth(baseStrokeWidth);
+            renderer.setMinStrokeWidth(minStrokeWidth);
+            renderer.setExpandFillBase(expandFillBase);
+            renderer.setWholePixelStroke(wholePixelStroke);
+            renderer.setUpdateExisting(updateExisting);
+        }
+    }
+
     private final int maxAnimSize = Integer.getInteger("mousegen.maxAnimSize", 256);
     private final int minAnimSize = Integer.getInteger("mousegen.minAnimSize", 16);
 
@@ -84,32 +99,33 @@ public class MouseGen {
     private final CursorNames cursorNames = new CursorNames();
     private int[] resolutions = { -1 }; // original/source
 
-    private final CursorRenderer renderer;
     private final String outputType;
+    private final RendererConfig rendererConfig = new RendererConfig();
+    private final RendererPool rendererPool = new RendererPool(this::newRenderer);
+    private final VariantKeys themeKeys = new VariantKeys();
 
     private final ProgressOutput progress = ProgressOutput.newInstance();
 
     MouseGen(Path projectDir, Path buildDir, String type) {
         this.projectDir = Objects.requireNonNull(projectDir, "null projectDir");
         this.buildDir = Objects.requireNonNull(buildDir, "null buildDir");
-        renderer = type.equals(OutputType.SCALABLE_CURSORS)
-                   ? new CursorRenderer(ScalableCursorBuilder.dummyFactory())
-                   : new CursorRenderer(type);
         this.outputType = type;
+    }
 
-        ThreadFactory dtf = Executors.defaultThreadFactory();
-        renderThread = Executors.newSingleThreadExecutor(r -> {
-            Thread th = dtf.newThread(r);
-            th.setDaemon(true);
-            return th;
-        });
+    private CursorRenderer newRenderer() {
+        CursorRenderer renderer =
+                outputType.equals(OutputType.SCALABLE_CURSORS)
+                ? new CursorRenderer(ScalableCursorBuilder.dummyFactory())
+                : new CursorRenderer(outputType);
+        rendererConfig.apply(renderer);
+        return renderer;
     }
 
     public MouseGen withBaseStrokeWidth(Double width, double minWidth, Double expandFillLimit, boolean wholePixelWidth) {
-        renderer.setBaseStrokeWidth(width);
-        renderer.setMinStrokeWidth(minWidth);
-        renderer.setExpandFillBase(expandFillLimit);
-        renderer.setWholePixelStroke(wholePixelWidth);
+        rendererConfig.baseStrokeWidth = width;
+        rendererConfig.minStrokeWidth = minWidth;
+        rendererConfig.expandFillBase = expandFillLimit;
+        rendererConfig.wholePixelStroke = wholePixelWidth;
         return this;
     }
 
@@ -131,7 +147,7 @@ public class MouseGen {
     }
 
     public MouseGen updateExisting(boolean update) {
-        renderer.setUpdateExisting(update);
+        rendererConfig.updateExisting = update;
         return this;
     }
 
@@ -140,6 +156,9 @@ public class MouseGen {
     }
 
     public void render(ThemeConfig... config) throws IOException {
+        rendererPool.clear();
+        themeKeys.clear();
+
         try {
             for (var entry : groupByDir(config).entrySet()) {
                 renderDir(entry.getKey(), entry.getValue());
@@ -160,6 +179,7 @@ public class MouseGen {
 
     private void renderDir(String svgDir, Collection<ThemeConfig> config)
             throws IOException {
+
         progress.push(svgDir + "/");
         try (Stream<Path> svgStream = listSVGFiles(projectDir.resolve(svgDir))) {
             Set<Path> uniqueFiles = new HashSet<>();
@@ -168,11 +188,9 @@ public class MouseGen {
                     renderSVG(svg, config);
             }
         }
-        awaitCurrentRender();
         progress.pop();
-        renderer.saveDeferred();
-        //if (outputType.equals(OutputType.BITMAPS))
-        //    renderer.saveHotspots();
+
+        rendererPool.waitForEach(CursorRenderer::saveDeferred);
     }
 
     private final Matcher svgExt = Pattern.compile("(?i)\\.svg$").matcher("");
@@ -207,38 +225,19 @@ public class MouseGen {
         if (targetName == null)
             return;
 
-        Document svg = renderer.preload(svgFile);
-        awaitCurrentRender();
+        Document svg = svgLoader.loadDocument(svgFile);
         progress.push(cursorName);
-        currentRender = renderThread.submit(() -> {
-            renderSVG(cursorName, svg, targetName, animation, frameNum, renderConfig);
-            return null;
-        });
+        renderSVG(cursorName, svg, targetName, animation, frameNum, renderConfig);
     }
 
-    // This synchronizes the use of the progress output, as well.
-    private void awaitCurrentRender() throws IOException {
-        if (currentRender == null) return;
+    private final SVGTransformer svgLoader = new SVGTransformer();
 
-        try {
-            currentRender.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted", e);
-        } catch (ExecutionException e) {
-            throw targetException(e.getCause(), IOException.class);
-        }
-        currentRender = null;
-    }
-
-    private Future<?> currentRender;
-    private final ExecutorService renderThread;
-
-    private void renderSVG(String cursorName, Document svg, String targetName,
+    private void renderSVG(String cursorName, Document src, String targetName,
                            Animation animation, Integer frameNum,
                            Collection<ThemeConfig> renderConfig) throws IOException {
-        renderer.setDocument(svg, targetName);
+        Queue<Document> srcCopies = new LinkedBlockingDeque<>();
 
+        // REVISIT: rendererPool.executeForEach() with priority to available
         for (ThemeConfig config : renderConfig) {
             // REVISIT: Test cursorName or animation.lowerName
             //if (!config.cursors().isEmpty()
@@ -247,31 +246,50 @@ public class MouseGen {
 
             progress.push(config.name());
 
-            renderer.setStrokeWidth(config.strokeWidth());
-            renderer.setPointerShadow(config.pointerShadow());
-            renderer.setColors(config.colors());
-            renderer.setAnimation(animation, frameNum);
-            renderSVG(config, cursorName, animation);
+            Path outDir;
+            Path dir = buildDir.resolve(config.name());
+            if (outputType.equals(OutputType.LINUX_CURSORS)) {
+                outDir = dir.resolve("cursors");
+            } else if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
+                outDir = dir.resolve("cursors_scalable");
+            } else {
+                outDir = dir;
+            }
+
+            SizeScheme scheme = config.sizeScheme();
+
+            rendererPool.execute(themeKeys.get(config), renderer -> {
+                Document svg = srcCopies.poll();
+                if (svg == null) {
+                    // Xerces DOM is not thread-safe even for read-only access.
+                    synchronized (src) {
+                        svg = (Document) src.cloneNode(true);
+                    }
+                }
+
+                renderer.setDocument(svg, targetName);
+                renderer.setAnimation(animation, frameNum);
+                renderer.setStrokeWidth(config.strokeWidth());
+                renderer.setPointerShadow(config.pointerShadow());
+
+                renderer.setColors(config.colors());
+
+                renderer.setOutDir(outDir);
+
+                renderer.setCanvasSize(scheme);
+
+                renderSVG(config, animation, renderer);
+                srcCopies.offer(svg);
+            });
 
             progress.pop();
         }
         progress.pop();
     }
 
-    private void renderSVG(ThemeConfig config, String cursorName, Animation animation)
+    private void renderSVG(ThemeConfig config, Animation animation, CursorRenderer renderer)
             throws IOException {
         SizeScheme scheme = config.sizeScheme();
-
-        Path outDir = buildDir.resolve(config.name());
-        if (outputType.equals(OutputType.LINUX_CURSORS)) {
-            outDir = outDir.resolve("cursors");
-        } else if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
-            outDir = outDir.resolve("cursors_scalable");
-        }
-        renderer.setOutDir(outDir);
-
-        renderer.setCanvasSize(scheme);
-
         for (int res : resolutions(config)) {
             if (animation != null
                     && (res > maxAnimSize
@@ -279,16 +297,15 @@ public class MouseGen {
                     && resolutions(config).length > 1)
                 continue;
 
-            if (res > 0) {
-                progress.next(res);
-            }
+            //if (res > 0) {
+            //    progress.next(res);
+            //}
             if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
                 renderer.prepareScalable((int)
                         Math.round(res / scheme.nominalSize));
             } else {
                 renderer.renderTargetSize((int)
                         Math.round(res / scheme.nominalSize));
-
             }
         }
 
