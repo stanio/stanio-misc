@@ -481,31 +481,33 @@ public class SVGSizing {
 
 class XPathCache {
 
-    private static final
-    ThreadLocal<XPath> localXPath = ThreadLocal.withInitial(() -> {
+    private static final ThreadLocal<XPathCache>
+            localInstance = ThreadLocal.withInitial(XPathCache::new);
+
+    private final Map<String, XPathExpression> cache = new HashMap<>();
+
+    private final XPath xpath;
+
+    private XPathCache() {
         XPathFactory xpf = XPathFactory.newInstance();
         try {
             xpf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         } catch (XPathFactoryConfigurationException e) {
             System.err.println(e);
         }
-        return xpf.newXPath();
-    });
-
-    private static final XPathCache instance = new XPathCache();
-
-    private final Map<String, XPathExpression> cache = new HashMap<>();
-
-    static XPathExpression getExpr(String xpath) {
-        return instance.get(xpath);
+        xpath = xpf.newXPath();
     }
 
-    XPathExpression get(String xpath) {
-        return cache.computeIfAbsent(xpath, expr -> {
+    static XPathExpression getExpr(String xpath) {
+        return localInstance.get().get(xpath);
+    }
+
+    XPathExpression get(String expr) {
+        return cache.computeIfAbsent(expr, str -> {
             try {
-                return localXPath.get().compile(expr);
+                return this.xpath.compile(str);
             } catch (XPathExpressionException e) {
-                throw new IllegalArgumentException(expr, e);
+                throw new IllegalArgumentException(str, e);
             }
         });
     }
