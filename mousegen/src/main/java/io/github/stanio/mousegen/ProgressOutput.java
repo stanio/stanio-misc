@@ -9,84 +9,76 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 
-class ProgressOutput {
+interface ProgressOutput {
 
-    private final String[] prefixes;
-    private final String[] separtors;
-    private final String[] suffixes;
+    void next(Object item);
+
+    void push(Object item);
+
+    void pop();
+
+    static ProgressOutput newInstance() {
+        return newInstance(Boolean.getBoolean("mousegen.dynamicOutput"));
+    }
+
+    static ProgressOutput newInstance(boolean rich) {
+        return rich ? new DynamicLineOutput() : new PlainOutput();
+    }
+
+}
+
+
+class PlainOutput implements ProgressOutput {
+
+    private static Joints plainJoints = new Joints(
+            new String[] { "",     "\n    ", ": ", " " },
+            new String[] { "\n\n", "\n    ", ";\n        ", ", " },
+            new String[] { "\n",   "",       ".",  "" });
+
+    private final Joints joints;
 
     private final List<Boolean> firstItems = new ArrayList<>();
 
-    ProgressOutput() {
-        this(new String[] { "",     "\n    ", ": ", " " },
-             new String[] { "\n\n", "\n    ", ";\n        ", ", " },
-             new String[] { "\n",   "",       ".",  "" });
+    PlainOutput() {
+        this(plainJoints);
     }
 
-    ProgressOutput(String[] prefixes,
-                   String[] separtors,
-                   String[] suffixes) {
-        this.prefixes = prefixes;
-        this.separtors = separtors;
-        this.suffixes = suffixes;
+    PlainOutput(Joints joints) {
+        this.joints = joints;
         firstItems.add(true);
-    }
-
-    static ProgressOutput newInstance() {
-        return Boolean.getBoolean("mousegen.dynamicOutput") ? new DynamicLineOutput()
-                                                            : new ProgressOutput();
     }
 
     final int level() {
         return firstItems.size() - 1;
     }
 
-    private boolean firstItem() {
+    @Override
+    public void next(Object item) {
         int level = level();
         if (firstItems.get(level)) {
             firstItems.set(level, false);
-            return true;
-        }
-        return false;
-    }
-
-    private String prefix() {
-        int index = level();
-        return (index < prefixes.length)
-                ? prefixes[index]
-                : "";
-    }
-
-    private String separator() {
-        int index = level();
-        return (index < separtors.length)
-                ? separtors[index]
-                : " ";
-    }
-
-    public void next(Object item) {
-        if (firstItem()) {
-            printPrefix(prefix());
+            printPrefix(joints.prefix(level));
         } else {
-            printSeparator(separator());
+            printSeparator(joints.separator(level));
         }
         printItem(item);
     }
 
+    @Override
     public void push(Object parent) {
         next(parent);
         firstItems.add(true);
     }
 
+    @Override
     public void pop() {
         int level = level();
         if (level > 0) {
-            if (!firstItems.remove(level)
-                    && level < suffixes.length) {
-                printSuffix(suffixes[level]);
+            if (!firstItems.remove(level)) {
+                printSuffix(joints.suffix(level));
             }
         } else {
-            printSuffix(suffixes[0]);
+            printSuffix(joints.suffix(0));
         }
     }
 
@@ -116,78 +108,114 @@ class ProgressOutput {
     }
 
 
-    private static class DynamicLineOutput extends ProgressOutput {
+} // class PlainOutput
 
-        private final StringBuilder lineBuffer = new StringBuilder("\r\033[K");
-        private final Deque<Integer> lineMarks = new ArrayDeque<>(5);
-        private final int resetSize;
 
-        DynamicLineOutput() {
-            super(new String[] { "",     "\n    ", ": ", " " },
-                  new String[] { "\n\n", "\n    ", "; ", ", " },
-                  new String[] { "\n",   "",       " ✔", "" });
-            resetSize = lineBuffer.length();
+class DynamicLineOutput extends PlainOutput {
+
+    private static Joints richJoints = new Joints(
+            new String[] { "",     "\n    ", ": ", " " },
+            new String[] { "\n\n", "\n    ", "; ", ", " },
+            new String[] { "\n",   "",       " ✔", "" });
+
+    private final StringBuilder lineBuffer = new StringBuilder("\r\033[K");
+    private final Deque<Integer> lineMarks = new ArrayDeque<>(5);
+    private final int resetSize;
+
+    DynamicLineOutput() {
+        super(richJoints);
+        resetSize = lineBuffer.length();
+    }
+
+    private void pushMark() {
+        lineMarks.push(lineBuffer.length());
+    }
+
+    private void popMark() {
+        lineMarks.poll();
+    }
+
+    private StringBuilder resetLine() {
+        Integer mark = lineMarks.peek();
+        if (mark != null) {
+            lineBuffer.setLength(mark);
         }
+        return lineBuffer;
+    }
 
-        private void pushMark() {
-            lineMarks.push(lineBuffer.length());
+    @Override
+    void printPrefix(String prefix) {
+        pushMark();
+        super.printPrefix(prefix);
+        pushMark();
+    }
+
+    @Override
+    void printItem(Object item) {
+        resetLine();
+        super.printItem(item);
+    }
+
+    @Override
+    void printSuffix(String suffix) {
+        popMark();
+        resetLine();
+        super.printSuffix(suffix);
+        popMark();
+    }
+
+    @Override
+    void print(String text) {
+        int lineBreak = text.lastIndexOf('\n');
+        if (lineBreak < 0) {
+            lineBuffer.append(text);
+            return;
         }
+        lineBuffer.append(text.substring(0, lineBreak + 1));
+        flush();
 
-        private void popMark() {
-            lineMarks.poll();
-        }
+        lineMarks.clear();
+        lineBuffer.setLength(resetSize);
+        lineBuffer.append(text.substring(lineBreak + 1));
+    }
 
-        private StringBuilder resetLine() {
-            Integer mark = lineMarks.peek();
-            if (mark != null) {
-                lineBuffer.setLength(mark);
-            }
-            return lineBuffer;
-        }
+    @Override
+    void flush() {
+        super.print(lineBuffer.toString());
+        super.flush();
+    }
 
-        @Override
-        void printPrefix(String prefix) {
-            pushMark();
-            super.printPrefix(prefix);
-            pushMark();
-        }
-
-        @Override
-        void printItem(Object item) {
-            resetLine();
-            super.printItem(item);
-        }
-
-        @Override
-        void printSuffix(String suffix) {
-            popMark();
-            resetLine();
-            super.printSuffix(suffix);
-            popMark();
-        }
-
-        @Override
-        void print(String text) {
-            int lineBreak = text.lastIndexOf('\n');
-            if (lineBreak < 0) {
-                lineBuffer.append(text);
-                return;
-            }
-            lineBuffer.append(text.substring(0, lineBreak + 1));
-            flush();
-
-            lineMarks.clear();
-            lineBuffer.setLength(resetSize);
-            lineBuffer.append(text.substring(lineBreak + 1));
-        }
-
-        @Override
-        void flush() {
-            super.print(lineBuffer.toString());
-            super.flush();
-        }
-
-    } // class DynamicLineOutput
+} // class DynamicLineOutput
 
 
-}
+class Joints {
+
+    private final String[] prefixes;
+    private final String[] separtors;
+    private final String[] suffixes;
+
+    Joints(String[] prefixes, String[] separtors, String[] suffixes) {
+        this.prefixes = prefixes;
+        this.separtors = separtors;
+        this.suffixes = suffixes;
+    }
+
+    String prefix(int index) {
+        return (index < prefixes.length)
+                ? prefixes[index]
+                : "";
+    }
+
+    String separator(int index) {
+        return (index < separtors.length)
+                ? separtors[index]
+                : " ";
+    }
+
+    String suffix(int index) {
+        return (index < suffixes.length)
+                ? suffixes[index]
+                : "";
+    }
+
+} // class Joints
