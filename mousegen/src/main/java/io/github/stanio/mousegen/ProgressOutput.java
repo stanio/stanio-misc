@@ -4,18 +4,25 @@
  */
 package io.github.stanio.mousegen;
 
+import java.io.Flushable;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
-interface ProgressOutput {
+public interface ProgressOutput {
 
     void next(Object item);
 
     void push(Object item);
 
     void pop();
+
+    default ProgressOutput fork(Object item) {
+        throw new UnsupportedOperationException("not supported");
+    }
 
     static ProgressOutput newInstance() {
         return newInstance(Boolean.getBoolean("mousegen.dynamicOutput"));
@@ -35,17 +42,23 @@ class PlainOutput implements ProgressOutput {
             new String[] { "\n\n", "\n    ", ";\n        ", ", " },
             new String[] { "\n",   "",       ".",  "" });
 
-    private final Joints joints;
+    final Joints joints;
 
     private final List<Boolean> firstItems = new ArrayList<>();
+    final Appendable out;
 
     PlainOutput() {
         this(plainJoints);
     }
 
     PlainOutput(Joints joints) {
+        this(joints, System.out);
+    }
+
+    PlainOutput(Joints joints, Appendable out) {
         this.joints = joints;
         firstItems.add(true);
+        this.out = out;
     }
 
     final int level() {
@@ -100,13 +113,59 @@ class PlainOutput implements ProgressOutput {
     }
 
     void print(String text) {
-        System.out.append(text);
+        try {
+            out.append(text);
+        } catch (IOException e) {
+            // ignore
+        }
     }
 
     void flush() {
-        System.out.flush();
+        if (out instanceof Flushable) {
+            try {
+                ((Flushable) out).flush();
+            } catch (IOException e) {
+                // ignore
+            }
+        }
     }
 
+    @Override
+    public ProgressOutput fork(Object item) {
+        //System.out.println();
+        return new TaskProgress(this, joints.slice(level()), item);
+    }
+
+    private static class TaskProgress extends PlainOutput {
+
+        private final PlainOutput parent;
+
+        private boolean leaf = true;
+
+        TaskProgress(PlainOutput parent, Joints joints, Object firstItem) {
+            super(joints, new StringBuilder());
+            this.parent = parent;
+            push(firstItem);
+        }
+
+        @Override
+        public void pop() {
+            int l = level();
+            super.pop();
+            if (l == 1 && leaf) {
+                parent.print(out.toString());
+                //parent.print("\n");
+            }
+        }
+
+        @Override
+        public ProgressOutput fork(Object item) {
+            leaf = false;
+            return new TaskProgress(parent, joints.slice(level()).withEmptyPrefix(),
+                    out + joints.prefix(level()) + item);
+        }
+
+    } // class PlainTaskProgress
 
 } // class PlainOutput
 
@@ -185,6 +244,12 @@ class DynamicLineOutput extends PlainOutput {
         super.flush();
     }
 
+    @Override
+    public ProgressOutput fork(Object item) {
+        push(item); // XXX: Implement child output
+        return this;
+    }
+
 } // class DynamicLineOutput
 
 
@@ -216,6 +281,24 @@ class Joints {
         return (index < suffixes.length)
                 ? suffixes[index]
                 : "";
+    }
+
+    Joints slice(int index) {
+        return new Joints(slice(prefixes, index),
+                slice(separtors, index), slice(suffixes, index));
+    }
+
+    private static String[] slice(String[] arr, int start) {
+        return Arrays.copyOfRange(arr, start, arr.length);
+    }
+
+    Joints withEmptyPrefix() {
+        if (prefixes.length > 0) {
+            String[] newPrefixes = Arrays.copyOf(prefixes, prefixes.length);
+            newPrefixes[0] = "";
+            return new Joints(newPrefixes, separtors, suffixes);
+        }
+        return this;
     }
 
 } // class Joints

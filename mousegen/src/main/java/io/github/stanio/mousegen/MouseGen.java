@@ -226,13 +226,13 @@ public class MouseGen {
             return;
 
         Document svg = svgLoader.loadDocument(svgFile);
-        progress.push(cursorName);
-        renderSVG(cursorName, svg, targetName, animation, frameNum, renderConfig);
+        //progress.push(cursorName);
+        renderSVG(progress.fork(cursorName), svg, targetName, animation, frameNum, renderConfig);
     }
 
     private final SVGTransformer svgLoader = new SVGTransformer();
 
-    private void renderSVG(String cursorName, Document src, String targetName,
+    private void renderSVG(ProgressOutput cursorProgress, Document src, String targetName,
                            Animation animation, Integer frameNum,
                            Collection<ThemeConfig> renderConfig) throws IOException {
         Queue<Document> srcCopies = new LinkedBlockingDeque<>();
@@ -244,21 +244,9 @@ public class MouseGen {
             //        && !config.cursors().contains(cursorName))
             //    continue;
 
-            progress.push(config.name());
-
-            Path outDir;
-            Path dir = buildDir.resolve(config.name());
-            if (outputType.equals(OutputType.LINUX_CURSORS)) {
-                outDir = dir.resolve("cursors");
-            } else if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
-                outDir = dir.resolve("cursors_scalable");
-            } else {
-                outDir = dir;
-            }
-
-            SizeScheme scheme = config.sizeScheme();
-
+            ProgressOutput themeProgress = cursorProgress.fork(config.name());
             rendererPool.execute(themeKeys.get(config), renderer -> {
+                //progress.push(config.name());
                 Document svg = srcCopies.poll();
                 if (svg == null) {
                     // Xerces DOM is not thread-safe even for read-only access.
@@ -267,28 +255,35 @@ public class MouseGen {
                     }
                 }
 
+                Path outDir;
+                Path dir = buildDir.resolve(config.name());
+                if (outputType.equals(OutputType.LINUX_CURSORS)) {
+                    outDir = dir.resolve("cursors");
+                } else if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
+                    outDir = dir.resolve("cursors_scalable");
+                } else {
+                    outDir = dir;
+                }
+
                 renderer.setDocument(svg, targetName);
                 renderer.setAnimation(animation, frameNum);
                 renderer.setStrokeWidth(config.strokeWidth());
                 renderer.setPointerShadow(config.pointerShadow());
-
                 renderer.setColors(config.colors());
-
                 renderer.setOutDir(outDir);
+                renderer.setCanvasSize(config.sizeScheme());
 
-                renderer.setCanvasSize(scheme);
+                renderSVG(config, animation, renderer, themeProgress);
 
-                renderSVG(config, animation, renderer);
                 srcCopies.offer(svg);
+                themeProgress.pop();
             });
-
-            progress.pop();
         }
-        progress.pop();
+        cursorProgress.pop();
     }
 
-    private void renderSVG(ThemeConfig config, Animation animation, CursorRenderer renderer)
-            throws IOException {
+    private void renderSVG(ThemeConfig config, Animation animation, CursorRenderer renderer,
+            ProgressOutput themeProgress) throws IOException {
         SizeScheme scheme = config.sizeScheme();
         for (int res : resolutions(config)) {
             if (animation != null
@@ -298,7 +293,7 @@ public class MouseGen {
                 continue;
 
             //if (res > 0) {
-            //    progress.next(res);
+            //    themeProgress.next(res);
             //}
             if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
                 renderer.prepareScalable((int)
