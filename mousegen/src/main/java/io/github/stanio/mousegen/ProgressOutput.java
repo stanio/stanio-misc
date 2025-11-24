@@ -12,6 +12,11 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
+/**
+ * Hierarchical progress output.  Progress is indicated by adding (push), or
+ * replacing current detail (pop / push) item, with possibility to
+ * {@link #fork(Object) fork} a branch.
+ */
 public interface ProgressOutput {
 
     void next(Object item);
@@ -29,7 +34,9 @@ public interface ProgressOutput {
     }
 
     static ProgressOutput newInstance(boolean rich) {
-        return rich ? new DynamicLineOutput() : new PlainOutput();
+        // XXX: Disable the dynamic output for the time being - need to
+        // implement parallel/forked output properly.
+        return false ? new DynamicLineOutput() : new PlainOutput();
     }
 
 }
@@ -177,50 +184,31 @@ class DynamicLineOutput extends PlainOutput {
             new String[] { "\n\n", "\n    ", "; ", ", " },
             new String[] { "\n",   "",       " ✔", "" });
 
-    private final StringBuilder lineBuffer = new StringBuilder("\r\033[K");
-    private final Deque<Integer> lineMarks = new ArrayDeque<>(5);
-    private final int resetSize;
+    private final MarkedString lineBuffer = new MarkedString("\r\033[K");
 
     DynamicLineOutput() {
         super(richJoints);
-        resetSize = lineBuffer.length();
-    }
-
-    private void pushMark() {
-        lineMarks.push(lineBuffer.length());
-    }
-
-    private void popMark() {
-        lineMarks.poll();
-    }
-
-    private StringBuilder resetLine() {
-        Integer mark = lineMarks.peek();
-        if (mark != null) {
-            lineBuffer.setLength(mark);
-        }
-        return lineBuffer;
     }
 
     @Override
     void printPrefix(String prefix) {
-        pushMark();
+        lineBuffer.pushMark();
         super.printPrefix(prefix);
-        pushMark();
+        lineBuffer.pushMark();
     }
 
     @Override
     void printItem(Object item) {
-        resetLine();
+        lineBuffer.resetLine();
         super.printItem(item);
     }
 
     @Override
     void printSuffix(String suffix) {
-        popMark();
-        resetLine();
+        lineBuffer.popMark();
+        lineBuffer.resetLine();
         super.printSuffix(suffix);
-        popMark();
+        lineBuffer.popMark();
     }
 
     @Override
@@ -233,8 +221,7 @@ class DynamicLineOutput extends PlainOutput {
         lineBuffer.append(text.substring(0, lineBreak + 1));
         flush();
 
-        lineMarks.clear();
-        lineBuffer.setLength(resetSize);
+        lineBuffer.clear();
         lineBuffer.append(text.substring(lineBreak + 1));
     }
 
@@ -302,3 +289,48 @@ class Joints {
     }
 
 } // class Joints
+
+
+class MarkedString {
+
+    private final StringBuilder lineBuffer;
+    private final Deque<Integer> lineMarks;
+    private final int resetSize;
+
+    public MarkedString(String fixedPrefix) {
+        lineBuffer = new StringBuilder(fixedPrefix);
+        resetSize = fixedPrefix.length();
+        lineMarks = new ArrayDeque<>(5);
+    }
+
+    public void pushMark() {
+        lineMarks.push(lineBuffer.length());
+    }
+
+    public void popMark() {
+        lineMarks.poll();
+    }
+
+    public StringBuilder resetLine() {
+        Integer mark = lineMarks.peek();
+        if (mark != null) {
+            lineBuffer.setLength(mark);
+        }
+        return lineBuffer;
+    }
+
+    public void clear() {
+        lineMarks.clear();
+        lineBuffer.setLength(resetSize);
+    }
+
+    public void append(CharSequence segment) {
+        lineBuffer.append(segment);
+    }
+
+    @Override
+    public String toString() {
+        return lineBuffer.toString();
+    }
+
+} // class MarkedString
