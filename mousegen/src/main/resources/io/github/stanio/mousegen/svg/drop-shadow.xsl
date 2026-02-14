@@ -7,6 +7,7 @@
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
     xmlns="http://www.w3.org/2000/svg"
     exclude-result-prefixes="svg">
 
@@ -20,6 +21,21 @@
     <xsl:copy>
       <xsl:copy-of select="@*" />
 
+      <xsl:choose>
+        <xsl:when test="not(.//*[@filter='url(#drop-shadow)'])">
+          <xsl:text>&#xA;</xsl:text>
+          <use href="#cursor-drawing" xlink:href="#cursor-drawing" filter="url(#drop-shadow)" />
+          <xsl:text>&#xA;</xsl:text>
+          <g id="cursor-drawing">
+            <xsl:apply-templates />
+          </g>
+          <xsl:text>&#xA;</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:apply-templates />
+        </xsl:otherwise>
+      </xsl:choose>
+
       <xsl:if test="not(.//*[@id='drop-shadow'])">
         <!-- Insert new -->
         <defs>
@@ -29,19 +45,6 @@
         </defs>
         <xsl:text>&#xA;</xsl:text>
       </xsl:if>
-
-      <xsl:choose>
-        <xsl:when test="not(.//*[@filter='url(#drop-shadow)'])">
-          <xsl:text>&#xA;</xsl:text>
-          <g filter="url(#drop-shadow)">
-            <xsl:apply-templates />
-          </g>
-          <xsl:text>&#xA;</xsl:text>
-        </xsl:when>
-        <xsl:otherwise>
-          <xsl:apply-templates />
-        </xsl:otherwise>
-      </xsl:choose>
     </xsl:copy>
   </xsl:template>
 
@@ -61,10 +64,10 @@
     <feOffset dx="{$shadow-dx}" dy="{$shadow-dy}" result="offsetblur" />
     <feFlood flood-color="{$shadow-color}" flood-opacity="{$shadow-opacity}" />
     <feComposite in2="offsetblur" operator="in" />
-    <feMerge>
+    <!--feMerge>
       <feMergeNode />
       <feMergeNode in="SourceGraphic" />
-    </feMerge>
+    </feMerge-->
   </xsl:template>
 
   <!-- Identity copy -->
