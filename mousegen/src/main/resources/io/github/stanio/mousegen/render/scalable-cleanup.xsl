@@ -8,7 +8,9 @@
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:svg="http://www.w3.org/2000/svg"
     xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:Integer="java://class/java.lang.Integer"
     xmlns="http://www.w3.org/2000/svg"
+    extension-element-prefixes="Integer"
     exclude-result-prefixes="svg">
 
   <xsl:template match="/svg:svg">
@@ -82,6 +84,27 @@
         <xsl:apply-templates select="@fill-opacity" />
       </use>
     </g>
+  </xsl:template>
+
+  <!-- Transform fill="#RRGGBBAA" into fill="#RRGGBB" fill-opacity="AA / 255" -->
+  <xsl:template match="@fill[ starts-with(normalize-space(), '#') and
+                              string-length(normalize-space()) = 9 ]">
+    <xsl:attribute name="fill">
+      <xsl:value-of select="substring(normalize-space(), 1, 7)"/>
+    </xsl:attribute>
+    <xsl:attribute name="fill-opacity">
+      <xsl:value-of select="round(Integer:parseInt(substring(normalize-space(), 8), 16) * 100 div 255) div 100"/>
+    </xsl:attribute>
+  </xsl:template>
+
+  <xsl:template match="@stroke[ starts-with(normalize-space(), '#') and
+                                string-length(normalize-space()) = 9 ]">
+    <xsl:attribute name="stroke">
+      <xsl:value-of select="substring(normalize-space(), 1, 7)"/>
+    </xsl:attribute>
+    <xsl:attribute name="stroke-opacity">
+      <xsl:value-of select="round(Integer:parseInt(substring(normalize-space(), 8), 16) * 100 div 255) div 100"/>
+    </xsl:attribute>
   </xsl:template>
 
   <!-- REVISIT: Or just on <use> elements? -->

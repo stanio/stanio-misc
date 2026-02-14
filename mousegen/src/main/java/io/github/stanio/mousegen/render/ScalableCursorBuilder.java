@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import javax.xml.XMLConstants;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
@@ -81,6 +82,8 @@ public class ScalableCursorBuilder {
         tf.setAttribute("indent-number", 2);
         Transformer tr;
         try {
+            // Allow extension functions.
+            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
             tr = tf.newTransformer(new StreamSource(ScalableCursorBuilder.class
                     .getResource("scalable-cleanup.xsl").toString()));
         } catch (TransformerConfigurationException e) {
