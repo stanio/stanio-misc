@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,6 +31,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 import java.awt.Rectangle;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
 import io.github.stanio.mousegen.util.BaseXMLFilter;
@@ -60,17 +62,22 @@ public class SVGCursorMetadata {
     private static final double defaultHotspot = Double
             .parseDouble(System.getProperty("mousegen.defaultHotspot", "0.5"));
 
+    private static final double defaultAnchor = Double
+            .parseDouble(System.getProperty("mousegen.defaultAnchor", "0"));
+
     private static final LocalXMLReader localXMLReader = LocalXMLReader.newInstance();
 
     final Rectangle2D sourceViewBox;
+    final Optional<Point2D> sizingOrigin;
     final AnchorPoint hotspot;
     final AnchorPoint rootAnchor;
     final Map<ElementPath, AnchorPoint> childAnchors;
 
     private SVGCursorMetadata(ParseHandler content) {
         this.sourceViewBox = content.sourceViewBox;
-        this.hotspot = content.hotspot;
-        this.rootAnchor = content.rootAnchor;
+        this.sizingOrigin = Optional.ofNullable(content.sizingOrigin());
+        this.hotspot = content.hotspot();
+        this.rootAnchor = content.rootAnchor();
         this.childAnchors = content.childAnchors;
     }
 
@@ -97,12 +104,6 @@ public class SVGCursorMetadata {
             identityTransformer().transform(source, new SAXResult(handler));
         } catch (TransformerException e) {
             throw new IllegalStateException(e);
-        }
-        if (handler.hotspot == null) {
-            Rectangle2D viewBox = handler.sourceViewBox;
-            handler.hotspot = new AnchorPoint(
-                    viewBox.getX() + viewBox.getWidth() * defaultHotspot,
-                    viewBox.getY() + viewBox.getHeight() * defaultHotspot);
         }
         return new SVGCursorMetadata(handler);
     }
@@ -141,6 +142,10 @@ public class SVGCursorMetadata {
      */
     public Rectangle2D sourceViewBox() {
         return (Rectangle2D) sourceViewBox.clone();
+    }
+
+    public Optional<Point2D> sizingOrigin() {
+        return sizingOrigin.map(p -> (Point2D) p.clone());
     }
 
     /**
@@ -189,12 +194,14 @@ public class SVGCursorMetadata {
                                            + ") \\s*(?:,\\s*)? (" + coordinate + ")",
                                            Pattern.CASE_INSENSITIVE | Pattern.COMMENTS);
         }
+        private static final Pattern CSP = Pattern.compile(",\\s*|\\s+(,\\s*)?");
 
         // XXX: Better signal with an exception we couldn't determine
         // source dimensions from viewBox or width/height attributes.
         Rectangle2D sourceViewBox = new Rectangle(256, 256);
+        Point2D sizingOrigin;
         AnchorPoint hotspot;
-        AnchorPoint rootAnchor = AnchorPoint.defaultValue(); // REVISIT: or 128,128?
+        AnchorPoint rootAnchor;
         Map<ElementPath, AnchorPoint> childAnchors = new HashMap<>(1);
         private Map<String, AnchorPoint> anchorDefs = new HashMap<>(1);
 
@@ -202,6 +209,38 @@ public class SVGCursorMetadata {
         private final Matcher anchorMatcher = ANCHOR_POINT.matcher("");
         private final Matcher biasMatcher = BIAS.matcher("");
         private final Matcher classNameMatcher = CLASS_NAME.matcher("");
+
+        AnchorPoint hotspot() {
+            if (hotspot == null) {
+                return new AnchorPoint(
+                        sourceViewBox.getX() + sourceViewBox.getWidth() * defaultHotspot,
+                        sourceViewBox.getY() + sourceViewBox.getHeight() * defaultHotspot);
+            }
+            return hotspot;
+        }
+
+        Point2D sizingOrigin() {
+            if (sizingOrigin == null) return null;
+
+            double x = sizingOrigin.getX();
+            double y = sizingOrigin.getY();
+            // Expect relative [0.0, 1.0]
+            if (x < 0 || x > 1 || y < 0 || y > 1) { // Absolute already?
+                return new Point2D.Double(
+                        (x - sourceViewBox.getX()) / sourceViewBox.getWidth(),
+                        (y - sourceViewBox.getY()) / sourceViewBox.getHeight());
+            }
+            return sizingOrigin;
+        }
+
+        AnchorPoint rootAnchor() {
+            if (rootAnchor == null) {
+                return new AnchorPoint(
+                        sourceViewBox.getX() + sourceViewBox.getWidth() * defaultAnchor,
+                        sourceViewBox.getY() + sourceViewBox.getHeight() * defaultAnchor);
+            }
+            return rootAnchor;
+        }
 
         @Override
         public void startElement(String uri, String localName,
@@ -323,6 +362,24 @@ public class SVGCursorMetadata {
 
             Matcher m = biasMatcher.reset(classNames);
             return m.find() ? m.group(1) : "";
+        }
+
+        @Override
+        public void processingInstruction(String target, String data) throws SAXException {
+            if (target.equals("sizing-origin")) {
+                setSizingOrigin(data);
+            }
+        }
+
+        private void setSizingOrigin(String data) {
+            String[] fraction = CSP.split(data.trim(), 2);
+            try {
+                double x = Double.parseDouble(fraction[0]);
+                double y = Double.parseDouble(fraction[1]);
+                sizingOrigin = new Point2D.Double(x, y);
+            } catch (RuntimeException e) {
+                System.err.println("Could not parse sizing-origin: " + data);
+            }
         }
 
     } // class ParseHandler

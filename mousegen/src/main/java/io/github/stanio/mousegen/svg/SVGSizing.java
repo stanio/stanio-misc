@@ -213,31 +213,21 @@ public class SVGSizing {
             throws E {
         Point2D canvasOrigin = canvasOrigin();
         Rectangle2D viewBox = sizeCanvas(new Rectangle2D
-                .Double(canvasOrigin.getX(), canvasOrigin.getY(), canvasSize, canvasSize));
+                .Double(-canvasOrigin.getX(), -canvasOrigin.getY(), canvasSize, canvasSize));
         Dimension targetDimensions = new Dimension(targetSize, targetSize);
         return updateOffsets(targetDimensions,
                 viewBox, strokeOffset, fillOffset, offsetsConsumer);
     }
 
-    private static double limitFactor = Double.parseDouble(System.getProperty("mousegen.canvasBalanceFactor", "1.0"));
-    private static double balanceLimit = Double.parseDouble(System.getProperty("mousegen.canvasBalanceLimit", "0.5"));
+    private static Point2D originTopLeft = new Point(0, 0);
+    private static Point2D originCenter = new Point2D.Double(0.5, 0.5);
 
     private Point2D canvasOrigin() {
-        if (!Boolean.getBoolean("mousegen.balanceCanvasSize"))
-            return new Point(0, 0);
-
-        double shiftX = metadata.hotspot.x() - metadata.sourceViewBox.getX();
-        double shiftY = metadata.hotspot.y() - metadata.sourceViewBox.getY();
-        // Better have the metadata ensure the anchor defaults to the view-box origin
-        if (metadata.rootAnchor.x() != 0 || metadata.rootAnchor.y() != 0) {
-            shiftX += metadata.rootAnchor.x() - metadata.sourceViewBox.getX();
-            shiftY += metadata.rootAnchor.y() - metadata.sourceViewBox.getY();
-            shiftX /= 2;
-            shiftY /= 2;
+        // Should it always respect non-empty metadata.sizingOrigin()?
+        if (Boolean.getBoolean("mousegen.enableSizingOrigin")) {
+            return metadata.sizingOrigin.orElse(originCenter);
         }
-        shiftX = Math.min(balanceLimit, shiftX / metadata.sourceViewBox.getWidth() * limitFactor);
-        shiftY = Math.min(balanceLimit, shiftY / metadata.sourceViewBox.getHeight() * limitFactor);
-        return new Point2D.Double(-shiftX, -shiftY);
+        return originTopLeft;
     }
 
     private Rectangle2D sizeCanvas(Rectangle2D sizing) {
