@@ -22,11 +22,11 @@
       <xsl:copy-of select="@*" />
 
       <xsl:choose>
-        <xsl:when test="not(.//*[@filter='url(#drop-shadow)'])">
+        <xsl:when test="not(.//*[@filter='url(#mousegen-drop-shadow)'])">
           <xsl:text>&#xA;</xsl:text>
-          <use href="#cursor-drawing" xlink:href="#cursor-drawing" filter="url(#drop-shadow)" />
+          <use xlink:href="#mousegen-cursor-drawing" filter="url(#mousegen-drop-shadow)" />
           <xsl:text>&#xA;</xsl:text>
-          <g id="cursor-drawing">
+          <g id="mousegen-cursor-drawing">
             <xsl:apply-templates />
           </g>
           <xsl:text>&#xA;</xsl:text>
@@ -36,10 +36,10 @@
         </xsl:otherwise>
       </xsl:choose>
 
-      <xsl:if test="not(.//*[@id='drop-shadow'])">
+      <xsl:if test="not(.//*[@id='mousegen-drop-shadow'])">
         <!-- Insert new -->
         <defs>
-          <filter id="drop-shadow" filterUnits="userSpaceOnUse">
+          <filter id="mousegen-drop-shadow" filterUnits="userSpaceOnUse">
             <xsl:call-template name="drop-shadow" />
           </filter>
         </defs>
@@ -49,9 +49,9 @@
   </xsl:template>
 
   <!-- Update existing -->
-  <xsl:template match="svg:filter[@id='drop-shadow']">
+  <xsl:template match="svg:filter[@id='mousegen-drop-shadow']">
     <xsl:copy>
-      <xsl:attribute name="id">drop-shadow</xsl:attribute>
+      <xsl:attribute name="id">mousegen-drop-shadow</xsl:attribute>
       <xsl:attribute name="filterUnits">userSpaceOnUse</xsl:attribute>
       <xsl:call-template name="drop-shadow" />
     </xsl:copy>
