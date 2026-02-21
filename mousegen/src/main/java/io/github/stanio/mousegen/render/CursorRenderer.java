@@ -416,10 +416,10 @@ public final class CursorRenderer {
     ScalableCursorBuilder currentScalable;
     private Document scalableVariant;
 
-    public void prepareScalable(int targetSize) throws IOException {
-        // targetSize = 32
-        assert (targetSize % 8 == 0);
+    private static final Optional<Integer> defaultAlignGrid =
+            Optional.ofNullable(Integer.getInteger("mousegen.defaultScalableGrid", null));
 
+    public void prepareScalable(int targetSize) throws IOException {
         // setUpScalableOutput
         try {
             if (animation == null || frameNum == null) {
@@ -447,8 +447,12 @@ public final class CursorRenderer {
         colorTheme.apply(colorMap);
 
         // applySizing
+        // - targetSize = 32
         // - adjust alignment to 8x8 grid
-        svgSizing.apply(8, canvasSizing.canvasSize, strokeOffset, fillOffset);
+        // assert (targetSize % alignSize == 0);
+        final int alignSize = svgSizing.metadata()
+                .alignGridSize().orElse(defaultAlignGrid.orElse(targetSize));
+        svgSizing.apply(alignSize, canvasSizing.canvasSize, strokeOffset, fillOffset);
         String viewBoxSpec = svg.getDocumentElement().getAttribute("viewBox");
         svgSizing.apply(targetSize, canvasSizing.canvasSize, strokeOffset, fillOffset);
         svg.getDocumentElement().setAttribute("viewBox", viewBoxSpec);

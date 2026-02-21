@@ -72,6 +72,7 @@ public class SVGCursorMetadata {
     final AnchorPoint hotspot;
     final AnchorPoint rootAnchor;
     final Map<ElementPath, AnchorPoint> childAnchors;
+    final Optional<Integer> alignGridSize;
 
     private SVGCursorMetadata(ParseHandler content) {
         this.sourceViewBox = content.sourceViewBox;
@@ -79,6 +80,7 @@ public class SVGCursorMetadata {
         this.hotspot = content.hotspot();
         this.rootAnchor = content.rootAnchor();
         this.childAnchors = content.childAnchors;
+        this.alignGridSize = Optional.ofNullable(content.alignGridSize);
     }
 
     /**
@@ -173,6 +175,10 @@ public class SVGCursorMetadata {
         childAnchors.clear();
     }
 
+    public Optional<Integer> alignGridSize() {
+        return alignGridSize;
+    }
+
     @Override
     public String toString() {
         return "SVGCursorMetadata"
@@ -204,6 +210,7 @@ public class SVGCursorMetadata {
         AnchorPoint rootAnchor;
         Map<ElementPath, AnchorPoint> childAnchors = new HashMap<>(1);
         private Map<String, AnchorPoint> anchorDefs = new HashMap<>(1);
+        Integer alignGridSize;
 
         private final ContentStack contentStack = new ContentStack();
         private final Matcher anchorMatcher = ANCHOR_POINT.matcher("");
@@ -368,6 +375,12 @@ public class SVGCursorMetadata {
         public void processingInstruction(String target, String data) throws SAXException {
             if (target.equals("sizing-origin")) {
                 setSizingOrigin(data);
+            } else if (target.equals("align-grid")) {
+                try {
+                    alignGridSize = Integer.parseInt(data.trim());
+                } catch (RuntimeException e) {
+                    System.err.println("Could not parse align-grid size: " + data + " (" + e + ")");
+                }
             }
         }
 
@@ -378,7 +391,7 @@ public class SVGCursorMetadata {
                 double y = Double.parseDouble(fraction[1]);
                 sizingOrigin = new Point2D.Double(x, y);
             } catch (RuntimeException e) {
-                System.err.println("Could not parse sizing-origin: " + data);
+                System.err.println("Could not parse sizing-origin: " + data + " (" + e + ")");
             }
         }
 
