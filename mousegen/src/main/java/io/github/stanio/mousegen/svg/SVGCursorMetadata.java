@@ -191,6 +191,9 @@ public class SVGCursorMetadata {
 
     private static class ParseHandler extends BaseXMLFilter {
 
+        private static final String
+                ALT_ALIGN_ANCHOR = System.getProperty("mousegen.altAlignAnchor", "");
+
         private static final Pattern ANCHOR_POINT;
         private static final Pattern BIAS = Pattern.compile("(?ix) (?:^|\\s) bias-(\\S*)");
         private static final Pattern CLASS_NAME = Pattern.compile("\\S+");
@@ -261,7 +264,7 @@ public class SVGCursorMetadata {
                 setViewBox(attributes);
             } else if ("cursor-hotspot".equals(id) || "hotspot".equals(id)) {
                 setHotspot(localName, attributes);
-            } else if ("align-anchor".equals(id)) {
+            } else if ("align-anchor".equals(id) || ALT_ALIGN_ANCHOR.equals(id)) {
                 setRootAnchor(localName, attributes);
             } else if (hasClass(attributes, "align-anchor")) {
                 parseAnchor(localName, attributes, anchor ->
