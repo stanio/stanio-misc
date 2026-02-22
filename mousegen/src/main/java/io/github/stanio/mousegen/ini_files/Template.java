@@ -130,9 +130,19 @@ public class Template {
     }
 
     public static Map<String, Template> vars(Function<CharSequence, Template> ctor,
-                                             Map<String, CharSequence> templates) {
+                                             Map<String, ? extends CharSequence> templates) {
         return templates.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, entry -> ctor.apply(entry.getValue())));
+    }
+
+    public boolean isLiteralText() {
+        return literalText;
+    }
+
+    public List<String> varNames() {
+        return fragments.stream().filter(Fragment.NameRef.class::isInstance)
+                                 .map(f -> ((Fragment.NameRef) f).value)
+                                 .collect(Collectors.toList());
     }
 
     public String apply(CharSequence... args) {

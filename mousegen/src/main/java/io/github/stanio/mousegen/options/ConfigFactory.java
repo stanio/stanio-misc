@@ -22,9 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BinaryOperator;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
@@ -33,6 +32,7 @@ import com.google.gson.reflect.TypeToken;
 
 import io.github.stanio.mousegen.CursorNames.Animation;
 import io.github.stanio.mousegen.cli.ConfigFiles;
+import io.github.stanio.mousegen.ini_files.Template;
 import io.github.stanio.mousegen.svg.DropShadow;
 
 public final class ConfigFactory {
@@ -203,7 +203,24 @@ public final class ConfigFactory {
         return result.toArray(ThemeConfig[]::new);
     }
 
-    private static final Pattern WILDCARD = Pattern.compile("\\*");
+    private static final Map<String, Template> nameTemplates = new ConcurrentHashMap<>();
+    private static final List<String> VAR_NAMES = List.of("color", "size", "outline", "shadow");
+
+    private static Template nameTemplate(String themeName) {
+        return nameTemplates.computeIfAbsent(themeName, pattern -> {
+            Template tpl = Template.parseDynamic(pattern);
+            List<String> unreferenced = new ArrayList<>(VAR_NAMES);
+            unreferenced.removeAll(tpl.varNames());
+            if (unreferenced.isEmpty())
+                return tpl;
+
+            StringBuilder complete = new StringBuilder(themeName);
+            for (String varName : unreferenced) {
+                complete.append("-${").append(varName).append('}');
+            }
+            return Template.parseDynamic(complete);
+        });
+    }
 
     private ThemeConfig variant(ThemeConfig source,
                                 String colorName,
@@ -219,20 +236,21 @@ public final class ConfigFactory {
             // Use the original/source config with its original name
             return source;
 
-        List<String> tags = new ArrayList<>();
-        String[] prefixSuffix = WILDCARD.split(themeNames.getNameForDir(source.dir()), 2);
-        tags.add(prefixSuffix[0]);
-        tags.addAll(Arrays.asList(colorName == null ? "" : colorName,
-                sizeScheme.name == null ? "" : sizeScheme.name,
-                strokeOption == null ? "" : strokeOption.label(),
-                pointerShadow == null ? "" : pointerShadow.label()));
-        if (prefixSuffix.length > 1) {
-            tags.add(prefixSuffix[1].replace("*", ""));
-        }
-        String name = tags.stream()
-                .filter(Predicate.not(String::isBlank))
-                .collect(Collectors.joining("-"));
+        String name = formatName(themeNames.getNameForDir(source.dir()),
+                colorName, sizeScheme, strokeOption, pointerShadow);
         return source.copyWith(name, colors, sizeScheme, strokeWidth, shadowValue);
+    }
+
+    private static String formatName(String themeName, String colorName,
+            SizeScheme sizeScheme, LabeledOption<Double> strokeOption,
+            LabeledOption<DropShadow> pointerShadow)
+    {
+        Template tpl = nameTemplate(themeName);
+        Map<String, String> vars = Map.of("color", colorName,
+                "size", sizeScheme.name == null ? "" : sizeScheme.name,
+                "outline", strokeOption == null ? "" : strokeOption.label(),
+                "shadow", pointerShadow == null ? "" : pointerShadow.label());
+        return tpl.apply(Template.vars(Template::plainText, vars));
     }
 
     private static void updateResult(List<ThemeConfig> result,
