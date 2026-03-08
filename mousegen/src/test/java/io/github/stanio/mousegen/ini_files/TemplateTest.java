@@ -123,4 +123,15 @@ class TemplateTest {
                 .containsExactly("Fou", "bar", "baz", "Quux");
     }
 
+    @Test
+    void defaultValues() {
+        // Given
+        Template template = Template.parseDynamic("${shadow:Shadow}/Bibata-${shape}-${shadow}");
+        Map<String, Template> vars = Template.vars(Map.of("shape", "Modern", "shadow", ""));
+        // When
+        String expanded = template.apply(vars);
+        // Then
+        assertThat(expanded).as("expanded").isEqualTo("Shadow/Bibata-Modern");
+    }
+
 }

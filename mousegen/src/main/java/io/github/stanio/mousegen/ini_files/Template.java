@@ -47,8 +47,10 @@ public class Template {
 
         static class NameRef extends Fragment {
             final String value;
-            NameRef(String name) {
+            final String defaultValue;
+            NameRef(String name, String defaultValue) {
                 this.value = Objects.requireNonNull(name);
+                this.defaultValue = defaultValue == null ? "" : defaultValue;
             }
             @Override public String toString() {
                 return '{' + value + '}';
@@ -57,7 +59,7 @@ public class Template {
 
         private static final Pattern SYNTAX = Pattern
                 .compile("(?ix) \\$(" + "[1-9]\\d{0,3}" + ")"
-                          + " | \\$\\{ (" + "[a-z]\\w*" + ") }"
+                          + " | \\$\\{ (" + "[a-z]\\w*" + ") (?: : (.*?))* }"
                           + " | (?: \\${2} [^$]* )+");
 
         static List<Fragment> parse(CharSequence template) {
@@ -73,7 +75,7 @@ public class Template {
                 if ((token = m.group(1)) != null) {
                     item = new NumRef(Integer.parseInt(token));
                 } else if ((token = m.group(2)) != null) {
-                    item = new NameRef(token);
+                    item = new NameRef(token, m.group(3));
                 } else {
                     continue;
                 }
@@ -139,6 +141,10 @@ public class Template {
         return literalText;
     }
 
+    String firstFragmentText() {
+        return fragments.get(0).toString();
+    }
+
     public List<String> varNames() {
         return fragments.stream().filter(Fragment.NameRef.class::isInstance)
                                  .map(f -> ((Fragment.NameRef) f).value)
@@ -151,7 +157,7 @@ public class Template {
 
     public String apply(Map<String, Template> vars, CharSequence... args) {
         if (literalText) {
-            return fragments.get(0).toString();
+            return firstFragmentText();
         }
         return appendTo(new StringBuilder(), vars, args).toString();
     }
@@ -176,7 +182,7 @@ public class Template {
 
     public Appendable expandTo(Appendable out, Map<String, Template> vars, CharSequence... args) throws IOException {
         if (literalText) {
-            return out.append(fragments.get(0).toString());
+            return out.append(firstFragmentText());
         }
 
         try {
@@ -207,6 +213,8 @@ public class Template {
                     Template sub = vars.get(((Fragment.NameRef) item).value);
                     if (sub == null) {
                         out.appendReplacement("");
+                    } else if (sub.isLiteralText() && sub.firstFragmentText().isEmpty()) {
+                        out.appendReplacement(((Fragment.NameRef) item).defaultValue);
                     } else {
                         sub.apply(out, vars, args);
                     }
