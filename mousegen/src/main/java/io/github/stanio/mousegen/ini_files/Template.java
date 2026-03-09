@@ -53,13 +53,14 @@ public class Template {
                 this.defaultValue = defaultValue == null ? "" : defaultValue;
             }
             @Override public String toString() {
-                return '{' + value + '}';
+                return '{' + value + (defaultValue.isEmpty() ? "" : ':' + defaultValue) + '}';
             }
         }
 
         private static final Pattern SYNTAX = Pattern
                 .compile("(?ix) \\$(" + "[1-9]\\d{0,3}" + ")"
                           + " | \\$\\{ (" + "[a-z]\\w*" + ") (?: : (.*?))* }"
+                          + " | \\$\\{ : (.*?) }"
                           + " | (?: \\${2} [^$]* )+");
 
         static List<Fragment> parse(CharSequence template) {
@@ -76,6 +77,9 @@ public class Template {
                     item = new NumRef(Integer.parseInt(token));
                 } else if ((token = m.group(2)) != null) {
                     item = new NameRef(token, m.group(3));
+                } else if ((token = m.group(4)) != null) {
+                    // XXX: No-name variable with a default value.
+                    item = new NameRef("", token);
                 } else {
                     continue;
                 }
@@ -210,11 +214,11 @@ public class Template {
                     int index = ((Fragment.NumRef) item).value;
                     out.appendReplacement(index > args.length ? "" : args[index - 1]);
                 } else if (item instanceof Fragment.NameRef) {
-                    Template sub = vars.get(((Fragment.NameRef) item).value);
-                    if (sub == null) {
-                        out.appendReplacement("");
-                    } else if (sub.isLiteralText() && sub.firstFragmentText().isEmpty()) {
-                        out.appendReplacement(((Fragment.NameRef) item).defaultValue);
+                    Fragment.NameRef ref = (Fragment.NameRef) item;
+                    Template sub = vars.get(ref.value);
+                    if (sub == null
+                            || sub.isLiteralText() && sub.firstFragmentText().isEmpty()) {
+                        out.appendReplacement(ref.defaultValue);
                     } else {
                         sub.apply(out, vars, args);
                     }

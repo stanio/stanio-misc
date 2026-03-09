@@ -134,4 +134,15 @@ class TemplateTest {
         assertThat(expanded).as("expanded").isEqualTo("Shadow/Bibata-Modern");
     }
 
+    @Test
+    void fixedText() {
+        // Given
+        Template template = Template.parseDynamic("${shadow}/${:Bibata}-${shape}_${color}-${stroke}");
+        Map<String, Template> vars = Template.vars(Map.of("color", "Ice"));
+        // When
+        String expanded = template.apply(vars);
+        // Then
+        assertThat(expanded).as("expanded").isEqualTo("Bibata_Ice");
+    }
+
 }
