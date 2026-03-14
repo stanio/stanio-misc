@@ -66,11 +66,10 @@ import java.awt.image.BufferedImage;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
-import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
+
+import io.github.stanio.windows.PNGEncoder;
 
 /**
  * A Mousecape theme builder.
@@ -219,15 +218,8 @@ public class MousecapeTheme implements Closeable {
         List<CursorRepresentation> representations() {
             List<CursorRepresentation> deferred = new ArrayList<>(4);
             for (Map<Integer, BufferedImage> sizeEntry : representations.values()) {
-                deferred.add(out -> {
-                    ImageWriter imageWriter = pngWriter.get();
-                    try (ImageOutputStream imgOut = new MemoryCacheImageOutputStream(out)) {
-                        imageWriter.setOutput(imgOut);
-                        imageWriter.write(filmstrip(sizeEntry.values()));
-                    } finally {
-                        imageWriter.setOutput(null);
-                    }
-                });
+                deferred.add(out ->
+                    pngWriter.get().encode(filmstrip(sizeEntry.values()), out));
             }
             return deferred;
         }
@@ -402,9 +394,7 @@ public class MousecapeTheme implements Closeable {
             localFactory = ThreadLocal.withInitial(() -> new WeakReference<>(null));
 
     static final
-    ThreadLocal<ImageWriter> pngWriter = ThreadLocal.withInitial(() -> {
-        return ImageIO.getImageWritersByFormatName("png").next();
-    });
+    ThreadLocal<PNGEncoder> pngWriter = ThreadLocal.withInitial(PNGEncoder::newInstance);
 
     static final
     ThreadLocal<ImageReader> pngReader = ThreadLocal.withInitial(() -> {
