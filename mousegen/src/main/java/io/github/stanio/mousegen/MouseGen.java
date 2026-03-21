@@ -188,9 +188,8 @@ public class MouseGen {
                     renderSVG(svg, config);
             }
         }
-        progress.pop();
-
         rendererPool.waitForEach(CursorRenderer::saveDeferred);
+        progress.pop();
     }
 
     private final Matcher svgExt = Pattern.compile("(?i)\\.svg$").matcher("");
