@@ -14,9 +14,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 
 import javax.xml.XMLConstants;
 import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -34,6 +36,7 @@ import com.google.gson.GsonBuilder;
 
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
+import io.github.stanio.mousegen.util.XSLTCache;
 
 /**
  * Similar to {@link io.github.stanio.mousegen.builder.CursorBuilder CursorBuilder}
@@ -76,16 +79,21 @@ public class ScalableCursorBuilder {
         }
     }
 
-    private static final ThreadLocal<Transformer>
-            cleanupTransformer = ThreadLocal.withInitial(() -> {
+    private static final XSLTCache xsltCache = new XSLTCache(() -> {
         TransformerFactory tf = TransformerFactory.newInstance();
         tf.setAttribute("indent-number", 2);
+        // Allow extension functions.
+        tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
+        return tf;
+    });
+
+    private static final ThreadLocal<Transformer>
+            cleanupTransformer = ThreadLocal.withInitial(() -> {
         Transformer tr;
         try {
-            // Allow extension functions.
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
-            tr = tf.newTransformer(new StreamSource(ScalableCursorBuilder.class
-                    .getResource("scalable-cleanup.xsl").toString()));
+            Function<String, Source> source = name ->
+                    new StreamSource(ScalableCursorBuilder.class.getResource(name).toString());
+            tr = xsltCache.getTemplates("scalable-cleanup.xsl", source).newTransformer();
         } catch (TransformerConfigurationException e) {
             throw new IllegalStateException(e);
         }

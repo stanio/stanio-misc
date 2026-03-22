@@ -32,6 +32,7 @@ import javax.xml.transform.stream.StreamSource;
 import org.w3c.dom.Document;
 
 import io.github.stanio.mousegen.util.SAXReplayBuffer;
+import io.github.stanio.mousegen.util.XSLTCache;
 
 /**
  * Loads SVG document with transformations.
@@ -215,16 +216,14 @@ public class SVGTransformer {
         return newTransformer(Optional.of(new StreamSource(sheet)));
     }
 
-    static Transformer newTransformer(Optional<Source> sheet) {
+    static Transformer newTransformer(Optional<StreamSource> sheet) {
         Transformer transformer;
         try {
-            TransformerFactory tf = TransformerFactory.newInstance();
-            // Allow extension functions.
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
-            // REVISIT: Do we want to restrict access here?
-            tf.setURIResolver((href, base) -> null);
-            transformer = sheet.isEmpty() ? tf.newTransformer()
-                                          : tf.newTransformer(sheet.get());
+            transformer = sheet.isEmpty()
+                          ? xsltCache.getFactory().newTransformer()
+                          : xsltCache.getTemplates(sheet.get().getSystemId(),
+                                                   k -> sheet.get())
+                                  .newTransformer();
         } catch (TransformerConfigurationException e) {
             throw new IllegalStateException(e);
         }
@@ -232,6 +231,15 @@ public class SVGTransformer {
         transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
         return transformer;
     }
+
+    private static final XSLTCache xsltCache = new XSLTCache(() -> {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        // Allow extension functions.
+        tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
+        // REVISIT: Do we want to restrict access here?
+        tf.setURIResolver((href, base) -> null);
+        return tf;
+    });
 
     private static String svg11CompatXslt() {
         URL xsltSheet = SVGTransformer.class.getResource("svg11-compat.xsl");
