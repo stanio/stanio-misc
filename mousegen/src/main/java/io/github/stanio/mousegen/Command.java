@@ -15,6 +15,7 @@ import java.util.function.Consumer;
 import io.github.stanio.mousegen.cli.CompileCommand;
 import io.github.stanio.mousegen.config.X11Symlinks;
 import io.github.stanio.mousegen.dump.DumpCommand;
+import io.github.stanio.mousegen.hyprcursor.HyprcursorScalable;
 import io.github.stanio.mousegen.ini_files.LinuxThemeFiles;
 import io.github.stanio.mousegen.ini_files.WindowsInstallScripts;
 
@@ -35,6 +36,7 @@ public final class Command {
         commands.put("linuxThemeFiles", args -> LinuxThemeFiles.main(args));
         commands.put("windowsInstallScripts", args -> WindowsInstallScripts.main(args));
         commands.put("x11Symlinks", args -> X11Symlinks.main(args));
+        commands.put("hyprcursor", args -> HyprcursorScalable.main(args));
         availableCommands = Collections.unmodifiableMap(commands);
     }
 
