@@ -295,11 +295,9 @@ public class MouseGen {
                 themeProgress.next(res);
             }
             if (outputType.equals(OutputType.SCALABLE_CURSORS)) {
-                renderer.prepareScalable((int)
-                        Math.round(res / scheme.nominalSize));
+                renderer.prepareScalable(res);
             } else {
-                renderer.renderTargetSize((int)
-                        Math.round(res / scheme.nominalSize));
+                renderer.renderTargetSize(res);
             }
         }
 

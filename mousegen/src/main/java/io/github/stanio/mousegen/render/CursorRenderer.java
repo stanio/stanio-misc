@@ -314,14 +314,13 @@ public final class CursorRenderer {
         return animation == null ? 0 : animation.delayMillis();
     }
 
-    public void renderTargetSize(int size) throws IOException {
+    public void renderTargetSize(int nominalSize) throws IOException {
         setUpOutput();
+        int size = targetSize(nominalSize);
         prepareDocument(size);
 
         Point hotspot = applySizing(size);
         try {
-            int nominalSize = (Math.round(size * (float)
-                    canvasSizing.nominalSize) + 1) / 2 * 2; // round to even
             int frameMillis = frameMillis();
             if (animation == null || frameNum != null) {
                 // Static cursor or animation frame from static image
@@ -337,6 +336,12 @@ public final class CursorRenderer {
         } catch (AsyncException e) {
             throw targetException(e.getCause(), IOException.class);
         }
+    }
+
+    private int targetSize(int nominalSize) throws IOException {
+        // REVISIT: Rounding strategy: roundEven, ceilEven.  Maybe allow
+        // fractional target size onto an integral-dimensions bitmap.
+        return (int) Math.round(nominalSize / canvasSizing.nominalSize);
     }
 
     private Point applySizing(int targetSize) {
@@ -419,7 +424,9 @@ public final class CursorRenderer {
     private static final Optional<Integer> defaultAlignGrid =
             Optional.ofNullable(Integer.getInteger("mousegen.defaultScalableGrid", null));
 
-    public void prepareScalable(int targetSize) throws IOException {
+    public void prepareScalable(int nominalSize) throws IOException {
+        int targetSize = targetSize(nominalSize);
+
         // setUpScalableOutput
         try {
             if (animation == null || frameNum == null) {
@@ -479,10 +486,6 @@ public final class CursorRenderer {
             hotspot.setLocation((double) x / fractionalPrecision,
                                 (double) y / fractionalPrecision);
         }
-
-        // nominalSize = 24
-        int nominalSize = (Math.round(targetSize * (float)
-                canvasSizing.nominalSize) + 1) / 2 * 2; // round to even
 
         // "render"
         int frameMillis = frameMillis();
