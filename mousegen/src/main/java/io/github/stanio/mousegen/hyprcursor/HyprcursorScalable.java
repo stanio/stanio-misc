@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -155,7 +158,11 @@ public class HyprcursorScalable {
         StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE };
 
     public void convert(Path src) throws IOException {
+        List<ForkJoinTask<?>> cursorTasks = new ArrayList<>(10000);
         Files.walkFileTree(src, new FileVisitor<>() {
+            private void convertTheme(Path dir) throws IOException {
+                HyprcursorScalable.this.convertTheme(dir, cursorTasks);
+            }
             @Override
             public FileVisitResult preVisitDirectory(Path dir,
                     BasicFileAttributes attrs) throws IOException {
@@ -193,6 +200,12 @@ public class HyprcursorScalable {
                 return FileVisitResult.CONTINUE;
             }
         });
+        try {
+            cursorTasks.forEach(ForkJoinTask::join);
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+        System.out.println(".");
     }
 
     private static Path getParent(Path path) {
@@ -201,10 +214,9 @@ public class HyprcursorScalable {
                                 : parent;
     }
 
-    void convertTheme(Path cursorsScalable) throws IOException {
+    void convertTheme(Path cursorsScalable, List<ForkJoinTask<?>> cursorTasks) throws IOException {
         Path parent = getParent(cursorsScalable);
-        System.out.print(parent);
-        //System.out.append(' ');
+        System.out.println(parent);
         ThemeManifest manifest = ThemeManifest.init(parent);
 
         Path dest = parent;
@@ -220,10 +232,9 @@ public class HyprcursorScalable {
             for (Path cursor : (Iterable<Path>) list::iterator) {
                 List<String> cursorAliases = aliases
                         .getOrDefault(cursor.getFileName(), Collections.emptyList());
-                convertCursor(cursor, hyprCursors, cursorAliases);
-                //System.out.append('.');
+                cursorTasks.add(forkPool.submit(runnable(() ->
+                        convertCursor(cursor, hyprCursors, cursorAliases))));
             }
-            System.out.println();
         }
     }
 
@@ -278,6 +289,8 @@ public class HyprcursorScalable {
         return aliases;
     }
 
+    private static final ForkJoinPool forkPool = ForkJoinPool.commonPool();
+
     public static void main(String[] args) throws Exception {
         new HyprcursorScalable().convert(Path.of(args[0]));
     }
@@ -301,6 +314,21 @@ public class HyprcursorScalable {
                 return gson.fromJson(reader, listType);
             }
         }
+    }
+
+
+    @FunctionalInterface interface IOTask {
+        void run() throws IOException;
+    }
+
+    static Runnable runnable(IOTask task) {
+        return () -> {
+            try {
+                task.run();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
     }
 
 }
