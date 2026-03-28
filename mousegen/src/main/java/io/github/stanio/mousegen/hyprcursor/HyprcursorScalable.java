@@ -22,6 +22,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +30,8 @@ import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -50,6 +53,9 @@ public class HyprcursorScalable {
     static class ThemeManifest {
         static final String FNAME = "manifest.hl";
 
+        private static final Pattern DESRC_CLEANUP = Pattern
+                .compile(System.getProperty("hyprcursor.description.cleanup", "(?!.*)"));
+
         private static final Predicate<String> nonBlank = Predicate.not(String::isBlank);
 
         String cursorsDirectory = HYPRCURSORS; // cursors_directory
@@ -58,10 +64,17 @@ public class HyprcursorScalable {
         Optional<String> version = Optional.empty();
         Optional<String> author = Optional.empty();
 
-        static ThemeManifest init(Path src) {
+        static ThemeManifest init(Path src) throws IOException {
             ThemeManifest manifest = new ThemeManifest();
-            // TODO: Read "index.theme"
-            manifest.name = Optional.of(src.getFileName().toString());
+            Path indexFile = src.resolve("index.theme");
+            Map<String, String> props = Files.isRegularFile(indexFile)
+                                        ? parseThemeIndex(indexFile)
+                                        : Collections.emptyMap();
+            manifest.name = Optional.ofNullable(props.get("Name[en]"))
+                    .or(() -> Optional.ofNullable(props.get("Name")))
+                    .or(() -> Optional.of(src.getFileName().toString()));
+            manifest.description = Optional.ofNullable(props.get("Comment"))
+                    .map(str -> DESRC_CLEANUP.matcher(str).replaceFirst(""));
             manifest.version = Optional.of(System
                     .getProperty("hyprcursor.version", "")).filter(nonBlank);
             manifest.author = Optional.of(System
@@ -293,6 +306,21 @@ public class HyprcursorScalable {
 
     public static void main(String[] args) throws Exception {
         new HyprcursorScalable().convert(Path.of(args[0]));
+    }
+
+    private static final Pattern KEY_VALUE = Pattern.compile("(\\S+)\\s*=\\s*(.*)\\s*");
+
+    static Map<String, String> parseThemeIndex(Path file) throws IOException {
+        Map<String, String> props = new LinkedHashMap<>();
+        try (BufferedReader reader = Files.newBufferedReader(file)) {
+            Matcher m = KEY_VALUE.matcher("");
+            for (String line : (Iterable<String>) reader.lines()::iterator) {
+                if (m.reset(line).matches()) {
+                    props.put(m.group(1), m.group(2));
+                }
+            }
+        }
+        return props;
     }
 
 
