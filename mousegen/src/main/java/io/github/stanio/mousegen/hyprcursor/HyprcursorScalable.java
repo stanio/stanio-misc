@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -27,8 +28,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -208,31 +212,31 @@ public class HyprcursorScalable {
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc)
                     throws IOException {
-                if (exc != null) {
-                    System.err.println(exc);
-                }
+                if (exc != null) System.err.println(exc);
                 return FileVisitResult.CONTINUE;
             }
         });
+
+        if (cursorTasks.isEmpty())
+            throw new IOException("No scalable cursor themes found");
+
         try {
             cursorTasks.forEach(ForkJoinTask::join);
         } catch (UncheckedIOException e) {
             throw e.getCause();
         }
-        System.out.println(".");
     }
 
     private Optional<Path> destOpt = Optional.empty();
 
     private static Path getParent(Path path) {
-        Path parent = path.getParent();
-        return (parent == null) ? path.toAbsolutePath().getParent()
-                                : parent;
+        return path.resolve("..").normalize();
     }
 
     void convertTheme(Path cursorsScalable, List<ForkJoinTask<?>> cursorTasks) throws IOException {
         Path parent = getParent(cursorsScalable);
-        System.out.println(parent);
+        //LogOutput.println(parent);
+        LogOutput.spinProgress();
         ThemeManifest manifest = ThemeManifest.init(parent);
 
         Path dest = destOpt.map(d -> d.resolve(parent.getFileName())).orElse(parent);
@@ -251,6 +255,7 @@ public class HyprcursorScalable {
                         convertCursor(cursor, hyprCursors, cursorAliases))));
             }
         }
+        cursorTasks.add(forkPool.submit(() -> LogOutput.println(dest)));
     }
 
     void convertCursor(Path src, Path dst, List<String> aliases) throws IOException {
@@ -259,6 +264,7 @@ public class HyprcursorScalable {
             throw new IOException("empty metadata");
         }
 
+        // REVISIT: Read size (width/height) from source SVG.
         final double canvasSize = Double.parseDouble(System.getProperty("hyprcursor.size", "32"));
         KDEMetadata first = srcMeta.get(0);
         CursorMeta hlMeta = new CursorMeta(first.hotspot_x / canvasSize,
@@ -286,6 +292,7 @@ public class HyprcursorScalable {
                 zip.closeEntry();
             }
         }
+        LogOutput.spinProgress();
     }
 
     private Map<Path, List<String>> getAliases(Path p) throws IOException {
@@ -311,8 +318,14 @@ public class HyprcursorScalable {
             System.err.println("USAGE: hyprcursor <source-dir> [<output-dir>]");
             System.exit(2);
         }
-        new HyprcursorScalable().convert(Path.of(args[0]),
-                args.length > 1 ? Path.of(args[1]) : null);
+        try {
+            LogOutput.startProgress();
+            new HyprcursorScalable().convert(Path.of(args[0]),
+                    args.length > 1 ? Path.of(args[1]) : null);
+        } finally {
+            LogOutput.stopProgress();
+            LogOutput.shutdown();
+        }
     }
 
     private static final Pattern KEY_VALUE = Pattern.compile("(\\S+)\\s*=\\s*(.*)\\s*");
@@ -365,5 +378,69 @@ public class HyprcursorScalable {
             }
         };
     }
+
+
+    private static final class LogOutput {
+
+        private static final ExecutorService queue =
+                Executors.newSingleThreadExecutor(r -> {
+            Thread th = new Thread(r, "LogOutput");
+            th.setDaemon(true);
+            return th;
+        });
+
+        private static final String flapperChars = System.getProperty("mousegen.flapper", "/-\\|");
+
+        private static final int flapperWidth = Integer.getInteger("mousegen.flapper.width", 1);
+
+        private static int flapperPos = 0;
+
+        private static char[] indicator;
+        static {
+            indicator = new char[flapperWidth + 1];
+            Arrays.fill(indicator, ' ');
+            indicator[flapperWidth] = '\r';
+        }
+
+        static void startProgress() {
+            queue.execute(() -> System.out.print("\033[?25l"));
+        }
+
+        static void spinProgress() {
+            queue.execute(LogOutput::budgeIndicator);
+        }
+
+        private static void budgeIndicator() {
+            int next = flapperPos + flapperWidth;
+            flapperChars.getChars(flapperPos, next, indicator, 0);
+            flapperPos = (next >= flapperChars.length()) ? 0 : next;
+            System.out.print(indicator);
+            System.out.flush();
+        }
+
+        static void println(Object x) {
+            queue.execute(() -> {
+                System.out.println(x);
+                budgeIndicator();
+            });
+        }
+
+        static void stopProgress() {
+            queue.execute(() -> System.out.append("\033[K\033[?25h").flush());
+        }
+
+        static void shutdown() {
+            queue.shutdown();
+            try {
+                if (queue.awaitTermination(10, TimeUnit.SECONDS)) return;
+
+                System.err.println("Timed out waiting to terminate");
+            } catch (InterruptedException e) {
+                System.err.println(e);
+            }
+        }
+
+    }
+
 
 }
