@@ -170,7 +170,8 @@ public class HyprcursorScalable {
     private static OpenOption[] writeOpts = { StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE };
 
-    public void convert(Path src) throws IOException {
+    public void convert(Path src, Path dst) throws IOException {
+        destOpt = Optional.ofNullable(dst);
         List<ForkJoinTask<?>> cursorTasks = new ArrayList<>(10000);
         Files.walkFileTree(src, new FileVisitor<>() {
             private void convertTheme(Path dir) throws IOException {
@@ -221,6 +222,8 @@ public class HyprcursorScalable {
         System.out.println(".");
     }
 
+    private Optional<Path> destOpt = Optional.empty();
+
     private static Path getParent(Path path) {
         Path parent = path.getParent();
         return (parent == null) ? path.toAbsolutePath().getParent()
@@ -232,11 +235,10 @@ public class HyprcursorScalable {
         System.out.println(parent);
         ThemeManifest manifest = ThemeManifest.init(parent);
 
-        Path dest = parent;
-        manifest.write(dest);
-
+        Path dest = destOpt.map(d -> d.resolve(parent.getFileName())).orElse(parent);
         Path hyprCursors = dest.resolve(manifest.cursorsDirectory);
         Files.createDirectories(hyprCursors);
+        manifest.write(dest);
 
         Map<Path, List<String>> aliases = getAliases(cursorsScalable);
         try (Stream<Path> list = Files.list(cursorsScalable)
@@ -305,7 +307,12 @@ public class HyprcursorScalable {
     private static final ForkJoinPool forkPool = ForkJoinPool.commonPool();
 
     public static void main(String[] args) throws Exception {
-        new HyprcursorScalable().convert(Path.of(args[0]));
+        if (args.length < 1 || args.length > 2) {
+            System.err.println("USAGE: hyprcursor <source-dir> [<output-dir>]");
+            System.exit(2);
+        }
+        new HyprcursorScalable().convert(Path.of(args[0]),
+                args.length > 1 ? Path.of(args[1]) : null);
     }
 
     private static final Pattern KEY_VALUE = Pattern.compile("(\\S+)\\s*=\\s*(.*)\\s*");
