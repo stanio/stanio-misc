@@ -1,6 +1,17 @@
-# `mousegen`
+# `mousegen` –  a swiss army knife for mouse cursors
 
-_Tool for generating Windows and X11 mouse cursors from SVG sources._
+Provides tools for generating and processing mouse cursors (and cursor themes)
+in number of different formats:
+
+-   Windows cursors
+-   Xcursors
+-   [Mousecape](https://github.com/alexzielenski/Mousecape) (macOS)
+-   [KDE scalable cursors](https://blog.vladzahorodnii.com/2024/10/06/svg-cursors-everything-that-you-need-to-know-about-them/)
+-   [Hyprcursors](https://standards.hyprland.org/hyprcursor/) (SVG)
+
+The main tool [`render`](#render) generates mouse cursors from SVG sources.
+
+-----
 
 Alternative utilities for generating
 [Bibata](https://github.com/ful1e5/Bibata_Cursor) (and related families) mouse
@@ -46,9 +57,23 @@ clarity/sharpness:
 
 ## Build
 
-    gradlew :mousegen:shadowJar
+    gradlew :mousegen:assemble
 
-Copy `build/libs/mousegen.jar` to the `Bibata_Cursor` working copy.
+`mousegen/build/libs/` contains executable JARs with and without dependencies included.
+
+`mousegen/build/distributions/` contains
+[self-executable JAR](https://skife.org/java/unix/2011/06/20/really_executable_jars.html)
+scripts (require `java` on the `PATH`):
+
+-   [`mousegen.sh`](src/scripts/mousegen.sh) (Posix)
+-   [`mousegen.cmd`](src/scripts/mousegen.cmd) (Windows)
+
+If you have `stanio-misc` and [`Bibata_Cursor`](https://github.com/stanio/Bibata_Cursor)
+checked out next to each other, you could use:
+
+    gradlew installExecutable -PinstallDir=../../Bibata_Cursor/bin
+
+to get a fresh `mousegen` executable for the Bibata_Cursor (stanio) build.
 
 ## Usage
 
@@ -139,7 +164,7 @@ Windows and X (Linux) cursors directly (a la `clickgen`), not saving
 intermediate bitmaps:
 
     > java -jar mousegen.jar render --help
-    USAGE: render [<project-path>] [{--windows-cursors|--linux-cursors}]
+    USAGE: render [<project-path>] [{--windows-cursors|--linux-cursors|--mousecape-theme|--scalable-cursors}]
 
 See some more examples on the
 [Wiki page](https://github.com/stanio/stanio-misc/wiki/mousegen).
@@ -166,6 +191,21 @@ For manual setup on Windows see:
 Creates Xcursor symlinks.  Specialized alternative to native tools like
 `ln` (Linux) and `mklink` (Windows).
 
+### `hyprcursor`
+
+[`render`](#render) can generate
+[KDE SVG cursors](https://blog.vladzahorodnii.com/2024/10/06/svg-cursors-everything-that-you-need-to-know-about-them/):
+
+    mousegen render --scalable-cursors ...
+
+This utility can convert these into
+[hyprcursor](https://standards.hyprland.org/hyprcursor/) format:
+
+    mousegen hyprcursor ...
+
+The SVGs are reused "as is".  The metadata is converted, and individual cursors
+packaged as required.
+
 ## Similar Tools
 
 Some references I've stumbled upon:
@@ -175,7 +215,7 @@ Some references I've stumbled upon:
 -   [charakterziffer/cursor-toolbox](https://github.com/charakterziffer/cursor-toolbox)
 -   [mxre/cursor](https://github.com/mxre/cursor)
 -   [quantum5/win2xcur](https://github.com/quantum5/win2xcur) (and x2wincur)
--   [xcursorgen](https://gitlab.freedesktop.org/xorg/app/xcursorgen)
+-   [xcursorgen](https://www.x.org/releases/current/doc/man/man1/xcursorgen.1.xhtml)
     (on [ArchWiki](https://wiki.archlinux.org/title/Xcursorgen))
 -   [CursorCreate](https://github.com/isaacrobinson2000/CursorCreate)
--   [Mousecape](https://github.com/alexzielenski/Mousecape) (macOS)
+-   [kcursorgen](https://blogs.kde.org/2025/01/12/kcursorgen-and-svg-cursors/)
