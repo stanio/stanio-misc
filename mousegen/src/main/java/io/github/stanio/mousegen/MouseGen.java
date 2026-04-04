@@ -362,10 +362,11 @@ public class MouseGen {
             return;
         }
 
+        MouseGen mouseGen = null;
         try {
             Path projectDir = configFactory.baseDir();
-            new MouseGen(projectDir, projectDir.resolve(cmdArgs.buildDir), cmdArgs.outputType)
-                    .withBaseStrokeWidth(cmdArgs.baseStrokeWidth,
+            mouseGen = new MouseGen(projectDir, projectDir.resolve(cmdArgs.buildDir), cmdArgs.outputType);
+            mouseGen.withBaseStrokeWidth(cmdArgs.baseStrokeWidth,
                             cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit, cmdArgs.wholePixelStroke)
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
@@ -380,6 +381,7 @@ public class MouseGen {
         } finally {
             Duration elapsedTime = Duration
                     .ofMillis(System.currentTimeMillis() - startTime);
+            if (mouseGen != null) mouseGen.progress.stop();
             System.err.println();
             System.err.append("Elapsed: ").println(elapsedTime
                     .toString().replaceFirst("^PT", "").toLowerCase(Locale.ROOT));

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Hierarchical progress output.  Progress is indicated by adding (push), or
@@ -42,6 +43,7 @@ public interface ProgressOutput {
                     : new PlainOutput();
     }
 
+    default void stop() {}
 }
 
 
@@ -505,17 +507,27 @@ class MarkedString {
 
 class SynchronousProgressOutput implements ProgressOutput {
 
-    private static final ExecutorService updates =
-            Executors.newSingleThreadExecutor(r -> {
-        Thread th = new Thread(r, "SynchronousProgressOutput");
-        th.setDaemon(true);
-        return th;
-    });
+    private final ExecutorService updates;
 
     private final ProgressOutput delegate;
 
     SynchronousProgressOutput(ProgressOutput delegate) {
+        this(delegate, Executors.newSingleThreadExecutor(r -> {
+            Thread th = new Thread(r, "SynchronousProgressOutput");
+            th.setDaemon(true);
+            return th;
+        }));
+    }
+
+    private SynchronousProgressOutput(ProgressOutput delegate,
+                                      SynchronousProgressOutput parent) {
+        this(delegate, parent.updates);
+    }
+
+    private SynchronousProgressOutput(ProgressOutput delegate,
+                                      ExecutorService updateQueue) {
         this.delegate = delegate;
+        this.updates = updateQueue;
     }
 
     static ProgressOutput of(ProgressOutput output) {
@@ -543,12 +555,25 @@ class SynchronousProgressOutput implements ProgressOutput {
     @Override
     public ProgressOutput fork(Object item) {
         try {
-            return updates.submit(() -> of(delegate.fork(item))).get();
+            return updates.submit(() ->
+                    new SynchronousProgressOutput(delegate.fork(item), this)).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         } catch (ExecutionException e) {
             throw new IllegalStateException(e.getCause());
+        }
+    }
+
+    @Override
+    public void stop() {
+        updates.shutdown();
+        try {
+            if (!updates.awaitTermination(10, TimeUnit.SECONDS)) {
+                System.err.println("Timed out awaiting termination");
+            }
+        } catch (InterruptedException e) {
+            System.err.println(e);
         }
     }
 
