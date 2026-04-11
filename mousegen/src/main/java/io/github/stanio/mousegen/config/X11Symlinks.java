@@ -140,7 +140,7 @@ public class X11Symlinks {
             out.println();
         } else { // actualTarget != configuredTarget
             assert (configuredTarget != null);
-            out.println(withColor(" (=/=> " + configuredTarget + ")", YELLOW));
+            out.println(WARN, withColor(" (=/=> " + configuredTarget + ")", YELLOW));
         }
     }
 
