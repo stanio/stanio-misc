@@ -15,8 +15,9 @@
 
   <xsl:template match="/svg:svg">
     <xsl:variable name="defs" select=".//svg:defs"/>
-    <xsl:variable name="posf" select=".//svg:*[ normalize-space(@paint-order) = 'stroke'
-              or contains(substring-after(@paint-order, 'stroke'), 'fill') ]"/>
+    <xsl:variable name="posf" select=".//svg:*[ (normalize-space(@paint-order) = 'stroke'
+              or contains(substring-after(@paint-order, 'stroke'), 'fill')) and
+              local-name() != 'use' ]"/>
     <svg xmlns:xlink="http://www.w3.org/1999/xlink">
       <xsl:apply-templates select="@id"/>
       <xsl:apply-templates select="@version"/>
@@ -29,7 +30,7 @@
           <xsl:for-each select="$defs">
             <xsl:apply-templates select="*" />
           </xsl:for-each>
-          <xsl:call-template name="posf">
+          <xsl:call-template name="def-posf">
             <xsl:with-param name="posf" select="$posf" />
           </xsl:call-template>
         </defs>
@@ -49,7 +50,7 @@
   </xsl:template>
 
   <!-- paint-order="stroke fill" -->
-  <xsl:template name="posf">
+  <xsl:template name="def-posf">
     <xsl:param name="posf"/>
     <xsl:for-each select="$posf">
       <xsl:copy>
@@ -67,19 +68,37 @@
 
   <xsl:template match="svg:*[ normalize-space(@paint-order) = 'stroke'
               or contains(substring-after(@paint-order, 'stroke'), 'fill') ]">
-    <!-- <xsl:variable name="id" select="generate-id()" /> -->
+    <xsl:choose>
+      <xsl:when test="local-name() = 'use'">
+        <xsl:call-template name="break-posf">
+          <xsl:with-param name="id" select="concat(@href, @xlink:href)" />
+        </xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:call-template name="break-posf"/>
+      </xsl:otherwise>
+    </xsl:choose>
+    
+  </xsl:template>
+
+  <xsl:template name="break-posf">
+    <xsl:param name="id" select="concat('#', generate-id())" />
     <g>
       <xsl:copy-of select="@id" />
       <xsl:apply-templates select="@*[ name() = 'filter'
                                        or name() = 'mask'
                                        or name() = 'clip-path' ]" />
-      <use xlink:href="#{generate-id()}">
-        <xsl:attribute name="fill">none</xsl:attribute>
-        <xsl:apply-templates select="@stroke" />
-        <xsl:apply-templates select="@stroke-opacity" />
-        <xsl:apply-templates select="@stroke-width" />
-      </use>
-      <use xlink:href="#{generate-id()}">
+      <!-- @stroke-opacity != '0' -->
+      <xsl:if test="@stroke[ not(starts-with(normalize-space(), '#')) or
+                             substring(normalize-space(), 8) != '00' ]">
+        <use xlink:href="{$id}">
+          <xsl:attribute name="fill">none</xsl:attribute>
+          <xsl:apply-templates select="@stroke" />
+          <xsl:apply-templates select="@stroke-opacity" />
+          <xsl:apply-templates select="@stroke-width" />
+        </use>
+      </xsl:if>
+      <use xlink:href="{$id}">
         <xsl:apply-templates select="@fill" />
         <xsl:apply-templates select="@fill-opacity" />
       </use>
@@ -89,22 +108,44 @@
   <!-- Transform fill="#RRGGBBAA" into fill="#RRGGBB" fill-opacity="AA / 255" -->
   <xsl:template match="@fill[ starts-with(normalize-space(), '#') and
                               string-length(normalize-space()) = 9 ]">
-    <xsl:attribute name="fill">
-      <xsl:value-of select="substring(normalize-space(), 1, 7)"/>
-    </xsl:attribute>
-    <xsl:attribute name="fill-opacity">
-      <xsl:value-of select="round(Integer:parseInt(substring(normalize-space(), 8), 16) * 100 div 255) div 100"/>
-    </xsl:attribute>
+    <xsl:call-template name="extract-opacity"/>
   </xsl:template>
 
   <xsl:template match="@stroke[ starts-with(normalize-space(), '#') and
                                 string-length(normalize-space()) = 9 ]">
-    <xsl:attribute name="stroke">
-      <xsl:value-of select="substring(normalize-space(), 1, 7)"/>
-    </xsl:attribute>
-    <xsl:attribute name="stroke-opacity">
-      <xsl:value-of select="round(Integer:parseInt(substring(normalize-space(), 8), 16) * 100 div 255) div 100"/>
-    </xsl:attribute>
+    <xsl:call-template name="extract-opacity"/>
+  </xsl:template>
+
+  <xsl:template name="extract-opacity">
+    <xsl:param name="attr-opacity" select="concat(local-name(), '-opacity')"/>
+    <xsl:variable name="alpha" select="substring(normalize-space(), 8)"/>
+    <xsl:choose>
+      <xsl:when test="$alpha = '00'">
+        <xsl:attribute name="{name()}">none</xsl:attribute>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:attribute name="{name()}">
+          <xsl:value-of select="substring(normalize-space(), 1, 7)"/>
+        </xsl:attribute>
+        <xsl:if test="$alpha != 'FF'">
+          <xsl:attribute name="{$attr-opacity}">
+            <xsl:value-of select="round(Integer:parseInt($alpha, 16) * 100 div 255) div 100"/>
+          </xsl:attribute>
+        </xsl:if>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template match="@color[ starts-with(normalize-space(), '#') and
+                               string-length(normalize-space()) = 9 ]">
+    <!-- Drop attribute -->
+  </xsl:template>
+
+  <xsl:template match="svg:*[ starts-with(normalize-space(@fill), '#') and
+                              substring(normalize-space(@fill), 8) = '00' or
+                              starts-with(normalize-space(@color), '#') and
+                              substring(normalize-space(@color), 8) = '00' ]">
+    <!-- Drop element -->
   </xsl:template>
 
   <!-- REVISIT: Or just on <use> elements? -->
