@@ -27,13 +27,16 @@ public class DocumentColors {
 
     private final Map<String, Collection<Node>> index;
 
-    private DocumentColors(Document document) {
+    private final Map<String, String> defaultColors;
+
+    private DocumentColors(Document document, Map<String, String> defaultColors) {
         this.document = Objects.requireNonNull(document, "null document");
         this.index = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        this.defaultColors = defaultColors;
     }
 
-    public static DocumentColors forDocument(Document document) {
-        return new DocumentColors(document);
+    public static DocumentColors forDocument(Document document, Map<String, String> defaultColors) {
+        return new DocumentColors(document, defaultColors);
     }
 
     private void updateIndex(Collection<String> colors) {
@@ -66,10 +69,22 @@ public class DocumentColors {
         if (!index.keySet().containsAll(colorsIgnoreCase.keySet())) {
             Set<String> newColors = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
             newColors.addAll(colorsIgnoreCase.keySet());
+            newColors.addAll(defaultColors.keySet());
             newColors.removeAll(index.keySet());
             updateIndex(newColors);
         }
-        apply(colorsIgnoreCase::get);
+        apply(k -> getColor(k, colorsIgnoreCase));
+    }
+
+    private String getColor(String k, Map<String, String> colorMap) {
+        String c = colorMap.get(k);
+        if (c != null) return c;
+
+        String d = defaultColors.get(k);
+        if (d == null) {
+            return null;
+        }
+        return Objects.requireNonNullElse(getColor(d, colorMap), d);
     }
 
     private void reset() {

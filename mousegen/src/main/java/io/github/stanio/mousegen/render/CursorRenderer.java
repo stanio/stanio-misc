@@ -68,14 +68,16 @@ public final class CursorRenderer {
     private Map<String, String> colorMap = Collections.emptyMap();
     private SizeScheme canvasSizing = SizeScheme.SOURCE;
 
-    private volatile DocumentColors colorTheme;
-    private volatile SVGSizing svgSizing;
+    private DocumentColors colorTheme;
+    private SVGSizing svgSizing;
     private double baseStrokeWidth = StrokeWidth.BASE_WIDTH;
     private double minStrokeWidth;
     private boolean wholePixelStroke;
     private double expandFillLimit;
     private double strokeOffset;
     private double fillOffset;
+
+    private Map<String, String> defaultColors = Collections.emptyMap();
 
     private final Map<Path, CursorBuilder> deferredFrames = new HashMap<>();
 
@@ -106,6 +108,10 @@ public final class CursorRenderer {
             throw new IllegalStateException(message + "\n\tBuild in progress: "
                     + targetName + ". Call saveCurrent() to complete, or setFile()"
                     + " to enable a new setup");
+    }
+
+    public void setDefaultColors(Map<String, String> colors) {
+        this.defaultColors = colors;
     }
 
     public void setBaseStrokeWidth(Double width) {
@@ -274,7 +280,7 @@ public final class CursorRenderer {
                     .transformDocument(sourceDocument()));
             backend.fromDocument(svg -> {
                 svgSizing = SVGSizing.forDocument(svg);
-                colorTheme = DocumentColors.forDocument(svg);
+                colorTheme = DocumentColors.forDocument(svg, defaultColors);
                 return null;
             });
         }
@@ -448,7 +454,7 @@ public final class CursorRenderer {
             scalableVariant = variantTransformer.transformDocument(sourceDocument());
             svgSizing = SVGSizing.forDocument(scalableVariant);
             svgSizing.metadata().clearChildAnchors();
-            colorTheme = DocumentColors.forDocument(scalableVariant);
+            colorTheme = DocumentColors.forDocument(scalableVariant, defaultColors);
         }
         Document svg = scalableVariant;
         colorTheme.apply(colorMap);

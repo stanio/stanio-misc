@@ -84,6 +84,10 @@ public final class ConfigFactory {
         colorRegistry.read(path.toUri().toURL());
     }
 
+    public Map<String, String> getDefaultColors() {
+        return colorRegistry.get("Default");
+    }
+
     public void deifineAnimations(String animationsFile)
             throws IOException, JsonParseException {
         Path path;

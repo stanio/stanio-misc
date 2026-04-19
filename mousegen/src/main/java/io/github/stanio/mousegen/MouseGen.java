@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -80,6 +81,7 @@ public class MouseGen {
         Double expandFillBase;
         boolean wholePixelStroke;
         boolean updateExisting;
+        Map<String, String> defaultColors = Collections.emptyMap();
 
         void apply(CursorRenderer renderer) {
             renderer.setBaseStrokeWidth(baseStrokeWidth);
@@ -87,6 +89,7 @@ public class MouseGen {
             renderer.setExpandFillBase(expandFillBase);
             renderer.setWholePixelStroke(wholePixelStroke);
             renderer.setUpdateExisting(updateExisting);
+            renderer.setDefaultColors(defaultColors);
         }
     }
 
@@ -126,6 +129,11 @@ public class MouseGen {
         rendererConfig.minStrokeWidth = minWidth;
         rendererConfig.expandFillBase = expandFillLimit;
         rendererConfig.wholePixelStroke = wholePixelWidth;
+        return this;
+    }
+
+    public MouseGen withDefaultColors(Map<String, String> colors) {
+        rendererConfig.defaultColors = colors;
         return this;
     }
 
@@ -283,7 +291,6 @@ public class MouseGen {
 
     private void renderSVG(ThemeConfig config, Animation animation, CursorRenderer renderer,
             ProgressOutput themeProgress) throws IOException {
-        SizeScheme scheme = config.sizeScheme();
         for (int res : resolutions(config)) {
             if (animation != null
                     && (res > maxAnimSize
@@ -368,6 +375,7 @@ public class MouseGen {
             mouseGen = new MouseGen(projectDir, projectDir.resolve(cmdArgs.buildDir), cmdArgs.outputType);
             mouseGen.withBaseStrokeWidth(cmdArgs.baseStrokeWidth,
                             cmdArgs.minStrokeWidth, cmdArgs.expandFillLimit, cmdArgs.wholePixelStroke)
+                    .withDefaultColors(configFactory.getDefaultColors())
                     .withResolutions(cmdArgs.resolutions())
                     .cursorNames(nameMapping, cmdArgs.allCursors, cmdArgs.cursorFilter)
                     .updateExisting(cmdArgs.updateExisting)
