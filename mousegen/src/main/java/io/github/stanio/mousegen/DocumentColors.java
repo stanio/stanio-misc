@@ -23,6 +23,9 @@ import org.w3c.dom.Node;
 
 public class DocumentColors {
 
+    private static final boolean
+            replaceNamed = Boolean.getBoolean("mousegen.colors.replaceNamed");
+
     private final Document document;
 
     private final Map<String, Collection<Node>> index;
@@ -46,7 +49,7 @@ public class DocumentColors {
             for (int i = 0, len = attrs.getLength(); i < len; i++) {
                 Node node = attrs.item(i);
                 String value = node.getNodeValue();
-                if (value.startsWith("#") && colors.contains(value)) {
+                if ((replaceNamed || value.startsWith("#")) && colors.contains(value)) {
                     index.merge(value, Arrays.asList(node),
                                        DocumentColors::concat);
                 }
