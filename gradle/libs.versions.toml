@@ -1,6 +1,6 @@
 [versions]
 batik = "1.19"
-gson = "2.13.2"
+gson = "2.14.0"
 #jsvg = "2.0.0"
 jsvg = "latest.integration"
 woodstox = "7.1.1"
