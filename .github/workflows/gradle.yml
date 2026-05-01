@@ -36,4 +36,14 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew --show-version build javadoc
 
+    - uses: actions/upload-artifact@v7
+      with:
+        name: mousegen-build
+        overwrite: true
+        compression-level: 0
+        path: |
+          mousegen/build/distributions/mousegen.cmd
+          mousegen/build/distributions/mousegen.sh
+          mousegen/build/libs/mousegen-*-shaded.jar
+
     - uses: gradle/actions/dependency-submission@v6
