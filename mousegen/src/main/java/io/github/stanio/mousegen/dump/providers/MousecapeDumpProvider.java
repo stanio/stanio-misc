@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
@@ -104,21 +105,23 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
         private int cursorCount;
         private int representationCount;
 
+        private final PrintStream info = System.out;
+
         DumpHandler(Path outDir) {
             this.outDir = outDir;
         }
 
         @Override
         public void themeProperty(String name, Object value) {
-            System.out.println("  " + name + ": " + value);
+            info.println("  " + name + ": " + value);
         }
 
         @Override
         public void cursorStart(String name) {
             if (cursorCount++ == 0) {
-                System.out.println("  Cursors:");
+                info.println("  Cursors:");
             }
-            System.out.println("    " + name + ": ");
+            info.println("    " + name + ": ");
             representationCount = 0;
 
             if (metadata != null) {
@@ -153,13 +156,13 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
                 warning("Unknown cursor property: " + name + "=" + value);
                 return;
             }
-            System.out.println("      " + name + ": " + value);
+            info.println("      " + name + ": " + value);
         }
 
         @Override
         public void cursorRepresentation(Supplier<ByteBuffer> deferredData) {
             if (representationCount++ == 0) {
-                System.out.println("      Representations:");
+                info.println("      Representations:");
             }
 
             ByteBuffer data = deferredData.get();
@@ -187,7 +190,7 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
                 }
             } catch (IOException e) {
                 warning(e.toString());
-                System.out.println("        - byte-length(" + dataLength + ")");
+                info.println("        - byte-length(" + dataLength + ")");
             }
         }
 
@@ -250,7 +253,7 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
         @Override
         public void cursorEnd() {
             completeCursor();
-            System.out.println();
+            info.println();
         }
 
         @Override
