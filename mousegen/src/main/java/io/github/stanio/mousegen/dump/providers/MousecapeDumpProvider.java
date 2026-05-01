@@ -178,7 +178,7 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
                         fch.write(data);
                     }
                     float scaleFactor = (float) dimension.width / baseWidth;
-                    metadata.put(dimension.width,
+                    metadata.put(Math.max(dimension.width, dimension.height),
                             Math.round(baseXHot * scaleFactor),
                             Math.round(baseYHot * scaleFactor),
                             targetName, frameDelay);
@@ -229,7 +229,7 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
                 g.dispose();
                 String targetName = String.format(Locale.ROOT, nameFormat, dimensionString, frameNo);
                 writePNG(frame, framesDir.resolve(targetName));
-                metadata.put(frameNo, frameWidth,
+                metadata.put(frameNo, Math.max(frameWidth, frameHeight),
                         frameXHot, frameYHot, framesPrefix + targetName, frameDelay);
             }
             return frameWidth + "x" + frameHeight + " [" + (frameNo - 1) + "]";
