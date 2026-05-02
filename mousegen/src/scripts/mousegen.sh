@@ -1,3 +1,4 @@
 #!/bin/sh
-exec java -Dline.separator=$'\n' $MOUSEGEN_OPTS -jar "$0" "$@"
+exec java -Dline.separator='
+' $MOUSEGEN_OPTS -jar "$0" "$@"
 
