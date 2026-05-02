@@ -79,6 +79,7 @@ public final class CursorRenderer {
 
     private Map<String, String> defaultColors = Collections.emptyMap();
 
+    // REVISIT: Manage this in the CursorBuilderFactory.
     private final Map<Path, CursorBuilder> deferredFrames = new HashMap<>();
 
     private CursorBuilder currentFrames;

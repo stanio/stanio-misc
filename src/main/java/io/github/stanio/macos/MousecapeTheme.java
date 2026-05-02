@@ -582,7 +582,7 @@ public class MousecapeTheme implements Closeable {
         return editor;
     }
 
-    /*synchronized*/ void writeCursor(CursorEntry pointer) throws IOException {
+    synchronized void writeCursor(CursorEntry pointer) throws IOException {
         Objects.requireNonNull(pointer);
         if (pointer.owner() != this)
             throw new IllegalArgumentException("Cursor not created from this theme");
@@ -730,7 +730,7 @@ public class MousecapeTheme implements Closeable {
     }
 
     @Override
-    public /*synchronized*/ void close() throws IOException {
+    public synchronized void close() throws IOException {
         if (fileOut != null) {
             writeEnd();
         }

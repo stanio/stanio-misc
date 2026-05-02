@@ -7,6 +7,8 @@ package io.github.stanio.mousegen.builder.providers;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -26,6 +28,11 @@ import io.github.stanio.mousegen.builder.OutputFormat;
 public class MousecapeCursorFactory extends CursorBuilderFactory {
 
     private final Map<Path, MousecapeTheme> openThemes = new HashMap<>();
+
+    /* XXX: Internal */
+    public Collection<MousecapeTheme> openThemes() {
+        return Collections.unmodifiableCollection(openThemes.values());
+    }
 
     @Override
     public CursorBuilder builderFor(Path targetPath, boolean updateExisting,

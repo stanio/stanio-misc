@@ -20,8 +20,10 @@ import java.util.concurrent.TimeUnit;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 
+import io.github.stanio.macos.MousecapeTheme;
 import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
+import io.github.stanio.mousegen.builder.providers.MousecapeCursorFactory;
 
 public class AsyncCursorBuilderFactory extends CursorBuilderFactory {
 
@@ -135,18 +137,47 @@ public class AsyncCursorBuilderFactory extends CursorBuilderFactory {
 
     @Override
     public void finalizeThemes() throws IOException {
+        if (delegate instanceof MousecapeCursorFactory) {
+            awaitCurrentWork(false);
+
+            // REVISIT: Generalize as part of the CursorBuilderFactory API.
+            for (MousecapeTheme theme : ((MousecapeCursorFactory) delegate).openThemes()) {
+                WorkQueue themeQueue = queues.get(theme.target());
+                if (themeQueue == null) {
+                    //System.err.println("[AsyncCursorBuilderFactory]"
+                    //        + " No theme queue for: " + theme.target());
+                    continue;
+                }
+
+                themeQueue.submit(() -> {
+                    try {
+                        theme.close();
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
+            }
+        }
+
+        awaitCurrentWork(true);
+
+        // XXX: Really done?
+        Thread.yield();
+        delegate.finalizeThemes();
+    }
+
+    private void awaitCurrentWork(boolean removeDone) throws IOException {
         Iterator<WorkQueue> iter = queues.values().iterator();
         while (iter.hasNext()) {
             WorkQueue next = iter.next();
-            iter.remove();
             try {
                 next.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw (IOException) new InterruptedIOException().initCause(e);
             }
+            if (removeDone) iter.remove();
         }
-        delegate.finalizeThemes();
     }
 
 }
