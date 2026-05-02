@@ -391,15 +391,18 @@ public class HyprcursorScalable {
 
         private static final String flapperChars = System.getProperty("mousegen.flapper", "/-\\|");
 
-        private static final int flapperWidth = Integer.getInteger("mousegen.flapper.width", 1);
+        private static final int flapperWidth = Math.min(
+                Integer.getInteger("mousegen.flapper.width", 1), flapperChars.length());
 
         private static int flapperPos = 0;
 
         private static char[] indicator;
         static {
-            indicator = new char[flapperWidth + 1];
-            Arrays.fill(indicator, ' ');
-            indicator[flapperWidth] = '\r';
+            if (flapperWidth > 0) {
+                indicator = new char[flapperWidth + 1];
+                Arrays.fill(indicator, ' ');
+                indicator[flapperWidth] = '\r';
+            }
         }
 
         static void startProgress() {
@@ -411,6 +414,8 @@ public class HyprcursorScalable {
         }
 
         private static void budgeIndicator() {
+            if (flapperWidth < 1) return;
+
             int next = flapperPos + flapperWidth;
             flapperChars.getChars(flapperPos, next, indicator, 0);
             flapperPos = (next >= flapperChars.length()) ? 0 : next;
