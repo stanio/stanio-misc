@@ -18,6 +18,7 @@ import io.github.stanio.mousegen.dump.DumpCommand;
 import io.github.stanio.mousegen.hyprcursor.HyprcursorScalable;
 import io.github.stanio.mousegen.ini_files.LinuxThemeFiles;
 import io.github.stanio.mousegen.ini_files.WindowsInstallScripts;
+import io.github.stanio.mousegen.validate.Validator;
 
 public final class Command {
 
@@ -37,6 +38,7 @@ public final class Command {
         commands.put("windowsInstallScripts", args -> WindowsInstallScripts.main(args));
         commands.put("x11Symlinks", args -> X11Symlinks.main(args));
         commands.put("hyprcursor", args -> HyprcursorScalable.main(args));
+        commands.put("validate", args -> Validator.main(args));
         availableCommands = Collections.unmodifiableMap(commands);
     }
 
