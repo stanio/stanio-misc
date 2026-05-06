@@ -38,6 +38,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -171,6 +172,11 @@ public class HyprcursorScalable {
     private static final String HYPRCURSORS = "hyprcursors";
     private static final String CURSORS_SCALABLE = "cursors_scalable";
 
+    private static final boolean
+            saveTimestamps = Boolean.getBoolean("mousegen.saveTimestamps");
+    private static final int compressionLevel = Integer
+            .getInteger("mousegen.zipLevel", Deflater.DEFAULT_COMPRESSION);
+
     private static OpenOption[] writeOpts = { StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE };
 
@@ -279,6 +285,8 @@ public class HyprcursorScalable {
         Path hlc = dst.resolve(src.getFileName() + ".hlc");
         try (OutputStream fout = Files.newOutputStream(hlc, writeOpts);
                 ZipOutputStream zip = new ZipOutputStream(fout)) {
+            zip.setLevel(compressionLevel);
+
             zip.putNextEntry(new ZipEntry(CursorMeta.FNAME));
             hlMeta.write(zip);
             zip.closeEntry();
@@ -286,7 +294,9 @@ public class HyprcursorScalable {
             for (KDEMetadata kde : srcMeta) {
                 Path svg = src.resolve(kde.filename);
                 ZipEntry entry = new ZipEntry(kde.filename);
-                entry.setLastModifiedTime(Files.getLastModifiedTime(svg));
+                if (saveTimestamps) {
+                    entry.setLastModifiedTime(Files.getLastModifiedTime(svg));
+                }
                 zip.putNextEntry(entry);
                 Files.copy(svg, zip);
                 zip.closeEntry();
