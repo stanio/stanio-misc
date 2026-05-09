@@ -9,15 +9,9 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Iterator;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
-
-import javax.imageio.ImageIO;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 import io.github.stanio.mousegen.MouseGen.OutputType;
 
@@ -25,6 +19,7 @@ import io.github.stanio.mousegen.builder.CursorBuilder;
 import io.github.stanio.mousegen.builder.CursorBuilderFactory;
 import io.github.stanio.mousegen.builder.OutputFormat;
 import io.github.stanio.mousegen.compile.CursorGenConfig;
+import io.github.stanio.windows.PNGEncoder;
 
 @OutputFormat(OutputType.BITMAPS)
 public class BitmapOutputFactory extends CursorBuilderFactory {
@@ -43,13 +38,8 @@ public class BitmapOutputFactory extends CursorBuilderFactory {
 
 class BitmapOutputBuilder extends CursorBuilder {
 
-    private static final ThreadLocal<ImageWriter> pngWriter = ThreadLocal.withInitial(() -> {
-        Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("png");
-        if (iter.hasNext()) {
-            return iter.next();
-        }
-        throw new IllegalStateException("PNG image writer not registered/available");
-    });
+    private static final ThreadLocal<PNGEncoder>
+            pngWriter = ThreadLocal.withInitial(PNGEncoder::newInstance);
 
     private CursorGenConfig hotspots;
 
@@ -65,7 +55,7 @@ class BitmapOutputBuilder extends CursorBuilder {
     private static Path configFile(Path targetPath) {
         return targetPath.getParent().resolve(targetPath.getFileName() + ".cursor");
     }
- 
+
     static BitmapOutputBuilder forUpdate(Path targetPath, boolean animated)
             throws IOException {
         Files.createDirectories(animated ? targetPath : targetPath.getParent());
@@ -88,16 +78,10 @@ class BitmapOutputBuilder extends CursorBuilder {
         Path pngFile = (!animated || frameNo == null)
                        ? targetPath.resolveSibling(fileName)
                        : targetPath.resolve(fileName);
-        ImageWriter imageWriter = pngWriter.get();
-        try (OutputStream fileOut = Files.newOutputStream(pngFile);
-                ImageOutputStream out = new MemoryCacheImageOutputStream(fileOut)) {
-            imageWriter.setOutput(out);
-            imageWriter.write(image);
+        try (OutputStream fileOut = Files.newOutputStream(pngFile)) {
+            pngWriter.get().encode(image, fileOut);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        } finally {
-            //imageWriter.reset();
-            imageWriter.setOutput(null);
         }
         hotspots.put(frameNo == null ? 0 : frameNo,
             nominalSize, hotspot.x, hotspot.y, fileName, delayMillis);
