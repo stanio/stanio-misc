@@ -6,7 +6,7 @@ jsvg = "2.1.0"
 woodstox = "7.2.2"
 junit = "5.14.4"
 assertj = "3.27.7"
-xmlunit = "2.11.0"
+xmlunit = "2.13.0"
 mockito = "5.23.0"
 
 [libraries]
