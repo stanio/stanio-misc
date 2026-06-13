@@ -175,10 +175,17 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
                     data.reset();
                     String targetName = String.format("%s-%s.png", cursorName,
                             dimensionString(dimension.width, dimension.height));
-                    try (SeekableByteChannel fch = Files
-                            .newByteChannel(outDir.resolve(targetName), StandardOpenOption.CREATE,
-                                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
-                        fch.write(data);
+
+                    String formatName = MousecapeReader.lastBitmapReader().getFormatName();
+                    Path outFile = outDir.resolve(targetName);
+                    if (formatName.equalsIgnoreCase("png")) {
+                        try (SeekableByteChannel fch = Files
+                                .newByteChannel(outFile, StandardOpenOption.CREATE,
+                                        StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                            fch.write(data);
+                        }
+                    } else {
+                        writePNG(MousecapeReader.decodeImage(data), outFile);
                     }
                     float scaleFactor = (float) dimension.width / baseWidth;
                     metadata.put(Math.max(dimension.width, dimension.height),
@@ -195,23 +202,25 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
         }
 
         private static Dimension dimensions(ByteBuffer data) throws IOException {
-            ImageReader reader = pngReader.get();
-            try (ImageInputStream stream =
-                    new MemoryCacheImageInputStream(stream(data))) {
-                reader.setInput(stream, true, true);
+            ImageReader reader = null;
+            try (ImageInputStream input =
+                    new MemoryCacheImageInputStream(streamOf(data))) {
+                reader = MousecapeReader.bitmapReaderFor(input);
+                reader.setInput(input, true, true);
                 return new Dimension(reader.getWidth(0), reader.getHeight(0));
             } finally {
-                reader.setInput(null);
+                if (reader != null)
+                    reader.setInput(null);
             }
         }
 
-        private static ByteArrayInputStream stream(ByteBuffer data) {
+        private static ByteArrayInputStream streamOf(ByteBuffer data) {
             return new ByteArrayInputStream(data.array(),
                     data.arrayOffset() + data.position(), data.remaining());
         }
 
         private String saveFrames(ByteBuffer filmData) throws IOException {
-            BufferedImage filmStrip = readPNG(stream(filmData));
+            BufferedImage filmStrip = MousecapeReader.decodeImage(filmData);
             Path framesDir = Files.createDirectories(outDir.resolve(cursorName + ".frames"));
             String framesPrefix = framesDir.getFileName() + "/";
             int frameWidth = filmStrip.getWidth();

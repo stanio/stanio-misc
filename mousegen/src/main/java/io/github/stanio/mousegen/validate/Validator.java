@@ -136,7 +136,11 @@ interface FileValidator {
                 @Override public void cursorStart(String name) {}
                 @Override public void cursorProperty(String name, Object value) {}
                 @Override public void cursorRepresentation(Supplier<ByteBuffer> deferredData) {
-                    // REVISIT: Decode PNG image
+                    try {
+                        MousecapeReader.decodeImage(deferredData.get());
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
                 }
                 @Override public void cursorEnd() {}
                 @Override public void warning(String message) {

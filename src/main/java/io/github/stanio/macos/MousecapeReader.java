@@ -4,8 +4,11 @@
  */
 package io.github.stanio.macos;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -17,6 +20,14 @@ import javax.xml.parsers.SAXParserFactory;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
+
+import java.awt.image.BufferedImage;
+
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.spi.ImageReaderSpi;
+import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 
 public class MousecapeReader {
 
@@ -82,6 +93,52 @@ public class MousecapeReader {
             parseHandler.contentHandler = null;
         }
         return contentHandler;
+    }
+
+    public static BufferedImage decodeImage(ByteBuffer data) throws IOException {
+        return decodeImage(new ByteArrayInputStream(data.array(),
+                data.arrayOffset() + data.position(), data.remaining()));
+    }
+
+    public static BufferedImage decodeImage(InputStream source) throws IOException {
+        ImageReader reader = null;
+        try (ImageInputStream input = new MemoryCacheImageInputStream(source)) {
+            reader = bitmapReaderFor(input);
+            reader.setInput(input, true, true);
+            return reader.read(0);
+        } finally {
+            if (reader != null) reader.setInput(null);
+        }
+    }
+
+    private static final ThreadLocal<ImageReader>
+            lastReader = ThreadLocal.withInitial(MousecapeReader::pngReader);
+
+    private static ImageReader pngReader() {
+        Iterator<ImageReader> pngReaders = ImageIO.getImageReadersByFormatName("png");
+        if (!pngReaders.hasNext()) {
+            throw new IllegalStateException("PNG reader not available");
+        }
+        return pngReaders.next();
+    }
+
+    public static ImageReader lastBitmapReader() {
+        return lastReader.get();
+    }
+
+    public static ImageReader bitmapReaderFor(ImageInputStream input) throws IOException {
+        ImageReader reader = lastBitmapReader();
+        ImageReaderSpi provider;
+        if ((provider = reader.getOriginatingProvider()) != null
+                && !provider.canDecodeInput(input)) {
+            Iterator<ImageReader> registered = ImageIO.getImageReaders(input);
+            if (registered.hasNext()) {
+                ImageReader nextReader = Objects.requireNonNull(registered.next());
+                reader.dispose();
+                lastReader.set(reader = nextReader);
+            }
+        }
+        return reader;
     }
 
 }
