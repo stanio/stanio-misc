@@ -4,7 +4,6 @@
  */
 package io.github.stanio.mousegen.dump.providers;
 
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,10 +25,6 @@ import org.xml.sax.SAXException;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.MemoryCacheImageInputStream;
 
 import io.github.stanio.macos.MousecapeReader;
 import io.github.stanio.mousegen.compile.CursorGenConfig;
@@ -171,15 +166,12 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
                 if (frameCount > 1) {
                     System.out.append("        - ").println(saveFrames(data));
                 } else {
-                    Dimension dimension = dimensions(data.mark());
+                    BufferedImage image = MousecapeReader.decodeImage(data.mark());
+                    Dimension dimension = new Dimension(image.getWidth(), image.getHeight());
                     data.reset();
                     String targetName = String.format("%s-%s.png", cursorName,
                             dimensionString(dimension.width, dimension.height));
-                    try (SeekableByteChannel fch = Files
-                            .newByteChannel(outDir.resolve(targetName), StandardOpenOption.CREATE,
-                                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
-                        fch.write(data);
-                    }
+                    writePNG(image, outDir.resolve(targetName));
                     float scaleFactor = (float) dimension.width / baseWidth;
                     metadata.put(Math.max(dimension.width, dimension.height),
                             Math.round(baseXHot * scaleFactor),
@@ -191,27 +183,19 @@ public class MousecapeDumpProvider extends AbstractDumpProvider {
             } catch (IOException e) {
                 warning(e.toString());
                 info.println("        - byte-length(" + dataLength + ")");
+                String targetName = String.format("%s-(%d).tif", cursorName, representationCount);
+                try (SeekableByteChannel fch = Files
+                        .newByteChannel(outDir.resolve(targetName), StandardOpenOption.CREATE,
+                                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                    fch.write(data);
+                } catch (IOException e1) {
+                    warning(e1.toString());
+                }
             }
-        }
-
-        private static Dimension dimensions(ByteBuffer data) throws IOException {
-            ImageReader reader = pngReader.get();
-            try (ImageInputStream stream =
-                    new MemoryCacheImageInputStream(stream(data))) {
-                reader.setInput(stream, true, true);
-                return new Dimension(reader.getWidth(0), reader.getHeight(0));
-            } finally {
-                reader.setInput(null);
-            }
-        }
-
-        private static ByteArrayInputStream stream(ByteBuffer data) {
-            return new ByteArrayInputStream(data.array(),
-                    data.arrayOffset() + data.position(), data.remaining());
         }
 
         private String saveFrames(ByteBuffer filmData) throws IOException {
-            BufferedImage filmStrip = readPNG(stream(filmData));
+            BufferedImage filmStrip = MousecapeReader.decodeImage(filmData);
             Path framesDir = Files.createDirectories(outDir.resolve(cursorName + ".frames"));
             String framesPrefix = framesDir.getFileName() + "/";
             int frameWidth = filmStrip.getWidth();

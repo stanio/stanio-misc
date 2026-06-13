@@ -7,7 +7,6 @@ package io.github.stanio.macos;
 import static io.github.stanio.macos.Base64XMLText.ioException;
 
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -63,11 +62,6 @@ import org.xml.sax.helpers.AttributesImpl;
 import java.awt.Graphics2D;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
-
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.MemoryCacheImageInputStream;
 
 import io.github.stanio.windows.PNGEncoder;
 
@@ -283,16 +277,11 @@ public class MousecapeTheme implements Closeable {
 
         Cursor editable() {
             Cursor editor = new Cursor(name, (long) (frameDuration * 1000));
-            ImageReader imageReader = pngReader.get();
             for (ByteBuffer data : representations) {
-                try (ImageInputStream imgIn = new MemoryCacheImageInputStream(
-                        new ByteArrayInputStream(data.array(), data.position(), data.remaining()))) {
-                    imageReader.setInput(imgIn);
-                    addFrames(editor, imageReader.read(0));
+                try {
+                    addFrames(editor, MousecapeReader.decodeImage(data));
                 } catch (IOException e) {
                     throw new IllegalStateException(e);
-                } finally {
-                    imageReader.setInput(null);
                 }
             }
             return editor;
@@ -395,11 +384,6 @@ public class MousecapeTheme implements Closeable {
 
     static final
     ThreadLocal<PNGEncoder> pngWriter = ThreadLocal.withInitial(PNGEncoder::newInstance);
-
-    static final
-    ThreadLocal<ImageReader> pngReader = ThreadLocal.withInitial(() -> {
-        return ImageIO.getImageReadersByFormatName("png").next();
-    });
 
     private final Path target;
     final Map<String, Object> preambleProperties = new LinkedHashMap<>();
