@@ -6,8 +6,15 @@ plugins {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
-    options.compilerArgs.add '-Xlint:all'
-    options.compilerArgs.add '-Xdoclint:-missing'
+    options.compilerArgs += "-Xlint:${propertyOrDefault('javacLint', 'all')}"
+    options.compilerArgs += '-Xdoclint:-missing'
+}
+
+def propertyOrDefault(name, value) {
+    project.provider {
+        // REVISIT: Consider empty string as undefined value
+        project.properties.getOrDefault(name, value)
+    }.get()
 }
 
 tasks.named('test') {
@@ -20,7 +27,7 @@ jacocoTestReport {
 }
 
 javadoc {
-    //failOnError false
+    //failOnError = false
     options.encoding = 'UTF-8'
     options.addBooleanOption('Xdoclint:all,-missing', true)
     options.addStringOption('-release', '21')
