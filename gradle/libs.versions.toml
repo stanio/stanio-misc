@@ -13,7 +13,6 @@ mockito = "5.23.0"
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 jsvg = { module = "com.github.weisj:jsvg", version.ref = "jsvg" }
 woodstox = { module = "com.fasterxml.woodstox:woodstox-core", version.ref = "woodstox" }
-jhlabs-filters = { group = "com.jhlabs", name = "filters", version = "2.0.235-1" }
 junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 xmlunit-core = { module = "org.xmlunit:xmlunit-core", version.ref = "xmlunit" }

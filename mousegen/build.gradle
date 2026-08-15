@@ -69,7 +69,6 @@ tasks.named('shadowJar') {
         exclude dependency('org.apache.xmlgraphics:.*')
         exclude dependency('xml-apis:xml-apis-ext')
         exclude dependency('commons-.*:commons-.*')
-        exclude dependency('com.jhlabs:filters')
         exclude dependency('com.github.depsypher:pngtastic')
     }
 }
@@ -126,7 +125,7 @@ dependencies {
 
     implementation libs.gson
     implementation libs.jsvg
-    implementation libs.jhlabs.filters
+    implementation project(':jhlabs-filters')
     runtimeOnly    libs.woodstox
 
     testImplementation libs.mockito

@@ -1,0 +1,14 @@
+plugins {
+    id 'stanio-java'
+    id 'java-library'
+}
+
+group = 'com.jhlabs'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile) {
+    options.release = 8
+}

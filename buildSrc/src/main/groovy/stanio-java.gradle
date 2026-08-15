@@ -6,8 +6,8 @@ plugins {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
-    options.compilerArgs.add '-Xlint:all'
-    options.compilerArgs.add '-Xdoclint:-missing'
+    options.compilerArgs += "-Xlint:${javacLint}"
+    options.compilerArgs += '-Xdoclint:-missing'
 }
 
 tasks.named('test') {
