@@ -1,14 +1,20 @@
-Mousegen – SVG-source mouse cursor generator
-Copyright (C) 2023 by Stanio
+Mousegen – a swiss army knife for mouse cursors
+Copyright (C) 2023-2026 by Stanio
 Released under BSD Zero Clause License.
 
-Mousegen includes the following third-party libraries:
+The executable mousegen package includes in full or parts of the following
+third-party libraries:
 
-JSVG  Copyright (c) 2021-2024 Jannis Weis
+JSVG  Copyright (c) 2021-2026 Jannis Weis
 Released under MIT License.
-https://github.com/weisJ/jsvg/tree/v1.6.1-rc1
+https://github.com/weisJ/jsvg/tree/v2.1.0
 
 Gson  Copyright 2008 Google Inc.
 Released under the Apache 2.0 license.
 Disclaimer: This is not an officially supported Google product.
-https://github.com/google/gson/tree/gson-parent-2.11.0
+https://github.com/google/gson/tree/gson-parent-2.14.0
+
+JH Labs - Java Image Filters
+Copyright 2005-2025 Jerry Huxtable
+Released under MIT License.
+http://www.jhlabs.com/ip/filters/index.html
