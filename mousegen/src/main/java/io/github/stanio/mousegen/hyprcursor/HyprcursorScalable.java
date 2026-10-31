@@ -404,7 +404,13 @@ public class HyprcursorScalable {
         private static final int flapperWidth = Math.min(
                 Integer.getInteger("mousegen.flapper.width", 1), flapperChars.length());
 
-        private static int flapperPos = 0;
+        private static final int flapperCount =
+                flapperChars.length() / Math.max(flapperWidth, 1);
+
+        private static final double flapperFPS = Math.max(
+                Double.parseDouble(System.getProperty("mousegen.flapper.fps", "10")), 1);
+
+        private static long startTime = System.currentTimeMillis();
 
         private static char[] indicator;
         static {
@@ -426,9 +432,10 @@ public class HyprcursorScalable {
         private static void budgeIndicator() {
             if (flapperWidth < 1) return;
 
-            int next = flapperPos + flapperWidth;
-            flapperChars.getChars(flapperPos, next, indicator, 0);
-            flapperPos = (next >= flapperChars.length()) ? 0 : next;
+            final double animTime = (System.currentTimeMillis() - startTime) * 1E-3;
+            final int animFrame = (int) (animTime * flapperFPS % flapperCount);
+            final int flapperPos = animFrame * flapperWidth;
+            flapperChars.getChars(flapperPos, flapperPos + flapperWidth, indicator, 0);
             System.out.print(indicator);
             System.out.flush();
         }
