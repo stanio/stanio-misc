@@ -121,7 +121,7 @@ configurations {
 }
 
 dependencies {
-    implementation rootProject
+    implementation project(':') // rootProject
     //implementation 'io.github.stanio:stanio-misc'
 
     implementation libs.gson
