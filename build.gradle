@@ -12,9 +12,8 @@ java {
     //}
 }
 
-tasks.withType(JavaCompile) {
+tasks.named('compileJava') {
     options.release = 8
-    options.compilerArgs.add "-Xlint:${javacLint}"
 }
 
 javadoc {

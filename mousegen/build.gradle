@@ -20,7 +20,7 @@ java {
     //}
 }
 
-tasks.withType(JavaCompile) {
+tasks.named('compileJava') {
     options.release = 11
 }
 
