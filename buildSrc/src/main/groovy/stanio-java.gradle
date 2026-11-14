@@ -20,7 +20,7 @@ jacocoTestReport {
 }
 
 javadoc {
-    //failOnError false
+    //failOnError = false
     options.encoding = 'UTF-8'
     options.addBooleanOption('Xdoclint:all,-missing', true)
     options.addStringOption('-release', '21')
